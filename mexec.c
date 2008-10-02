@@ -302,15 +302,16 @@ int mexec_send(mcomm *c, int n)
 	  lprintf(0, "mfadd: out of memorry\n");
     return(0);
 	}
-	m->mdata.head.reqid   = getrid();
-	m->mdata.head.opcode    = MAKUO_OP_FILE;
-	m->mdata.head.seqno = 0;
-  m->mdata.head.nstate = MAKUO_SENDSTATE_STATINIT;
-	m->comm     = c;
-	m->sendwait = 0;
-  m->sendto   = 0;
-  m->dryrun   = (mode == MAKUO_MEXEC_DRY);
-  m->ln[0]    = 0;
+	m->mdata.head.reqid  = getrid();
+	m->mdata.head.opcode = MAKUO_OP_FILE;
+	m->mdata.head.seqno  = 0;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
+	m->comm      = c;
+	m->sendwait  = 0;
+  m->sendto    = 0;
+  m->dryrun    = (mode == MAKUO_MEXEC_DRY);
+  m->initstate = 0;
+  m->ln[0]     = 0;
 	strcpy(m->fn, fn);
 	if(lstat(fn, &m->fs) == -1){
 	  cprintf(0, c, "mexec_send: lstat() error %s\n", fn);

@@ -1,11 +1,7 @@
-/*
- *  msend.c
- *
- */
 #include "makuosan.h"
 
 /*
- * mfile を開放する
+ * mfileを開放する
  */
 static mfile *msend_mfdel(mfile *m)
 {
@@ -169,9 +165,11 @@ static void msend_file_stat_init(int s, mfile *m)
     m=NULL;
   }else{
     lprintf(9, "msend_file: STATINIT %s\n", m->fn);
-    m->sendwait = 1;
+    m->sendwait  = 1;
+    m->initstate = 0;
     m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
     ack_clear(m,-1);
+    
     msend_packet(s, &(m->mdata), &(m->addr));
   }
 }
@@ -180,46 +178,50 @@ static void msend_file_stat(int s, mfile *m)
 {
   mhost *h;
 
+  if(m->initstate){
+    msend_file_stat_init(s, m);
+    return;
+  }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
-  }else{
-    lprintf(9,"msend_file: STAT %s\n", m->fn);
-    if(m->dryrun){
-      if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
-        cprintf(5, m->comm, "(%s)\r\n", m->fn);
-      }else{
-        cprintf(0, m->comm, "[%s]\r\n", m->fn);
-        if(!m->sendto){
-          for(h=members;h;h=h->next){
-            if(h->state == MAKUO_RECVSTATE_UPDATE)
-              cprintf(1, m->comm, "%s: update\r\n", h->hostname);
-            if(h->state == MAKUO_RECVSTATE_SKIP)
-              cprintf(2, m->comm, "%s: skip\r\n", h->hostname);
-            if(h->state == MAKUO_RECVSTATE_READONLY)
-              cprintf(2, m->comm, "%s: skip(read only)\r\n", h->hostname);
-          }
+    return;
+  }
+  lprintf(9,"msend_file: STAT %s\n", m->fn);
+  if(m->dryrun){
+    if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
+      cprintf(5, m->comm, "(%s)\r\n", m->fn);
+    }else{
+      cprintf(0, m->comm, "[%s]\r\n", m->fn);
+      if(!m->sendto){
+        for(h=members;h;h=h->next){
+          if(h->state == MAKUO_RECVSTATE_UPDATE)
+            cprintf(1, m->comm, "%s: update\r\n", h->hostname);
+          if(h->state == MAKUO_RECVSTATE_SKIP)
+            cprintf(2, m->comm, "%s: skip\r\n", h->hostname);
+          if(h->state == MAKUO_RECVSTATE_READONLY)
+            cprintf(2, m->comm, "%s: skip(read only)\r\n", h->hostname);
         }
       }
+    }
+    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+  }else{
+    if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
+      cprintf(5, m->comm, "(%s)\r\n", m->fn);
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
     }else{
-      if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
-        cprintf(5, m->comm, "(%s)\r\n", m->fn);
-        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
-      }else{
-        lprintf(1, "msend_file_stat: update %s\n", m->fn);
-        cprintf(1, m->comm, "[%s]\r\n", m->fn);
-        if(!m->sendto){
-          for(h=members;h;h=h->next){
-            if(h->state == MAKUO_RECVSTATE_UPDATE)
-              cprintf(2, m->comm, "%s: update\r\n", h->hostname);
-            if(h->state == MAKUO_RECVSTATE_SKIP)
-              cprintf(3, m->comm, "%s: skip\r\n", h->hostname);
-            if(h->state == MAKUO_RECVSTATE_READONLY)
-              cprintf(3, m->comm, "%s: skip(read only)\r\n", h->hostname);
-          }
+      lprintf(1, "msend_file_stat: update %s\n", m->fn);
+      cprintf(1, m->comm, "[%s]\r\n", m->fn);
+      if(!m->sendto){
+        for(h=members;h;h=h->next){
+          if(h->state == MAKUO_RECVSTATE_UPDATE)
+            cprintf(2, m->comm, "%s: update\r\n", h->hostname);
+          if(h->state == MAKUO_RECVSTATE_SKIP)
+            cprintf(3, m->comm, "%s: skip\r\n", h->hostname);
+          if(h->state == MAKUO_RECVSTATE_READONLY)
+            cprintf(3, m->comm, "%s: skip(read only)\r\n", h->hostname);
         }
-        m->mdata.head.nstate = MAKUO_SENDSTATE_OPENINIT;
       }
+      m->mdata.head.nstate = MAKUO_SENDSTATE_OPENINIT;
     }
   }
 }
@@ -367,9 +369,6 @@ static void msend_file(int s, mfile *m)
     switch(m->mdata.head.nstate){
       case MAKUO_SENDSTATE_BREAK:
         msend_file_break(s, m);
-        break;
-      case MAKUO_SENDSTATE_STATINIT:
-        msend_file_stat_init(s, m);
         break;
       case MAKUO_SENDSTATE_STAT:
         msend_file_stat(s, m);

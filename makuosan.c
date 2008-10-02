@@ -1,7 +1,5 @@
 /*
- * makuosan.c
- * Multicast file translate system
- *
+ * multicast file synchronization system
  */
 #include "makuosan.h"
 

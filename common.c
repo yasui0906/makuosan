@@ -1,6 +1,3 @@
-/*
- *  common.c
- */
 #include "makuosan.h"
 
 mopt moption;
@@ -45,7 +42,7 @@ int mtimeout(struct timeval *tf, uint32_t msec)
 
 /*
  *  現在時刻を取得する
- *  といってもcurtimeをコピーするだけ
+ *  （といってもcurtimeをコピーするだけだけど）
  */
 int mtimeget(struct timeval *tv)
 {
@@ -79,39 +76,6 @@ excludeitem *mfnmatch(char *str, excludeitem *exclude)
     }
   }
   return(NULL);
-}
-
-int atomic_write(int fd, void *buff, size_t size)
-{
-  int s = 0;
-  int r = 0;
-  int w = 0;
-  struct pollfd pf;
-
-  while(size){
-    pf.fd      = fd;
-    pf.events  = POLLOUT;
-    pf.revents = 0;
-    s = poll(&pf,1,1000);
-    if(s == -1){
-      if(errno == EINTR){
-        continue;
-      }else{
-        break;
-      }
-    }
-    if(s){
-      w = write(fd,buff,size);
-      if(w <= 0){
-        return(-1);
-      }else{
-        size -= w;
-        buff += w;
-        r    += w;
-      }
-    }
-  }
-  return(r);
 }
 
 void fdprintf(int s, char *fmt, ...)
@@ -413,7 +377,6 @@ int ack_clear(mfile *m, int state)
  *      0: 見つからなかった
  *      1: 見つかった
  *     -1: ホスト指定転送なのにホストオブジェクトが見つからない
- *
 */
 int ack_check(mfile *m, int state)
 {

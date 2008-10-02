@@ -1,3 +1,7 @@
+/*
+ * [MAKUOSAN]
+ *  multicast file synchronization system
+ */
 #define MAKUOSAN_VERSION "0.8.5"
 #define PROTOCOL_VERSION 3
 #define _GNU_SOURCE
@@ -60,7 +64,6 @@
 #define MAKUO_FLAG_CRYPT 1
 
 /*----- sendstatus -----*/
-#define MAKUO_SENDSTATE_STATINIT  0
 #define MAKUO_SENDSTATE_STAT      1
 #define MAKUO_SENDSTATE_OPENINIT  2
 #define MAKUO_SENDSTATE_OPEN      3
@@ -176,6 +179,7 @@ typedef struct
   uint32_t retrycnt;
   uint32_t sendwait;
   uint32_t lickflag;
+  uint32_t initstate;
   uint32_t recvcount;
   uint32_t markcount;
   uint32_t marksize;
