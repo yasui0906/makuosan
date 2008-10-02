@@ -29,9 +29,9 @@ int md5sum(int fd, unsigned char *digest)
 }
 
 /*
- *  �����ॢ���Ȼ��֤��вᤷ�Ƥ��뤫�ɤ�����Ƚ�Ǥ���
- *   - ���߻��郎tf����msec[ms]�вᤷ�Ƥ����1���֤�
- *   - ����ʳ���0���֤�
+ *  タイムアウト時間が経過しているかどうかを判断する
+ *   - 現在時刻がtfからmsec[ms]経過していれば1を返す
+ *   - それ以外は0を返す
  */
 int mtimeout(struct timeval *tf, uint32_t msec)
 {
@@ -44,8 +44,8 @@ int mtimeout(struct timeval *tf, uint32_t msec)
 }
 
 /*
- *  ���߻�����������
- *  �Ȥ��äƤ�curtime�򥳥ԡ��������
+ *  現在時刻を取得する
+ *  といってもcurtimeをコピーするだけ
  */
 int mtimeget(struct timeval *tv)
 {
@@ -54,9 +54,9 @@ int mtimeget(struct timeval *tv)
 }
 
 /*
- *  �ե�����̾��exclude�ꥹ�Ȥ˥ޥå����뤫�ɤ�����Ĵ�٤�
- *   - �ޥå��������Ϥ���excludeitem��¤�ΤΥݥ��󥿤��֤�
- *   - �ޥå����ʤ�����NULL���֤�
+ *  ファイル名がexcludeリストにマッチするかどうかを調べる
+ *   - マッチした場合はそのexcludeitem構造体のポインタを返す
+ *   - マッチしない場合はNULLを返す
  */
 excludeitem *mfnmatch(char *str, excludeitem *exclude)
 {
@@ -404,15 +404,15 @@ int ack_clear(mfile *m, int state)
   return(0);
 }
 
-/* ���ꤷ�����ơ���������ı�����å����������뤫������å�����
- * ����  :
- *      m: �����оݤΥե����륪�֥�������
- *  state: �������륹�ơ�����
+/* 指定したステータスを持つ応答メッセージがあるかをチェックする
+ * 引数  :
+ *      m: 送信対象のファイルオブジェクト
+ *  state: 検索するステータス
  *
- * �����:
- *      0: ���Ĥ���ʤ��ä�
- *      1: ���Ĥ��ä�
- *     -1: �ۥ��Ȼ���ž���ʤΤ˥ۥ��ȥ��֥������Ȥ����Ĥ���ʤ�
+ * 戻り値:
+ *      0: 見つからなかった
+ *      1: 見つかった
+ *     -1: ホスト指定転送なのにホストオブジェクトが見つからない
  *
 */
 int ack_check(mfile *m, int state)

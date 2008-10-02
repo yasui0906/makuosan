@@ -42,10 +42,10 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  500     /* ºÆÁ÷´Ö³Ö(ms)                     */
-#define MAKUO_SEND_RETRYCNT 120     /* ºÆÁ÷²ó¿ô                         */
-#define MAKUO_PONG_TIMEOUT  180000  /* ¥á¥ó¥Ð¤«¤é½ü³°¤¹¤ë¤Þ¤Ç¤Î»þ´Ö(ms) */
-#define MAKUO_PONG_INTERVAL 45000   /* PINGÁ÷¿®´Ö³Ö(ms)                 */
+#define MAKUO_SEND_TIMEOUT  500     /* å†é€é–“éš”(ms)                     */
+#define MAKUO_SEND_RETRYCNT 120     /* å†é€å›žæ•°                         */
+#define MAKUO_PONG_TIMEOUT  180000  /* ãƒ¡ãƒ³ãƒã‹ã‚‰é™¤å¤–ã™ã‚‹ã¾ã§ã®æ™‚é–“(ms) */
+#define MAKUO_PONG_INTERVAL 45000   /* PINGé€ä¿¡é–“éš”(ms)                 */
 #define MAKUO_RECV_GCWAIT   300000
 
 /*----- operation -----*/

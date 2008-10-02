@@ -5,7 +5,7 @@
 #include "makuosan.h"
 
 /*
- * mfile ¤ò³«Êü¤¹¤ë
+ * mfile ã‚’é–‹æ”¾ã™ã‚‹
  */
 static mfile *msend_mfdel(mfile *m)
 {
@@ -40,7 +40,7 @@ static int msend_encrypt(mdata *data)
 }
 
 /*
- *  ¥Ñ¥±¥Ã¥È¤òÁ÷½Ğ¤¹¤ë
+ *  ãƒ‘ã‚±ãƒƒãƒˆã‚’é€å‡ºã™ã‚‹
  */
 static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 {
@@ -51,7 +51,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   memcpy(&senddata, data, sizeof(senddata));
   szdata = msend_encrypt(&senddata);
 
-  /* ¥Ø¥Ã¥À¤ò¥Í¥Ã¥È¥ï¡¼¥¯¥Ğ¥¤¥È¥ª¡¼¥À¤ØÊÑ´¹ */
+  /* ãƒ˜ãƒƒãƒ€ã‚’ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ãƒã‚¤ãƒˆã‚ªãƒ¼ãƒ€ã¸å¤‰æ› */
   senddata.head.szdata = htons(senddata.head.szdata);
   senddata.head.flags  = htons(senddata.head.flags);
   senddata.head.reqid  = htonl(senddata.head.reqid);
@@ -483,9 +483,9 @@ static void msend_retry(mfile *m)
 }
 
 /*
- *  mfile ¥ª¥Ö¥¸¥§¥¯¥È¤òÁ÷¿®¤¹¤ë´Ø¿ô
- *  ¼Âºİ¤ÎÁ÷¿®½èÍı¤ÏÊÌ¤Î´Ø¿ô¤Ç¤ä¤ë
- *  ¥ª¥Ú¥³¡¼¥É¤ò¸«¤Æ¤É¤Î´Ø¿ô¤ò»È¤¦¤«·è¤á¤ë
+ *  mfile ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’é€ä¿¡ã™ã‚‹é–¢æ•°
+ *  å®Ÿéš›ã®é€ä¿¡å‡¦ç†ã¯åˆ¥ã®é–¢æ•°ã§ã‚„ã‚‹
+ *  ã‚ªãƒšã‚³ãƒ¼ãƒ‰ã‚’è¦‹ã¦ã©ã®é–¢æ•°ã‚’ä½¿ã†ã‹æ±ºã‚ã‚‹
  */
 void msend(int s, mfile *m)
 {

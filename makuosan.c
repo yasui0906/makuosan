@@ -326,9 +326,9 @@ int mloop()
 void mexit()
 {
   lprintf(0, "mexit: shutdown start\n");
-  restoreguid(); /* euid,egid¤ò¸µ¤ËÌá¤¹      */
-  chexit();      /* chroot¤«¤éÃ¦½Ğ           */
-  cleanup();     /* ¥Ç¥£¥¹¥¯¥ê¥×¥¿¤Î³«Êü¤Ê¤É */
+  restoreguid(); /* euid,egidã‚’å…ƒã«æˆ»ã™      */
+  chexit();      /* chrootã‹ã‚‰è„±å‡º           */
+  cleanup();     /* ãƒ‡ã‚£ã‚¹ã‚¯ãƒªãƒ—ã‚¿ã®é–‹æ”¾ãªã© */
   lprintf(0, "mexit: shutdown complete\n");
 }
 

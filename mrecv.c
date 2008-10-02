@@ -4,8 +4,8 @@
 #include "makuosan.h"
 
 /*
- * mfile ¤ò³«Êü¤¹¤ë
- * mrecv.c ¤ÎÃæ¤ÇÀ¸À®¤·¤¿ mfile ¤ÏÉ¬¤º¤³¤³¤Ç³«Êü¤¹¤ë¤³¤È
+ * mfile ã‚’é–‹æ”¾ã™ã‚‹
+ * mrecv.c ã®ä¸­ã§ç”Ÿæˆã—ãŸ mfile ã¯å¿…ãšã“ã“ã§é–‹æ”¾ã™ã‚‹ã“ã¨
  */
 static mfile *mrecv_mfdel(mfile *m)
 {
@@ -73,7 +73,7 @@ static void mrecv_exit(mdata *data, struct sockaddr_in *addr)
 }
 
 /*
- *  ¥Ç¡¼¥¿¼õ¿®
+ *  ãƒ‡ãƒ¼ã‚¿å—ä¿¡
  */
 static int mrecv_file_data(mfile *m,  mdata *r)
 {
@@ -110,7 +110,7 @@ static int mrecv_file_data(mfile *m,  mdata *r)
 }
 
 /*
- *  Å¾Á÷ÃæÃÇ
+ *  è»¢é€ä¸­æ–­
  */
 static int mrecv_file_break(mfile *m, mdata *r)
 {
@@ -119,7 +119,7 @@ static int mrecv_file_break(mfile *m, mdata *r)
 }
 
 /*
- *  Å¾Á÷³«»Ï½èÍı
+ *  è»¢é€é–‹å§‹å‡¦ç†
  */
 static int mrecv_file_open(mfile *m, mdata *r)
 {
@@ -179,7 +179,7 @@ static int mrecv_file_open(mfile *m, mdata *r)
 }
 
 /*
- *  Å¾Á÷½ªÎ»½èÍı
+ *  è»¢é€çµ‚äº†å‡¦ç†
  */
 static int mrecv_file_close(mfile *m, mdata *r)
 {
@@ -245,7 +245,7 @@ static int mrecv_file_close(mfile *m, mdata *r)
 }
 
 /*
- *  ºÆÁ÷Í×µá
+ *  å†é€è¦æ±‚
  */
 static int mrecv_file_mark(mfile *m, mdata *r)
 {
@@ -280,7 +280,7 @@ static int mrecv_file_mark(mfile *m, mdata *r)
 }
 
 /*
- *  ¼õ¿®¾õÂÖÁ«°Ü´Ø¿ô
+ *  å—ä¿¡çŠ¶æ…‹é·ç§»é–¢æ•°
  *
  */
 static int mrecv_file_next(mfile *m,  mdata *r)
@@ -307,9 +307,9 @@ static int mrecv_file_next(mfile *m,  mdata *r)
 }
 
 /*
- *  ¥Õ¥¡¥¤¥ë¤Î¼õ¿®¤ò³«»Ï¤¹¤ë¤¿¤á¤Ë¸Æ¤Ó½Ğ¤µ¤ì¤ë´Ø¿ô
- *  - °ú¿ô¤È¤·¤ÆÀ¸¥Ç¡¼¥¿¤¬³ÊÇ¼¤µ¤ì¤Æ¤¤¤ë¥Ğ¥Ã¥Õ¥¡¤Î¥İ¥¤¥ó¥¿¤ò¼õ¤±¼è¤ë
- *  - ¼õ¿®¤·¤¿¥Ç¡¼¥¿¤¬Å¾Á÷³«»Ï¥á¥Ã¥»¡¼¥¸¤Ê¤é¤Ğmfile¤òÀ¸À®¤¹¤ë
+ *  ãƒ•ã‚¡ã‚¤ãƒ«ã®å—ä¿¡ã‚’é–‹å§‹ã™ã‚‹ãŸã‚ã«å‘¼ã³å‡ºã•ã‚Œã‚‹é–¢æ•°
+ *  - å¼•æ•°ã¨ã—ã¦ç”Ÿãƒ‡ãƒ¼ã‚¿ãŒæ ¼ç´ã•ã‚Œã¦ã„ã‚‹ãƒãƒƒãƒ•ã‚¡ã®ãƒã‚¤ãƒ³ã‚¿ã‚’å—ã‘å–ã‚‹
+ *  - å—ä¿¡ã—ãŸãƒ‡ãƒ¼ã‚¿ãŒè»¢é€é–‹å§‹ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãªã‚‰ã°mfileã‚’ç”Ÿæˆã™ã‚‹
 */
 static mfile *mrecv_file_stat(mdata *data, struct sockaddr_in *addr)
 {
@@ -320,7 +320,7 @@ static mfile *mrecv_file_stat(mdata *data, struct sockaddr_in *addr)
   mfile *a = NULL;
   struct utimbuf mftime;
 
-  /* Å¾Á÷Ãæ¤Î¥Ñ¥±¥Ã¥È¤ÏÌµ»ë¤¹¤ë */
+  /* è»¢é€ä¸­ã®ãƒ‘ã‚±ãƒƒãƒˆã¯ç„¡è¦–ã™ã‚‹ */
   if(data->head.seqno)
     return(NULL);
 
@@ -436,7 +436,7 @@ static void mrecv_ack_md5(mfile *m, mhost *h, mdata *data)
 }
 
 /*
- *  ack¼õ¿®½èÍı
+ *  ackå—ä¿¡å‡¦ç†
  */
 static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
 {
@@ -541,9 +541,9 @@ static void mrecv_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
 }
 
 /*
- * md5¥Á¥§¥Ã¥¯Í×µá¤ò¼õ¤±¼è¤Ã¤¿¤È¤­¤Î½èÍı
- * mfile¥ª¥Ö¥¸¥§¥¯¥È¤òÀ¸À®¤·¤Æ
- * ÂĞ¾İ¥Õ¥¡¥¤¥ë¤Îmd5¤ò¼èÆÀ¤¹¤ë
+ * md5ãƒã‚§ãƒƒã‚¯è¦æ±‚ã‚’å—ã‘å–ã£ãŸã¨ãã®å‡¦ç†
+ * mfileã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ç”Ÿæˆã—ã¦
+ * å¯¾è±¡ãƒ•ã‚¡ã‚¤ãƒ«ã®md5ã‚’å–å¾—ã™ã‚‹
  */
 static void mrecv_md5(mdata *data, struct sockaddr_in *addr)
 {
@@ -616,13 +616,13 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
     return(-1);
   }
 
-  /* ¥Ø¥Ã¥À¤ò¥Û¥¹¥È¥Ğ¥¤¥È¥ª¡¼¥À¤ËÊÑ´¹¤¹¤ë */
+  /* ãƒ˜ãƒƒãƒ€ã‚’ãƒ›ã‚¹ãƒˆãƒã‚¤ãƒˆã‚ªãƒ¼ãƒ€ã«å¤‰æ›ã™ã‚‹ */
   data->head.szdata = ntohs(data->head.szdata);
   data->head.flags  = ntohs(data->head.flags);
   data->head.reqid  = ntohl(data->head.reqid);
   data->head.seqno  = ntohl(data->head.seqno);
 
-  /* ¥×¥í¥È¥³¥ë¥Ğ¡¼¥¸¥ç¥ó¤¬°ìÃ×¤·¤Ê¤¤¥Ñ¥±¥Ã¥È¤ÏÇË´ş¤¹¤ë */
+  /* ãƒ—ãƒ­ãƒˆã‚³ãƒ«ãƒãƒ¼ã‚¸ãƒ§ãƒ³ãŒä¸€è‡´ã—ãªã„ãƒ‘ã‚±ãƒƒãƒˆã¯ç ´æ£„ã™ã‚‹ */
   if(data->head.vproto != PROTOCOL_VERSION){
     lprintf(0, "mrecv_packet: protocol version error(%d != %d) from %s\n",
        data->head.vproto, PROTOCOL_VERSION, inet_ntoa(addr->sin_addr));
@@ -633,7 +633,7 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
 }
 
 /*
- *  ÄÌ¿®ÃÇ¤Ê¤É¤Ç»Ä¤Ã¤Æ¤·¤Ş¤Ã¤¿¥ª¥Ö¥¸¥§¥¯¥È¤òÁİ½ü
+ *  é€šä¿¡æ–­ãªã©ã§æ®‹ã£ã¦ã—ã¾ã£ãŸã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’æƒé™¤
  */
 void mrecv_gc()
 {
@@ -666,8 +666,8 @@ void mrecv_gc()
 }
 
 /*
- *  ¥½¥±¥Ã¥È¤«¤é¥Ç¡¼¥¿¤òÆÉ¤ß¹ş¤ó¤Çmdata¹½Â¤ÂÎ¤Ë³ÊÇ¼
- *  ¥ª¥Ú¥³¡¼¥É¤Ë¤è¤Ã¤Æ¤½¤ì¤¾¤ì¤Î½èÍı¤ËÊ¬´ô¤¹¤ë
+ *  ã‚½ã‚±ãƒƒãƒˆã‹ã‚‰ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã‚“ã§mdataæ§‹é€ ä½“ã«æ ¼ç´
+ *  ã‚ªãƒšã‚³ãƒ¼ãƒ‰ã«ã‚ˆã£ã¦ãã‚Œãã‚Œã®å‡¦ç†ã«åˆ†å²ã™ã‚‹
  */
 void mrecv(int s)
 {
