@@ -64,15 +64,12 @@
 #define MAKUO_FLAG_CRYPT 1
 
 /*----- sendstatus -----*/
-#define MAKUO_SENDSTATE_STAT      1
-#define MAKUO_SENDSTATE_OPENINIT  2
-#define MAKUO_SENDSTATE_OPEN      3
-#define MAKUO_SENDSTATE_MARKINIT  4
-#define MAKUO_SENDSTATE_MARK      5
-#define MAKUO_SENDSTATE_CLOSEINIT 6
-#define MAKUO_SENDSTATE_CLOSE     7
-#define MAKUO_SENDSTATE_ERROR     8
-#define MAKUO_SENDSTATE_BREAK     9
+#define MAKUO_SENDSTATE_STAT       0
+#define MAKUO_SENDSTATE_OPEN       1
+#define MAKUO_SENDSTATE_MARK       2
+#define MAKUO_SENDSTATE_CLOSE      3
+#define MAKUO_SENDSTATE_ERROR      4
+#define MAKUO_SENDSTATE_BREAK      5
 
 /*----- recvstatus -----*/
 #define MAKUO_RECVSTATE_NONE       0

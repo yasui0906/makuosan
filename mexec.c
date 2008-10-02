@@ -307,7 +307,7 @@ int mexec_send(mcomm *c, int n)
 	m->mdata.head.seqno  = 0;
   m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
 	m->comm      = c;
-	m->sendwait  = 0;
+	m->sendwait  = 1;
   m->sendto    = 0;
   m->dryrun    = (mode == MAKUO_MEXEC_DRY);
   m->initstate = 1;
@@ -546,12 +546,13 @@ int mexec_md5(mcomm *c, int n)
 	m->mdata.head.reqid  = getrid();
 	m->mdata.head.seqno  = 0;
 	m->mdata.head.opcode = MAKUO_OP_MD5;
-  m->mdata.head.nstate = MAKUO_SENDSTATE_OPENINIT;
-	m->comm     = c;
-	m->sendwait = 0;
-  m->sendto   = 0;
-  m->dryrun   = 0;
-  m->ln[0]    = 0;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+  m->initstate = 1;
+	m->comm      = c;
+	m->sendwait  = 0;
+  m->sendto    = 0;
+  m->dryrun    = 0;
+  m->ln[0]     = 0;
 	strcpy(m->fn, fn);
 
   /*----- open -----*/

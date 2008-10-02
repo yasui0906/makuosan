@@ -106,8 +106,9 @@ static void msend_mark(int s, mfile *m)
   int r;
   if(!m->markcount){
     /* close */
-    m->mdata.head.seqno = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+    m->initstate = 1;
+    m->mdata.head.seqno  = 0;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     lprintf(4, "msend_file_mark: file send complate! %s\n",m->fn);
   }else{
     lprintf(4, "msend_file_mark: block send retry %d\n",m->markcount);
@@ -128,8 +129,9 @@ static void msend_mark(int s, mfile *m)
     }
     /* eof */
     m->markcount = 0;
-    m->mdata.head.seqno = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_MARKINIT;
+    m->initstate = 1;
+    m->mdata.head.seqno  = 0;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
   }
 }
 
@@ -151,7 +153,8 @@ static void msend_data(int s, mfile *m)
       /* eof */
       lprintf(4, "msend_data: block send count=%d\n", m->mdata.head.seqno);
       m->mdata.head.seqno = 0;
-      m->mdata.head.nstate = MAKUO_SENDSTATE_MARKINIT;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+      m->initstate = 1;
       m->lickflag  = 1;
     }
   }
@@ -162,14 +165,12 @@ static void msend_file_stat_init(int s, mfile *m)
   if(!m->comm){
     lprintf(9, "msend_file: STATINIT %s (CANCEL)\n", m->fn);
     msend_mfdel(m);
-    m=NULL;
+    m = NULL;
   }else{
     lprintf(9, "msend_file: STATINIT %s\n", m->fn);
     m->sendwait  = 1;
     m->initstate = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
-    ack_clear(m,-1);
-    
+    ack_clear(m, -1);
     msend_packet(s, &(m->mdata), &(m->addr));
   }
 }
@@ -203,11 +204,13 @@ static void msend_file_stat(int s, mfile *m)
         }
       }
     }
-    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+    m->initstate = 1;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
   }else{
     if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
       cprintf(5, m->comm, "(%s)\r\n", m->fn);
-      m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+      m->initstate = 1;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     }else{
       lprintf(1, "msend_file_stat: update %s\n", m->fn);
       cprintf(1, m->comm, "[%s]\r\n", m->fn);
@@ -221,7 +224,8 @@ static void msend_file_stat(int s, mfile *m)
             cprintf(3, m->comm, "%s: skip(read only)\r\n", h->hostname);
         }
       }
-      m->mdata.head.nstate = MAKUO_SENDSTATE_OPENINIT;
+      m->initstate = 1;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
     }
   }
 }
@@ -229,7 +233,8 @@ static void msend_file_stat(int s, mfile *m)
 static void msend_file_open_init(int s, mfile *m)
 {
   lprintf(9,"msend_file: OPENINIT %s\n", m->fn);
-  m->sendwait = 1;
+  m->sendwait  = 1;
+  m->initstate = 0;
   ack_clear(m, MAKUO_RECVSTATE_UPDATE);
   m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
   /*----- symlink -----*/
@@ -247,8 +252,9 @@ static void msend_file_open_init(int s, mfile *m)
         msend_packet(s, &(m->mdata), &(m->addr));
         lprintf(4, "msend_file: open fd=%d %s\n", m->fd, m->fn);
       }else{
-        m->sendwait = 0;
-        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+        m->sendwait  = 0;
+        m->initstate = 1;
+        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
         cprintf(0, m->comm, "msend_file: open error errno=%d %s\n", errno, m->fn);
         lprintf(0,          "msend_file: open error errno=%d %s\n", errno, m->fn);
       }
@@ -258,22 +264,29 @@ static void msend_file_open_init(int s, mfile *m)
 
 static void msend_file_open(int s, mfile *m)
 {
+  if(m->initstate){
+    msend_file_open_init(s, m);
+    return;
+  }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  lprintf(9,"msend_file: OPEN %s\n", m->fn);
+  if(ack_check(m, MAKUO_RECVSTATE_OPEN) != 1){
+    m->initstate = 1;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
   }else{
-    lprintf(9,"msend_file: OPEN %s\n", m->fn);
-    if(ack_check(m, MAKUO_RECVSTATE_OPEN) != 1){
-      m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+    if(S_ISLNK(m->fs.st_mode)){
+      m->initstate = 1;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     }else{
-      if(S_ISLNK(m->fs.st_mode)){
-        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
-      }else{
-        if(S_ISDIR(m->fs.st_mode)){
-          m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
-        }
-        if(S_ISREG(m->fs.st_mode)){
-          m->mdata.head.seqno = 1;
-        }
+      if(S_ISDIR(m->fs.st_mode)){
+        m->initstate = 1;
+        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+      }
+      if(S_ISREG(m->fs.st_mode)){
+        m->mdata.head.seqno = 1;
       }
     }
   }
@@ -282,7 +295,8 @@ static void msend_file_open(int s, mfile *m)
 static void msend_file_close_init(int s, mfile *m)
 {
   lprintf(9,"msend_file: CLOSEINIT %s\n", m->fn);
-  m->sendwait = 1;
+  m->sendwait  = 1;
+  m->initstate = 0;
   ack_clear(m, MAKUO_RECVSTATE_OPEN);
   ack_clear(m, MAKUO_RECVSTATE_UPDATE);
   m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
@@ -291,18 +305,23 @@ static void msend_file_close_init(int s, mfile *m)
 
 static void msend_file_close(int s, mfile *m)
 {
+  if(m->initstate){
+    msend_file_close_init(s, m);
+    return;
+  }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
-  }else{
-    lprintf(9,"msend_file: CLOSE %s\n",m->fn);
-    msend_mfdel(m);
-    m = NULL;
+    return;
   }
+  lprintf(9,"msend_file: CLOSE %s\n",m->fn);
+  msend_mfdel(m);
+  m = NULL;
 }
 
 static void msend_file_mark_init(int s, mfile *m)
 {
-  m->sendwait = 1;
+  m->sendwait  = 1;
+  m->initstate = 0;
   ack_clear(m, MAKUO_RECVSTATE_OPEN);
   m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
   msend_packet(s, &(m->mdata), &(m->addr));
@@ -310,11 +329,15 @@ static void msend_file_mark_init(int s, mfile *m)
 
 static void msend_file_mark(int s, mfile *m)
 {
+  if(m->initstate){
+    msend_file_mark_init(s, m);
+    return;
+  }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
-  }else{
-    m->mdata.head.seqno = 1;
+    return;
   }
+  m->mdata.head.seqno = 1;
 }
 
 /*----------------------------------------------------------------------------
@@ -373,20 +396,11 @@ static void msend_file(int s, mfile *m)
       case MAKUO_SENDSTATE_STAT:
         msend_file_stat(s, m);
         break;
-      case MAKUO_SENDSTATE_OPENINIT:
-        msend_file_open_init(s, m);
-        break;
       case MAKUO_SENDSTATE_OPEN:
         msend_file_open(s, m);
         break;
-      case MAKUO_SENDSTATE_CLOSEINIT:
-        msend_file_close_init(s, m);
-        break;
       case MAKUO_SENDSTATE_CLOSE:
         msend_file_close(s, m);
-        break;
-      case MAKUO_SENDSTATE_MARKINIT:
-        msend_file_mark_init(s, m);
         break;
       case MAKUO_SENDSTATE_MARK:
         msend_file_mark(s, m);
@@ -403,7 +417,8 @@ static void msend_file(int s, mfile *m)
 static void msend_md5_open_init(int s, mfile *m)
 {
   lprintf(9,"msend_md5: OPENINIT %s\n", m->fn);
-  m->sendwait = 1;
+  m->sendwait  = 1;
+  m->initstate = 0;
   ack_clear(m, -1);
   m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
   msend_packet(s, &(m->mdata), &(m->addr));
@@ -411,18 +426,24 @@ static void msend_md5_open_init(int s, mfile *m)
 
 static void msend_md5_open(int s, mfile *m)
 {
+  if(m->initstate){
+    msend_md5_open_init(s, m);
+    return;
+  }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
-  }else{
-    lprintf(9,"msend_md5: OPEN %s\n", m->fn);
-    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSEINIT;
+    return;
   }
+  lprintf(9,"msend_md5: OPEN %s\n", m->fn);
+  m->initstate = 1;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
 }
 
 static void msend_md5_close_init(int s, mfile *m)
 {
   lprintf(9,"msend_md5: CLOSEINIT %s\n", m->fn);
-  m->sendwait = 1;
+  m->sendwait  = 1;
+  m->initstate = 0;
   ack_clear(m, MAKUO_RECVSTATE_MD5OK);
   ack_clear(m, MAKUO_RECVSTATE_MD5NG);
   m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
@@ -431,26 +452,24 @@ static void msend_md5_close_init(int s, mfile *m)
 
 static void msend_md5_close(int s, mfile *m)
 {
+  if(m->initstate){
+    msend_md5_close_init(s, m);
+    return;
+  }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
-  }else{
-    lprintf(9,"msend_md5: CLOSE %s\n",m->fn);
-    msend_mfdel(m);
-    m = NULL;
+    return;
   }
+  lprintf(9,"msend_md5: CLOSE %s\n",m->fn);
+  msend_mfdel(m);
+  m = NULL;
 }
 
 static void msend_md5(int s, mfile *m)
 {
   switch(m->mdata.head.nstate){
-    case MAKUO_SENDSTATE_OPENINIT:
-      msend_md5_open_init(s, m);
-      break;
     case MAKUO_SENDSTATE_OPEN:
       msend_md5_open(s, m);
-      break;
-    case MAKUO_SENDSTATE_CLOSEINIT:
-      msend_md5_close_init(s, m);
       break;
     case MAKUO_SENDSTATE_CLOSE:
       msend_md5_close(s, m);
