@@ -310,7 +310,7 @@ int mexec_send(mcomm *c, int n)
 	m->sendwait  = 0;
   m->sendto    = 0;
   m->dryrun    = (mode == MAKUO_MEXEC_DRY);
-  m->initstate = 0;
+  m->initstate = 1;
   m->ln[0]     = 0;
 	strcpy(m->fn, fn);
 	if(lstat(fn, &m->fs) == -1){
