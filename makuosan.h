@@ -42,6 +42,7 @@
 #define MAKUO_BUFFER_SIZE 1024
 
 /*----- default -----*/
+#define MAKUO_LOCAL_ADDR  "127.0.0.1"
 #define MAKUO_MCAST_ADDR  "224.0.0.108"
 #define MAKUO_MCAST_PORT  5000
 

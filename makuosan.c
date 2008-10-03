@@ -1,4 +1,5 @@
 /*
+ * MAKUOSAN
  * multicast file synchronization system
  */
 #include "makuosan.h"
@@ -16,8 +17,8 @@ void usage()
   printf("  -m addr  # multicast address (default: 224.0.0.108)\n");
   printf("  -l addr  # listen address    (default: 0.0.0.0)\n");
   printf("  -U path  # unix domain socket\n");
-  printf("  -k file  # key file (data encrypt)\n");
-  printf("  -K file  # key file (data encrypt and console password)\n");
+  printf("  -k file  # key file (encrypt password)\n");
+  printf("  -K file  # key file (console password)\n");
   printf("  -c       # chroot to base dir\n");
   printf("  -n       # don't fork\n");
   printf("  -r       # don't recv\n");

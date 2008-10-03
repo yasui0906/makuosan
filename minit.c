@@ -38,7 +38,7 @@ static void minit_option_setdefault()
   moption.maddr.sin_addr.s_addr = inet_addr(MAKUO_MCAST_ADDR);
   moption.maddr.sin_port        = htons(MAKUO_MCAST_PORT);
   moption.laddr.sin_family      = AF_INET;
-  moption.laddr.sin_addr.s_addr = INADDR_ANY;
+  moption.laddr.sin_addr.s_addr = inet_addr(MAKUO_LOCAL_ADDR);
   moption.laddr.sin_port        = htons(MAKUO_MCAST_PORT);
   moption.uaddr.sun_family      = AF_UNIX;
   moption.uaddr.sun_path[0]     = 0;
