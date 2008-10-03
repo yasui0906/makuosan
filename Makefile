@@ -4,4 +4,3 @@ all: makuosan.c minit.c msend.c mrecv.c mexec.c common.c
 clean:
 	rm -f makuosan
 
-

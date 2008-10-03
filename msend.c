@@ -1,8 +1,5 @@
 #include "makuosan.h"
 
-/*
- * mfileを開放する
- */
 static mfile *msend_mfdel(mfile *m)
 {
   mfile *r;

@@ -549,7 +549,6 @@ int mexec_md5(mcomm *c, int n)
   m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
   m->initstate = 1;
 	m->comm      = c;
-	m->sendwait  = 0;
   m->sendto    = 0;
   m->dryrun    = 0;
   m->ln[0]     = 0;
