@@ -2,7 +2,7 @@
  * [MAKUOSAN]
  *  multicast file synchronization system
  */
-#define MAKUOSAN_VERSION "0.8.5"
+#define MAKUOSAN_VERSION "0.8.6"
 #define PROTOCOL_VERSION 3
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -38,8 +38,9 @@
 #include <openssl/blowfish.h>
 
 /*----- limit -----*/
-#define MAX_COMM          8
+#define MAX_COMM             8
 #define MAKUO_BUFFER_SIZE 1024
+#define MAKUO_HOSTNAME_MAX 255
 
 /*----- default -----*/
 #define MAKUO_LOCAL_ADDR  "127.0.0.1"
@@ -47,22 +48,21 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  500     /* 再送間隔(ms)                     */
-#define MAKUO_SEND_RETRYCNT 120     /* 再送回数                         */
-#define MAKUO_PONG_TIMEOUT  180000  /* メンバから除外するまでの時間(ms) */
-#define MAKUO_PONG_INTERVAL 45000   /* PING送信間隔(ms)                 */
+#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                     */
+#define MAKUO_SEND_RETRYCNT 120    /* 再送回数                         */
+#define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms) */
+#define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                 */
 #define MAKUO_RECV_GCWAIT   300000
 
 /*----- operation -----*/
 #define MAKUO_OP_PING 0
-#define MAKUO_OP_PONG 1
-#define MAKUO_OP_EXIT 2
-#define MAKUO_OP_ACK  3
-#define MAKUO_OP_FILE 4
-#define MAKUO_OP_MD5  5
+#define MAKUO_OP_EXIT 1
+#define MAKUO_OP_FILE 2
+#define MAKUO_OP_MD5  3
 
 /*----- flags -----*/
-#define MAKUO_FLAG_CRYPT 1
+#define MAKUO_FLAG_ACK   1
+#define MAKUO_FLAG_CRYPT 2
 
 /*----- sendstatus -----*/
 #define MAKUO_SENDSTATE_STAT       0
@@ -196,7 +196,7 @@ typedef struct
 typedef struct
 {
   int state;
-  char hostname[HOST_NAME_MAX];
+  char hostname[MAKUO_HOSTNAME_MAX];
   char version[32];
   struct in_addr ad;
   struct timeval lastrecv;
@@ -216,6 +216,7 @@ typedef struct
   int cryptena;
   int comm_ena;
   int commpass;
+  int ownmatch;
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;

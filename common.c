@@ -230,7 +230,7 @@ mhost *member_add(struct in_addr *addr, mdata *data)
     t->hostname[0] = 0;
   }
   if(data){
-    if(data->head.opcode == MAKUO_OP_PING || data->head.opcode == MAKUO_OP_PONG){
+    if(data->head.opcode == MAKUO_OP_PING){
       p = (mping *)data->data;
       l = ntohs(p->hostnamelen);
       data->p = p->data;

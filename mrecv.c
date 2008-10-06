@@ -1,12 +1,13 @@
-/*
- *  mrecv.c
- */
 #include "makuosan.h"
 
-/*
- * mfile を開放する
- * mrecv.c の中で生成した mfile は必ずここで開放すること
- */
+static void mrecv_req(mdata *data, struct sockaddr_in *addr);
+static void mrecv_ack(mdata *data, struct sockaddr_in *addr);
+
+/******************************************************************
+*
+* Receive common functions (private)
+*
+*******************************************************************/
 static mfile *mrecv_mfdel(mfile *m)
 {
   mfile *r;
@@ -27,20 +28,257 @@ static mfile *mrecv_mfdel(mfile *m)
   return(r);
 }
 
-static void mrecv_ping(mdata *data, struct sockaddr_in *addr)
+static int mrecv_decrypt(mdata *data, struct sockaddr_in *addr)
+{
+  int i;
+  MD5_CTX ctx;
+  uint8_t hash[16];
+
+  if(data->head.flags & MAKUO_FLAG_CRYPT){
+    if(!moption.cryptena){
+      lprintf(0, "mrecv_decrypt: recv encrypt packet from %s. I have not key!", inet_ntoa(addr->sin_addr));
+      return(-1);
+    }
+    if(data->head.szdata){
+      for(i=0;i<data->head.szdata;i+=8){
+        BF_decrypt((BF_LONG *)(data->data + i), &EncKey);
+      }
+      MD5_Init(&ctx);
+      MD5_Update(&ctx, data->data, data->head.szdata);
+      MD5_Final(hash, &ctx);
+      if(memcmp(hash,data->head.hash,16)){
+        lprintf(0, "mrecv_decrypt: protocol checksum error from %s\n", inet_ntoa(addr->sin_addr));
+        return(-1);
+      }
+    }
+  }
+  return(0);
+}
+
+static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
+{
+  int recvsize;
+  socklen_t addr_len;
+
+  while(1){
+    addr_len = sizeof(struct sockaddr_in);
+    recvsize = recvfrom(s, data, sizeof(mdata), 0, (struct sockaddr *)addr, &addr_len);
+    if(recvsize != -1){
+      break;
+    }else{
+      if(errno == EAGAIN || errno == EINTR){
+        continue;
+      }else{
+        lprintf(0, "mrecv_packets: recv error from %s\n", inet_ntoa(addr->sin_addr));
+        return(-1);
+      }
+    }
+  }
+  if(recvsize < sizeof(data->head)){
+    lprintf(0, "mrecv: recv head size error\n");
+    return(-1);
+  }
+
+  data->head.szdata = ntohs(data->head.szdata);
+  data->head.flags  = ntohs(data->head.flags);
+  data->head.reqid  = ntohl(data->head.reqid);
+  data->head.seqno  = ntohl(data->head.seqno);
+
+  if(data->head.vproto != PROTOCOL_VERSION){
+    lprintf(0, "mrecv_packet: protocol version error(%d != %d) from %s\n",
+       data->head.vproto, PROTOCOL_VERSION, inet_ntoa(addr->sin_addr));
+    return(-1);
+  }
+
+  return(mrecv_decrypt(data, addr));
+}
+
+/******************************************************************
+*
+* Receive common functions (public)
+*
+*******************************************************************/
+void mrecv(int s)
+{
+  mdata  data;
+  struct sockaddr_in addr;
+  if(mrecv_packet(s, &data, &addr) == -1){
+    return;
+  }
+  if(data.head.flags & MAKUO_FLAG_ACK){
+    mrecv_ack(&data, &addr);
+  }else{
+    mrecv_req(&data, &addr);
+  }
+}
+
+void mrecv_gc()
+{
+  mhost *t = members;
+  mfile *m = mftop[1]; 
+
+  /* file timeout */
+  while(m){
+    if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
+      lprintf(0,"mrecv_gc: mfile object GC state=%d %s\n", m->mdata.head.nstate, m->fn);
+      m = mrecv_mfdel(m);
+      continue;
+    }
+    m = m->next;
+  }
+
+  /* pong timeout */
+  while(t){
+    if(!mtimeout(&(t->lastrecv), MAKUO_PONG_TIMEOUT)){
+      t = t->next;
+    }else{
+      lprintf(0,"mrecv_gc: pong timeout %s\n", t->hostname);
+      if(t->next){
+        t = t->next;
+        member_del(t->prev);
+      }else{
+        member_del(t);
+        t = NULL;
+     } 
+    }      
+  }
+}
+
+/******************************************************************
+*
+* ack receive functions (for server tasks)
+*
+*******************************************************************/
+static void mrecv_ack_search(mhost **lpt, mfile **lpm, mdata *data, struct sockaddr_in *addr)
+{
+  mhost *t;
+  mfile *m;
+  *lpt = NULL;
+  *lpm = NULL;
+  t = member_add(&addr->sin_addr, NULL);
+  if(!t){
+    lprintf(0, "mrecv_ack: member not found %s\n", inet_ntoa(addr->sin_addr));
+    return;
+  }
+  for(m=mftop[0];m;m=m->next)
+    if(m->mdata.head.reqid == data->head.reqid)
+      break;
+  if(!m){
+    lprintf(4, "mrecv_ack: mfile not found rid=%06d state=%02d %s(%s)\n", 
+      data->head.reqid, data->head.nstate, inet_ntoa(addr->sin_addr), t->hostname);
+    return;
+  }
+  *lpt = t;
+  *lpm = m;
+}
+
+static void mrecv_ack_report(mfile *m, mhost *h, mdata *data)
+{
+  if(data->head.nstate == MAKUO_RECVSTATE_OPENERROR){
+    cprintf(0, m->comm, "%s: file open error %s\n", h->hostname, m->fn);
+    lprintf(0,          "mrecv_ack: file open error rid=%06d state=%02d %s(%s) %s\n", 
+      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
+  }
+  if(data->head.nstate == MAKUO_RECVSTATE_WRITEERROR){
+    cprintf(0, m->comm, "%s: file write error %s\n", h->hostname, m->fn);
+    lprintf(0,          "mrecv_ack: file write error rid=%06d state=%02d %s(%s) %s\n", 
+     data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
+  }
+  if(data->head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
+    cprintf(0, m->comm, "%s: file close error %s\n", h->hostname, m->fn);
+    lprintf(0,          "mrecv_ack: file close error rid=%06d state=%02d %s(%s) %s\n", 
+      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
+  }
+}
+
+static void mrecv_ack_ping(mdata *data, struct sockaddr_in *addr)
+{
+  member_add(&addr->sin_addr, data);
+}
+
+static void mrecv_ack_file(mdata *data, struct sockaddr_in *addr)
+{
+  mhost *t;
+  mfile *m;
+
+  mrecv_ack_search(&t, &m, data, addr);
+  mtimeget(&m->lastrecv);
+  if(data->head.nstate == MAKUO_RECVSTATE_IGNORE){
+    cprintf(4, m->comm, "%s: file update ignore %s\n", t->hostname, m->fn);
+    lprintf(0,          "mrecv_ack: file update ignore rid=%06d state=%02d %s(%s) %s\n", 
+      data->head.reqid, data->head.nstate, inet_ntoa(t->ad), t->hostname, m->fn);
+  }
+  if(data->head.nstate == MAKUO_RECVSTATE_OPEN){
+    uint32_t *d = (uint32_t *)(data->data);
+    while(d < (uint32_t *)&data->data[data->head.szdata]){
+      seq_addmark(m, *d, (*d) + 1);
+      d++;
+    }
+  }
+  t->state = data->head.nstate;
+  mrecv_ack_report(m, t, data);
+}
+
+static void mrecv_ack_md5(mdata *data, struct sockaddr_in *addr)
+{
+  mhost *t;
+  mfile *m;
+
+  mrecv_ack_search(&t, &m, data, addr);
+  if(!t || !m){
+    return;
+  }
+  mtimeget(&m->lastrecv);
+  if(t->state != data->head.nstate){
+    if(data->head.nstate == MAKUO_RECVSTATE_MD5OK){
+      cprintf(1, m->comm, "%s: OK %s\r\n", t->hostname, m->fn);
+      lprintf(1,          "mrecv_ack_md5: OK %s\n", m->fn);
+    }
+    if(data->head.nstate == MAKUO_RECVSTATE_MD5NG){
+      cprintf(0, m->comm, "%s: NG %s\r\n", t->hostname, m->fn);
+      lprintf(0,          "mrecv_ack_md5: NG %s\n", m->fn);
+    }
+  }
+  t->state = data->head.nstate;
+  mrecv_ack_report(m, t, data);
+}
+
+static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
+{
+  switch(data->head.opcode){
+    case MAKUO_OP_PING:
+      mrecv_ack_ping(data, addr);
+      break;
+    case MAKUO_OP_FILE:
+      mrecv_ack_file(data, addr);
+      break;
+    case MAKUO_OP_MD5:
+      mrecv_ack_md5(data, addr);
+      break;
+  }
+}
+
+/******************************************************************
+*
+* Request receive functions (for client tasks)
+*
+*******************************************************************/
+static void mrecv_req_ping(mdata *data, struct sockaddr_in *addr)
 {
   mping *p;
   mfile *m;
-  char buff[HOST_NAME_MAX + 1];
+  char buff[MAKUO_HOSTNAME_MAX + 1];
   member_add(&addr->sin_addr, data);
   m = mfadd(0);
   if(!m){
+    lprintf(0,"mrecv_req_ping: out of memory\n");
     return;
   }
-  m->mdata.head.opcode    = MAKUO_OP_PONG;
-  m->mdata.head.reqid   = getrid();
-  m->mdata.head.seqno = 0;
-  m->mdata.head.szdata  = 0;
+  m->mdata.head.opcode = MAKUO_OP_PING;
+  m->mdata.head.flags |= MAKUO_FLAG_ACK;
+  m->mdata.head.reqid  = data->head.reqid;
+  m->mdata.head.seqno  = 0;
+  m->mdata.head.szdata = 0;
   memcpy(&(m->addr), addr, sizeof(m->addr));
   if(gethostname(buff, sizeof(buff)) == -1){
     buff[0] = 0;
@@ -58,12 +296,7 @@ static void mrecv_ping(mdata *data, struct sockaddr_in *addr)
   p->versionlen  = htons(p->versionlen);
 }
 
-static void mrecv_pong(mdata *data, struct sockaddr_in *addr)
-{
-  member_add(&addr->sin_addr, data);
-}
-
-static void mrecv_exit(mdata *data, struct sockaddr_in *addr)
+static void mrecv_req_exit(mdata *data, struct sockaddr_in *addr)
 {
   mhost *h;
   for(h=members;h;h=h->next)
@@ -75,7 +308,7 @@ static void mrecv_exit(mdata *data, struct sockaddr_in *addr)
 /*
  *  データ受信
  */
-static int mrecv_file_data(mfile *m,  mdata *r)
+static int mrecv_req_file_data(mfile *m,  mdata *r)
 {
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN)
     return(0);
@@ -112,7 +345,7 @@ static int mrecv_file_data(mfile *m,  mdata *r)
 /*
  *  転送中断
  */
-static int mrecv_file_break(mfile *m, mdata *r)
+static int mrecv_req_file_break(mfile *m, mdata *r)
 {
   mrecv_mfdel(m);
   return(0);
@@ -121,7 +354,7 @@ static int mrecv_file_break(mfile *m, mdata *r)
 /*
  *  転送開始処理
  */
-static int mrecv_file_open(mfile *m, mdata *r)
+static int mrecv_req_file_open(mfile *m, mdata *r)
 {
   char fpath[PATH_MAX];
   char tpath[PATH_MAX];
@@ -133,9 +366,10 @@ static int mrecv_file_open(mfile *m, mdata *r)
   sprintf(tpath, "%s/%s", moption.base_dir, m->tn);
 
   mfile *a = mfins(0);
-  a->mdata.head.opcode = MAKUO_OP_ACK;
-  a->mdata.head.reqid = r->head.reqid;
-  a->mdata.head.seqno = r->head.seqno;
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = r->head.opcode;
+  a->mdata.head.reqid  = r->head.reqid;
+  a->mdata.head.seqno  = r->head.seqno;
   a->mdata.head.ostate = m->mdata.head.nstate;
   a->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
   m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
@@ -181,7 +415,7 @@ static int mrecv_file_open(mfile *m, mdata *r)
 /*
  *  転送終了処理
  */
-static int mrecv_file_close(mfile *m, mdata *r)
+static int mrecv_req_file_close(mfile *m, mdata *r)
 {
   struct utimbuf mftime;
   char  fpath[PATH_MAX];
@@ -192,9 +426,10 @@ static int mrecv_file_close(mfile *m, mdata *r)
   if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN  ||
      m->mdata.head.nstate == MAKUO_RECVSTATE_UPDATE){
     mfile *a = mfins(0);
-    a->mdata.head.opcode = MAKUO_OP_ACK;
-    a->mdata.head.reqid = r->head.reqid;
-    a->mdata.head.seqno = r->head.seqno;
+    a->mdata.head.flags |= MAKUO_FLAG_ACK;
+    a->mdata.head.opcode = r->head.opcode;
+    a->mdata.head.reqid  = r->head.reqid;
+    a->mdata.head.seqno  = r->head.seqno;
     a->mdata.head.ostate = m->mdata.head.nstate;
     a->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
     memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
@@ -247,17 +482,18 @@ static int mrecv_file_close(mfile *m, mdata *r)
 /*
  *  再送要求
  */
-static int mrecv_file_mark(mfile *m, mdata *r)
+static int mrecv_req_file_mark(mfile *m, mdata *r)
 {
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN)
     return(0);
 
   mfile *a = mfins(0);
-  a->mdata.head.opcode    = MAKUO_OP_ACK;
-  a->mdata.head.reqid   = r->head.reqid;
-  a->mdata.head.seqno = r->head.seqno;
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = r->head.opcode;
+  a->mdata.head.reqid  = r->head.reqid;
+  a->mdata.head.seqno  = r->head.seqno;
   a->mdata.head.nstate = m->mdata.head.nstate;
-  a->mdata.head.szdata  = 0;
+  a->mdata.head.szdata = 0;
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
   m->lickflag = 1;
   a->lickflag = 1;
@@ -283,25 +519,25 @@ static int mrecv_file_mark(mfile *m, mdata *r)
  *  受信状態遷移関数
  *
  */
-static int mrecv_file_next(mfile *m,  mdata *r)
+static int mrecv_req_file_next(mfile *m,  mdata *r)
 {
   if(r->head.seqno){
-    return(mrecv_file_data(m, r));
+    return(mrecv_req_file_data(m, r));
   }
   switch(r->head.nstate){
     case MAKUO_SENDSTATE_BREAK:
       lprintf(9,"mrecv_file: MAKUO_SENDSTATE_BREAK: state=%d %s\n", m->mdata.head.nstate, m->fn);
-      return(mrecv_file_break(m, r));
+      return(mrecv_req_file_break(m, r));
     case MAKUO_SENDSTATE_OPEN:
       lprintf(9,"mrecv_file: MAKUO_SENDSTATE_OPEN : state=%d %s\n", m->mdata.head.nstate, m->fn);
-      return(mrecv_file_open(m, r));
+      return(mrecv_req_file_open(m, r));
     case MAKUO_SENDSTATE_MARK:
       lprintf(9,"mrecv_file: MAKUO_SENDSTATE_MARK : state=%d seqno=%d max=%d cnt=%d %s\n", 
              m->mdata.head.nstate, m->mdata.head.seqno, m->seqnomax, m->markcount, m->fn);
-      return(mrecv_file_mark(m, r));
+      return(mrecv_req_file_mark(m, r));
     case MAKUO_SENDSTATE_CLOSE:
       lprintf(9,"mrecv_file: MAKUO_SENDSTATE_CLOSE: state=%d %s\n", m->mdata.head.nstate, m->fn);
-      return(mrecv_file_close(m, r));
+      return(mrecv_req_file_close(m, r));
   }
   return(0);
 }
@@ -311,7 +547,7 @@ static int mrecv_file_next(mfile *m,  mdata *r)
  *  - 引数として生データが格納されているバッファのポインタを受け取る
  *  - 受信したデータが転送開始メッセージならばmfileを生成する
 */
-static mfile *mrecv_file_stat(mdata *data, struct sockaddr_in *addr)
+static mfile *mrecv_req_file_stat(mdata *data, struct sockaddr_in *addr)
 {
   mstat fs;
   uint16_t  fnlen;
@@ -325,10 +561,11 @@ static mfile *mrecv_file_stat(mdata *data, struct sockaddr_in *addr)
     return(NULL);
 
   a = mfins(0);
-  a->mdata.head.opcode    = MAKUO_OP_ACK;
-  a->mdata.head.reqid   = data->head.reqid;
-  a->mdata.head.szdata  = 0;
-  a->mdata.head.seqno = data->head.seqno;
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = data->head.opcode;
+  a->mdata.head.reqid  = data->head.reqid;
+  a->mdata.head.szdata = 0;
+  a->mdata.head.seqno  = data->head.seqno;
   a->mdata.head.nstate = MAKUO_RECVSTATE_IGNORE;
   memcpy(&(a->addr), addr, sizeof(a->addr));
   if(data->head.nstate == MAKUO_SENDSTATE_STAT){
@@ -385,7 +622,7 @@ static mfile *mrecv_file_stat(mdata *data, struct sockaddr_in *addr)
   return(m);
 }
 
-static void mrecv_file(mdata *data, struct sockaddr_in *addr)
+static void mrecv_req_file(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m = mftop[1]; 
   while(m){
@@ -396,95 +633,14 @@ static void mrecv_file(mdata *data, struct sockaddr_in *addr)
     m = m->next;
   }
   if(!m){
-    mrecv_file_stat(data, addr);
+    mrecv_req_file_stat(data, addr);
   }else{
     mtimeget(&(m->lastrecv));
-    mrecv_file_next(m, data);
+    mrecv_req_file_next(m, data);
   }
 }
 
-static void mrecv_ack_file(mfile *m, mhost *h, mdata *data)
-{
-  uint32_t *d;
-
-  if(data->head.nstate == MAKUO_RECVSTATE_IGNORE){
-    cprintf(4, m->comm, "%s: file update ignore %s\n", h->hostname, m->fn);
-    lprintf(0,          "mrecv_ack: file update ignore rid=%06d state=%02d %s(%s) %s\n", 
-      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
-  }
-  if(data->head.nstate == MAKUO_RECVSTATE_OPEN){
-    d = (uint32_t *)(data->data);
-    while(d < (uint32_t *)&data->data[data->head.szdata]){
-      seq_addmark(m, *d, (*d) + 1);
-      d++;
-    }
-  }
-}
-
-static void mrecv_ack_md5(mfile *m, mhost *h, mdata *data)
-{
-  if(h->state != data->head.nstate){
-    if(data->head.nstate == MAKUO_RECVSTATE_MD5OK){
-      cprintf(1, m->comm, "%s: OK %s\r\n", h->hostname, m->fn);
-      lprintf(1,          "mrecv_ack_md5: OK %s\n", m->fn);
-    }
-    if(data->head.nstate == MAKUO_RECVSTATE_MD5NG){
-      cprintf(0, m->comm, "%s: NG %s\r\n", h->hostname, m->fn);
-      lprintf(0,          "mrecv_ack_md5: NG %s\n", m->fn);
-    }
-  }
-}
-
-/*
- *  ack受信処理
- */
-static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
-{
-  mfile *m;
-  mhost *h;
-
-  h = member_add(&addr->sin_addr, NULL);
-  if(!h){
-    lprintf(0, "mrecv_ack: member not found %s\n", inet_ntoa(addr->sin_addr));
-    return;
-  }
-  for(m=mftop[0];m;m=m->next)
-    if(m->mdata.head.reqid == data->head.reqid)
-      break;
-  if(!m){
-    lprintf(4, "mrecv_ack: mfile not found rid=%06d state=%02d %s(%s)\n", 
-      data->head.reqid, data->head.nstate, inet_ntoa(addr->sin_addr), h->hostname);
-    return;
-  }
-  mtimeget(&m->lastrecv);
-  switch(m->mdata.head.opcode){
-    case MAKUO_OP_FILE:
-      mrecv_ack_file(m,h,data);
-      break;
-    case MAKUO_OP_MD5:
-      mrecv_ack_md5(m,h,data);
-      break;
-  }
-  if(data->head.nstate == MAKUO_RECVSTATE_OPENERROR){
-    cprintf(0, m->comm, "%s: file open error %s\n", h->hostname, m->fn);
-    lprintf(0,          "mrecv_ack: file open error rid=%06d state=%02d %s(%s) %s\n", 
-      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
-  }
-  if(data->head.nstate == MAKUO_RECVSTATE_WRITEERROR){
-    cprintf(0, m->comm, "%s: file write error %s\n", h->hostname, m->fn);
-    lprintf(0,          "mrecv_ack: file write error rid=%06d state=%02d %s(%s) %s\n", 
-     data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
-  }
-  if(data->head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
-    cprintf(0, m->comm, "%s: file close error %s\n", h->hostname, m->fn);
-    lprintf(0,          "mrecv_ack: file close error rid=%06d state=%02d %s(%s) %s\n", 
-      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
-  }
-  h->state = data->head.nstate;
-  return;
-}
-
-static void mrecv_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
+static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
   int    r;
   int    l;
@@ -519,22 +675,24 @@ static void mrecv_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
     }
   }
   a=mfadd(0);
-  a->mdata.head.opcode    = MAKUO_OP_ACK;
-  a->mdata.head.reqid   = m->mdata.head.reqid;
-  a->mdata.head.seqno = 0;
-  a->mdata.head.szdata  = 0;
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = m->mdata.head.opcode;
+  a->mdata.head.reqid  = m->mdata.head.reqid;
+  a->mdata.head.seqno  = 0;
+  a->mdata.head.szdata = 0;
   a->mdata.head.nstate = m->mdata.head.nstate;
   memcpy(&(a->addr), addr, sizeof(a->addr));
   mtimeget(&(m->lastrecv));
 }
 
-static void mrecv_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
+static void mrecv_req_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
   mfile *a = mfadd(0);
-  a->mdata.head.opcode    = MAKUO_OP_ACK;
-  a->mdata.head.reqid   = data->head.reqid;
-  a->mdata.head.szdata  = 0;
-  a->mdata.head.seqno = 0;
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = data->head.opcode;
+  a->mdata.head.reqid  = data->head.reqid;
+  a->mdata.head.szdata = 0;
+  a->mdata.head.seqno  = 0;
   a->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
   memcpy(&(a->addr), addr, sizeof(a->addr));
   mrecv_mfdel(m);
@@ -545,7 +703,7 @@ static void mrecv_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
  * mfileオブジェクトを生成して
  * 対象ファイルのmd5を取得する
  */
-static void mrecv_md5(mdata *data, struct sockaddr_in *addr)
+static void mrecv_req_md5(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m = mftop[1];
   while(m){
@@ -557,144 +715,28 @@ static void mrecv_md5(mdata *data, struct sockaddr_in *addr)
   }
   switch(data->head.nstate){
     case MAKUO_SENDSTATE_OPEN:
-      mrecv_md5_open(m, data, addr);
+      mrecv_req_md5_open(m, data, addr);
       break;
     case MAKUO_SENDSTATE_CLOSE:
-      mrecv_md5_close(m, data, addr);
+      mrecv_req_md5_close(m, data, addr);
       break;
   }
 }
 
-static int mrecv_decrypt(mdata *data, struct sockaddr_in *addr)
+static void mrecv_req(mdata *data, struct sockaddr_in *addr)
 {
-  int i;
-  MD5_CTX ctx;
-  uint8_t hash[16];
-
-  if(data->head.flags & MAKUO_FLAG_CRYPT){
-    if(!moption.cryptena){
-      lprintf(0, "mrecv_decrypt: recv encrypt packet from %s. I have not key!", inet_ntoa(addr->sin_addr));
-      return(-1);
-    }
-    if(data->head.szdata){
-      for(i=0;i<data->head.szdata;i+=8){
-        BF_decrypt((BF_LONG *)(data->data + i), &EncKey);
-      }
-      MD5_Init(&ctx);
-      MD5_Update(&ctx, data->data, data->head.szdata);
-      MD5_Final(hash, &ctx);
-      if(memcmp(hash,data->head.hash,16)){
-        lprintf(0, "mrecv_decrypt: protocol checksum error from %s\n", inet_ntoa(addr->sin_addr));
-        return(-1);
-      }
-    }
-  }
-  return(0);
-}
-
-static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
-{
-  int recvsize;
-  socklen_t addr_len;
-
-  while(1){
-    addr_len = sizeof(struct sockaddr_in);
-    recvsize = recvfrom(s, data, sizeof(mdata), 0, (struct sockaddr *)addr, &addr_len);
-    if(recvsize != -1){
-      break;
-    }else{
-      if(errno == EAGAIN || errno == EINTR){
-        continue;
-      }else{
-        lprintf(0, "mrecv_packets: recv error from %s\n", inet_ntoa(addr->sin_addr));
-        return(-1);
-      }
-    }
-  }
-  if(recvsize < sizeof(data->head)){
-    lprintf(0, "mrecv: recv head size error\n");
-    return(-1);
-  }
-
-  /* ヘッダをホストバイトオーダに変換する */
-  data->head.szdata = ntohs(data->head.szdata);
-  data->head.flags  = ntohs(data->head.flags);
-  data->head.reqid  = ntohl(data->head.reqid);
-  data->head.seqno  = ntohl(data->head.seqno);
-
-  /* プロトコルバージョンが一致しないパケットは破棄する */
-  if(data->head.vproto != PROTOCOL_VERSION){
-    lprintf(0, "mrecv_packet: protocol version error(%d != %d) from %s\n",
-       data->head.vproto, PROTOCOL_VERSION, inet_ntoa(addr->sin_addr));
-    return(-1);
-  }
-
-  return(mrecv_decrypt(data, addr));
-}
-
-/*
- *  通信断などで残ってしまったオブジェクトを掃除
- */
-void mrecv_gc()
-{
-  mhost *t = members;
-  mfile *m = mftop[1]; 
-  while(m){
-    if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
-      lprintf(0,"mrecv_gc: mfile object GC state=%d %s\n", m->mdata.head.nstate, m->fn);
-      m = mrecv_mfdel(m);
-      continue;
-    }
-    m = m->next;
-  }
-
-  /* pong timeout */
-  while(t){
-    if(!mtimeout(&(t->lastrecv), MAKUO_PONG_TIMEOUT)){
-      t = t->next;
-    }else{
-      lprintf(0,"mrecv_gc: pong timeout %s\n", t->hostname);
-      if(t->next){
-        t = t->next;
-        member_del(t->prev);
-      }else{
-        member_del(t);
-        t = NULL;
-     } 
-    }      
-  }
-}
-
-/*
- *  ソケットからデータを読み込んでmdata構造体に格納
- *  オペコードによってそれぞれの処理に分岐する
- */
-void mrecv(int s)
-{
-  mdata  data;
-  struct sockaddr_in addr;
-
-  if(mrecv_packet(s, &data, &addr) == -1){
-    return;
-  }
-  switch(data.head.opcode){
+  switch(data->head.opcode){
     case MAKUO_OP_PING:
-      mrecv_ping(&data, &addr);
-      break;
-    case MAKUO_OP_PONG:
-      mrecv_pong(&data, &addr);
+      mrecv_req_ping(data, addr);
       break;
     case MAKUO_OP_EXIT:
-      mrecv_exit(&data, &addr);
-      break;
-    case MAKUO_OP_ACK:
-      mrecv_ack(&data, &addr);
+      mrecv_req_exit(data, addr);
       break;
     case MAKUO_OP_FILE:
-      mrecv_file(&data, &addr);
+      mrecv_req_file(data, addr);
       break;
     case MAKUO_OP_MD5:
-      mrecv_md5(&data, &addr);
+      mrecv_req_md5(data, addr);
       break;
   }
 }

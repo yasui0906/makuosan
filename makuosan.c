@@ -15,7 +15,7 @@ void usage()
   printf("  -b dir   # base dir\n");
   printf("  -p port  # port number       (default: 5000)\n");
   printf("  -m addr  # multicast address (default: 224.0.0.108)\n");
-  printf("  -l addr  # listen address    (default: 0.0.0.0)\n");
+  printf("  -l addr  # listen address    (default: 127.0.0.1)\n");
   printf("  -U path  # unix domain socket\n");
   printf("  -k file  # key file (encrypt password)\n");
   printf("  -K file  # key file (console password)\n");
@@ -24,6 +24,7 @@ void usage()
   printf("  -r       # don't recv\n");
   printf("  -s       # don't send\n");
   printf("  -o       # don't listen (console off mode)\n");
+  printf("  -O       # owner match limitation mode\n");
   printf("  -h       # help\n\n"); 
   exit(0);
 }
@@ -99,7 +100,7 @@ struct timeval *pingpong(int n)
   static struct timeval tv;
   mfile *m = mfins(0);
   mping *p = NULL;
-  char buff[HOST_NAME_MAX + 1];
+  char buff[MAKUO_HOSTNAME_MAX + 1];
 
   if(!m){
     lprintf(0, "pingpong: out of memmory\r\n");
@@ -110,7 +111,8 @@ struct timeval *pingpong(int n)
       m->mdata.head.opcode = MAKUO_OP_PING;
       break;
     case 1:
-      m->mdata.head.opcode = MAKUO_OP_PONG;
+      m->mdata.head.opcode = MAKUO_OP_PING;
+      m->mdata.head.flags |= MAKUO_FLAG_ACK;
       break;
     case 2:
       m->mdata.head.opcode = MAKUO_OP_EXIT;

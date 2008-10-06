@@ -504,25 +504,35 @@ static void msend_retry(mfile *m)
  */
 void msend(int s, mfile *m)
 {
-  if(!m)
+  if(!m){
     return;
+  }
   msend_retry(m);
   mtimeget(&m->lastsend);
-  switch(m->mdata.head.opcode){
-    case MAKUO_OP_PING:
-    case MAKUO_OP_PONG:
-    case MAKUO_OP_EXIT:
-      msend_shot(s, m);
-      break;
-    case MAKUO_OP_ACK:
-      msend_ack(s, m);
-      break;
-    case MAKUO_OP_FILE:
-      msend_file(s, m);
-      break;
-    case MAKUO_OP_MD5:
-      msend_md5(s, m);
-      break;
+  if(m->mdata.head.flags & MAKUO_FLAG_ACK){
+    /* ack */
+    switch(m->mdata.head.opcode){
+      case MAKUO_OP_PING:
+        msend_shot(s, m);
+        break;
+      case MAKUO_OP_FILE:
+      case MAKUO_OP_MD5:
+        msend_ack(s, m);
+        break;
+    }
+  }else{
+    /* req */
+    switch(m->mdata.head.opcode){
+      case MAKUO_OP_PING:
+      case MAKUO_OP_EXIT:
+        msend_shot(s, m);
+        break;
+      case MAKUO_OP_FILE:
+        msend_file(s, m);
+        break;
+      case MAKUO_OP_MD5:
+        msend_md5(s, m);
+        break;
+    }
   }
 }
-

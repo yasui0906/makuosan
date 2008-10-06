@@ -49,6 +49,7 @@ static void minit_option_setdefault()
   moption.cryptena              = 0;
   moption.comm_ena              = 1;
   moption.commpass              = 0;
+  moption.ownmatch              = 0;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
@@ -251,6 +252,10 @@ static void minit_getopt(int argc, char *argv[])
         minit_password(optarg, 1);
         break;
 
+      case 'O':
+        moption.ownmatch = 1;
+        break;
+
       case '?':
         exit(1);
     }
@@ -429,18 +434,19 @@ static void minit_bootlog()
   lprintf(0,"makuosan version %s\n",MAKUOSAN_VERSION);
   lprintf(0,"loglevel  : %d\n", moption.loglevel);
 if(moption.chroot)
-  lprintf(0,"chroot    : %s\n", moption.real_dir);
-  lprintf(0,"base dir  : %s\n", moption.base_dir);
-  lprintf(0,"multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
-  lprintf(0,"port      : %d\n", ntohs(moption.maddr.sin_port));
-  lprintf(0,"uid       : %d\n", geteuid());
-  lprintf(0,"gid       : %d\n", getegid());
-  lprintf(0,"don't recv: %s\n", yesno[moption.dontrecv]);
-  lprintf(0,"don't send: %s\n", yesno[moption.dontsend]);
-  lprintf(0,"don't fork: %s\n", yesno[moption.dontfork]);
-  lprintf(0,"encrypt   : %s\n", yesno[moption.cryptena]);
-  lprintf(0,"console   : %s\n", yesno[moption.comm_ena]);
-  lprintf(0,"passwoed  : %s\n", yesno[moption.commpass]);
+  lprintf(0,"chroot     : %s\n", moption.real_dir);
+  lprintf(0,"base dir   : %s\n", moption.base_dir);
+  lprintf(0,"multicast  : %s\n", inet_ntoa(moption.maddr.sin_addr));
+  lprintf(0,"port       : %d\n", ntohs(moption.maddr.sin_port));
+  lprintf(0,"uid        : %d\n", geteuid());
+  lprintf(0,"gid        : %d\n", getegid());
+  lprintf(0,"don't recv : %s\n", yesno[moption.dontrecv]);
+  lprintf(0,"don't send : %s\n", yesno[moption.dontsend]);
+  lprintf(0,"don't fork : %s\n", yesno[moption.dontfork]);
+  lprintf(0,"encrypt    : %s\n", yesno[moption.cryptena]);
+  lprintf(0,"console    : %s\n", yesno[moption.comm_ena]);
+  lprintf(0,"passwoed   : %s\n", yesno[moption.commpass]);
+  lprintf(0,"owner match: %s\n", yesno[moption.ownmatch]);
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);
