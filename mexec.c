@@ -33,7 +33,7 @@ int mexec_scan_cmd(int fd, char *buff)
     if(FD_ISSET(fd,&fds)){
       r = write(fd, cmd, size);
       if(r == -1){
-        lprintf(0,"mexec_scan_cmd: commend write error! %s", buff);
+        lprintf(0,"%s: commend write error! %s", __func__, buff);
         return(-1);
       }
       size -= r;
@@ -148,8 +148,8 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode)
   char base[PATH_MAX];
 
   if(pipe(p) == -1){
-    cprintf(0, c, "mexec_scan: pipe error\n");    
-    lprintf(0,    "mexec_scan: pipe error\n");    
+    cprintf(0, c, "error: pipe error\n");    
+    lprintf(0,    "%s: pipe error\n", __func__);    
     return(-1);
   }
 
@@ -164,8 +164,8 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode)
   if(pid == -1){
     close(p[0]);
     close(p[1]);
-    cprintf(0, c, "mexec_scan: fork error\n");
-    lprintf(0,    "mexec_scan: fork error\n");
+    cprintf(0, c, "error: fork error\n");
+    lprintf(0,    "%s: fork error\n", __func__);
     return(-1);
   }
   if(pid){
@@ -188,7 +188,7 @@ int mexec_close(mcomm *c, int n)
 {
   mfile *m;
 
-  lprintf(2,"mexec_close: n=%d\n", n);
+  lprintf(2,"%s: n=%d\n", __func__, n);
   if(c->fd[n] != -1)
     close(c->fd[n]);
   c->fd[n]  = -1;
@@ -206,7 +206,7 @@ int mexec_close(mcomm *c, int n)
     for(m=mftop[0];m;m=m->next){
       if(m->comm == c){
         m->comm = NULL;
-        lprintf(3, "mexec_close: clear %s\n", m->fn);
+        lprintf(3, "%s: clear %s\n", __func__, m->fn);
       }
     }
   }
@@ -223,7 +223,8 @@ int mexec_help(mcomm *c, int n)
 {
   cprintf(0, c, "COMMAND:\n");
   cprintf(0, c, "  quit\n");
-  cprintf(0, c, "  exclude [add|del] pattern\n");
+  cprintf(0, c, "  exclude add PATTERN\n");
+  cprintf(0, c, "  exclude del PATTERN\n");
   cprintf(0, c, "  exclude list\n");
   cprintf(0, c, "  exclude clear\n");
   cprintf(0, c, "  send [-n] [-r] [-t host] [filename]\n");
@@ -285,7 +286,7 @@ int mexec_send(mcomm *c, int n)
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    lprintf(0, "mexec_send: cmd='%s'\n", c->cmdline[n]);
+    lprintf(0, "%s: cmd='%s'\n", __func__, c->cmdline[n]);
     return(mexec_scan(c, fn, h, mode));
   }
   /*----- help -----*/
@@ -299,11 +300,11 @@ int mexec_send(mcomm *c, int n)
   /*----- send file -----*/
   m = mfadd(0);
   if(!m){
-	  lprintf(0, "mfadd: out of memorry\n");
+	  lprintf(0, "%s: out of memorry\n", __func__);
     return(0);
 	}
 	m->mdata.head.reqid  = getrid();
-	m->mdata.head.opcode = MAKUO_OP_FILE;
+	m->mdata.head.opcode = MAKUO_OP_SEND;
 	m->mdata.head.seqno  = 0;
   m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
 	m->comm      = c;
@@ -314,14 +315,22 @@ int mexec_send(mcomm *c, int n)
   m->ln[0]     = 0;
 	strcpy(m->fn, fn);
 	if(lstat(fn, &m->fs) == -1){
-	  cprintf(0, c, "mexec_send: lstat() error %s\n", fn);
-		lprintf(1,    "mexec_send: lstat() error argc=%d cmd=%s\n", c->argc[n], c->cmdline[n]);
+	  cprintf(0, c, "error: lstat() error %s\n", fn);
+		lprintf(1,    "%s: lstat() error argc=%d cmd=%s\n", __func__, c->argc[n], c->cmdline[n]);
     for(i=0;i<c->argc[n];i++)
-		  lprintf(1,    "mexec_send: read error argv[%d]=%s\n", i, c->parse[n][i]);
-		lprintf(0,    "mexec_send: read error file=%s\n", fn);
+		  lprintf(1,    "%s: read error argv[%d]=%s\n", __func__, i, c->parse[n][i]);
+		lprintf(0,    "%s: read error file=%s\n", __func__, fn);
 		mfdel(m);
     return(0);
 	}
+
+  /*----- owner check -----*/
+  if(moption.ownmatch && (moption.uid != m->fs.st_uid)){
+	  cprintf(0, c, "skip: owner unmatch %s (%d != %d)\n", fn, moption.uid, m->fs.st_uid);
+		lprintf(0,      "%s: owner unmatch %s (%d != %d)\n", __func__, fn, moption.uid, m->fs.st_uid);
+		mfdel(m);
+    return(0);
+  }
 
   /*----- send to address set -----*/
   if(h){
@@ -335,8 +344,8 @@ int mexec_send(mcomm *c, int n)
     if(size >= 0 && size < PATH_MAX){
       m->ln[size] = 0;
     }else{
-		  cprintf(0, c, "stat: readlink error %s\n", fn);
-		  lprintf(0,    "stat: readlink error %s\n", fn);
+		  cprintf(0, c, "error: readlink error %s\n", fn);
+		  lprintf(0,    "%s: readlink error %s\n", __func__, fn);
 		  mfdel(m);
     }
   }  
@@ -455,7 +464,8 @@ int mexec_exclude(mcomm *c, int n)
       }
       break;
   }
-  cprintf(0,c,"usage: exclude [add|del] pattern\n");
+  cprintf(0,c,"usage: exclude add PATTERN\n");
+  cprintf(0,c,"       exclude del PATTERN\n");
   cprintf(0,c,"       exclude list\n");
   cprintf(0,c,"       exclude clear\n");
   return(0);
@@ -524,7 +534,7 @@ int mexec_md5(mcomm *c, int n)
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    lprintf(0, "mexec_md5: cmd='%s'\n", c->cmdline[n]);
+    lprintf(0, "%s: cmd='%s'\n", __func__, c->cmdline[n]);
     return(mexec_scan(c, fn, t, MAKUO_MEXEC_MD5));
   }
 
@@ -539,7 +549,7 @@ int mexec_md5(mcomm *c, int n)
   /*----- create mfile -----*/
   m = mfadd(0);
   if(!m){
-	  lprintf(0, "mexec_md5: out of memorry\n");
+	  lprintf(0, "%s: out of memorry\n", __func__);
 	  cprintf(0, c, "out of memorry\n");
     return(0);
 	}
@@ -557,7 +567,7 @@ int mexec_md5(mcomm *c, int n)
   /*----- open -----*/
   m->fd = open(m->fn, O_RDONLY);
   if(m->fd == -1){
-	  lprintf(0, "mexec_md5: file open error %s\n", m->fn);
+	  lprintf(0, "%s: file open error %s\n", __func__, m->fn);
     cprintf(0, c, "file open error: %s\r\n", m->fn);
     mfdel(m);
     return(0);
@@ -570,8 +580,8 @@ int mexec_md5(mcomm *c, int n)
   close(m->fd);
   m->fd = -1;
   if(r == -1){
-	  lprintf(0, "mexec_md5: file read error %s\n", m->fn);
-    cprintf(0, c, "file read error %s\n", m->fn);
+	  lprintf(0, "%s: file read error %s\n", __func__, m->fn);
+    cprintf(0, c, "error: file read error %s\n", m->fn);
     mfdel(m);
     return(0);
   }
@@ -634,7 +644,7 @@ int mexec_parse(mcomm *c, int n)
     c->cmdline[n][0]=0;
     cprintf(0, c,"\r");
   }else{
-    lprintf(8, "mexec_parse: %s\n", c->cmdline[n]);
+    lprintf(8, "%s: %s\n", __func__, c->cmdline[n]);
     strcpy(cmd, c->cmdline[n]);
     p=strtok(cmd, " ");
     for(j=0;j<8;j++){
@@ -676,7 +686,7 @@ int mexec(mcomm *c, int n)
     if(r>0){
     }else{
       if(r == -1){
-        lprintf(0, "mexec: read error n=%d\n",n);
+        lprintf(0, "%s: read error n=%d\n", __func__, n);
       }
       mexec_close(c, n);
     }
@@ -689,7 +699,7 @@ int mexec(mcomm *c, int n)
           return(-1);
 
   if(!size){
-    lprintf(0, "mexec: buffer over fllow n=%d\n",n);
+    lprintf(0, "%s: buffer over fllow n=%d\n", __func__, n);
     mexec_close(c, n);
     return(-1);
   }
@@ -700,7 +710,7 @@ int mexec(mcomm *c, int n)
       c->size[n] += r;
     }else{
       if(r < 0){
-        lprintf(0, "mexec: read error n=%d\n",n);
+        lprintf(0, "%s: read error n=%d\n", __func__, n);
       }
       mexec_close(c, n);
       return(-1);

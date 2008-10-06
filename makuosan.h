@@ -2,7 +2,7 @@
  * [MAKUOSAN]
  *  multicast file synchronization system
  */
-#define MAKUOSAN_VERSION "0.8.6"
+#define MAKUOSAN_VERSION "0.8.7"
 #define PROTOCOL_VERSION 3
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -57,7 +57,7 @@
 /*----- operation -----*/
 #define MAKUO_OP_PING 0
 #define MAKUO_OP_EXIT 1
-#define MAKUO_OP_FILE 2
+#define MAKUO_OP_SEND 2
 #define MAKUO_OP_MD5  3
 
 /*----- flags -----*/

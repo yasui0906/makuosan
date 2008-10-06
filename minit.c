@@ -18,13 +18,13 @@ void signal_handler(int n)
     case SIGUSR1:
       if(moption.loglevel<9){
         moption.loglevel++;
-        lprintf(0,"signal_handler: loglevel=%d\n", moption.loglevel);
+        lprintf(0,"%s: loglevel=%d\n", __func__, moption.loglevel);
       }
       break;
     case SIGUSR2:
       if(moption.loglevel>0){
         moption.loglevel--;
-        lprintf(0,"signal_handler: loglevel=%d\n", moption.loglevel);
+        lprintf(0,"%s: loglevel=%d\n", __func__, moption.loglevel);
       }
       break;
   }
@@ -78,7 +78,7 @@ static void minit_option_getenv()
         moption.uid = pw->pw_uid;
         moption.gid = pw->pw_gid;
       }else{
-        lprintf(0,"minit_option_getenv: getpwnam error %s\n", env);
+        lprintf(0,"%s: getpwnam error %s\n", __func__, env);
         exit(1);
       }
     }
@@ -90,7 +90,7 @@ static void minit_option_getenv()
       if(gr = getgrnam(env)){
         moption.gid = gr->gr_gid;
       }else{
-        lprintf(0,"minit_option_getenv: getgrnam error %s\n", env);
+        lprintf(0,"%s: getgrnam error %s\n", __func__, env);
         exit(1);
       }
     }
@@ -106,23 +106,23 @@ static void minit_signal()
   memset(&sig, 0, sizeof(sig));
   sig.sa_handler = signal_handler;
   if(sigaction(SIGINT,  &sig, NULL) == -1){
-    lprintf(0, "minit_signal: sigaction error SIGINT\n");
+    lprintf(0, "%s: sigaction error SIGINT\n", __func__);
     exit(1);
   }
   if(sigaction(SIGTERM, &sig, NULL) == -1){
-    lprintf(0, "minit_signal: sigaction error SIGTERM\n");
+    lprintf(0, "%s: sigaction error SIGTERM\n", __func__);
     exit(1);
   }
   if(sigaction(SIGPIPE, &sig, NULL) == -1){
-    lprintf(0, "minit_signal: sigaction error SIGPIPE\n");
+    lprintf(0, "%s: sigaction error SIGPIPE\n", __func__);
     exit(1);
   }
   if(sigaction(SIGUSR1, &sig, NULL) == -1){
-    lprintf(0, "minit_signal: sigaction error SIGUSR1\n");
+    lprintf(0, "%s: sigaction error SIGUSR1\n", __func__);
     exit(1);
   }
   if(sigaction(SIGUSR2, &sig, NULL) == -1){
-    lprintf(0, "minit_signal: sigaction error SIGUSR2\n");
+    lprintf(0, "%s: sigaction error SIGUSR2\n", __func__);
     exit(1);
   }
 }
@@ -136,17 +136,17 @@ static void minit_password(char *filename, int n)
 
   f = open(filename, O_RDONLY);
   if(f == -1){
-    lprintf(0, "minit_password: file open error %s\n", optarg);
+    lprintf(0, "%s: file open error %s\n", __func__, optarg);
     exit(1);
   }
   memset(buff, 0, sizeof(buff));
   i = read(f, buff, sizeof(buff) - 1);
   if(i == -1){
-    lprintf(0, "minit_password: file read error %s\n", optarg);
+    lprintf(0, "%s: file read error %s\n", __func__, optarg);
     exit(1);
   }
   if(i < 4){
-    lprintf(0, "minit_password: password too short %s\n", optarg);
+    lprintf(0, "%s: password too short %s\n", __func__, optarg);
     exit(1);
   }
   while(i--){
@@ -159,7 +159,7 @@ static void minit_password(char *filename, int n)
   MD5_Update(&ctx, buff, strlen(buff));
   MD5_Final(moption.password[n], &ctx);
   if(read(f, buff, sizeof(buff))){
-    lprintf(0, "minit_password: password too long %s\n", optarg);
+    lprintf(0, "%s: password too long %s\n", __func__, optarg);
     exit(1);
   }
   close(f);
@@ -171,7 +171,7 @@ static void minit_getopt(int argc, char *argv[])
   struct passwd *pw;
   struct group  *gr;
 
-  while((r=getopt(argc, argv, "u:g:d:b:p:m:l:U:k:K:hnsroc")) != -1){
+  while((r=getopt(argc, argv, "u:g:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
     switch(r){
       case 'h':
         usage();
@@ -289,27 +289,27 @@ static void minit_socket()
 
   s=socket(AF_INET, SOCK_DGRAM, 0);
   if(s == -1){
-    lprintf(0, "minit_socket: can't create multicast socket\n");
+    lprintf(0, "%s: can't create multicast socket\n", __func__);
     exit(1);
   }
   if(bind(s, (struct sockaddr*)&addr, sizeof(addr)) == -1){
-    lprintf(0, "minit_socket: bind error\n");
+    lprintf(0, "%s: bind error\n", __func__);
     exit(1);
   }
   if(setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&mg, sizeof(mg)) == -1){
-    lprintf(0, "minit_socket: IP_ADD_MEMBERSHIP error\n");
+    lprintf(0, "%s: IP_ADD_MEMBERSHIP error\n", __func__);
     exit(1);
   }
   if(setsockopt(s, IPPROTO_IP, IP_MULTICAST_IF,   (void *)&mg.imr_interface.s_addr, sizeof(mg.imr_interface.s_addr)) == -1){
-    lprintf(0, "minit_socket: IP_MULTICAST_IF error\n");
+    lprintf(0, "%s: IP_MULTICAST_IF error\n", __func__);
     exit(1);
   }
   if(setsockopt(s, IPPROTO_IP, IP_MULTICAST_LOOP, (void *)&lpen, sizeof(lpen)) == -1){
-    lprintf(0, "minit_socket: IP_MULTICAST_LOOP error\n");
+    lprintf(0, "%s: IP_MULTICAST_LOOP error\n", __func__);
     exit(1);
   }
   if(setsockopt(s, IPPROTO_IP, IP_MULTICAST_TTL,  (void *)&mttl, sizeof(mttl)) == -1){
-    lprintf(0, "minit_socket: IP_MULTICAST_TTL error\n");
+    lprintf(0, "%s: IP_MULTICAST_TTL error\n", __func__);
     exit(1);
   }
   moption.mcsocket = s;
@@ -328,18 +328,18 @@ static void minit_console()
   if(moption.uaddr.sun_path[0]){
     s=socket(AF_UNIX,SOCK_STREAM,0);
     if(!connect(s, (struct sockaddr*)&moption.uaddr, sizeof(moption.uaddr))){
-      lprintf(0, "minit_console: can't create %s\n", moption.uaddr.sun_path);
+      lprintf(0, "%s: can't create %s\n", __func__, moption.uaddr.sun_path);
       exit(1);
     }
     close(s);
     unlink(moption.uaddr.sun_path);
     s=socket(AF_UNIX,SOCK_STREAM,0);
     if(s == -1){
-      lprintf(0, "minit_console: can't create listen socket\n");
+      lprintf(0, "%s: can't create listen socket\n", __func__);
       exit(1);
     }
     if(bind(s, (struct sockaddr*)&moption.uaddr, sizeof(moption.uaddr)) == -1){
-      lprintf(0, "minit_console: bind error\n");
+      lprintf(0, "%s: bind error\n", __func__);
       exit(1);
     }
     chmod(moption.uaddr.sun_path , S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
@@ -347,20 +347,20 @@ static void minit_console()
   }else{
     s=socket(AF_INET,SOCK_STREAM,0);
     if(s == -1){
-      lprintf(0, "minit_console: can't create listen socket\n");
+      lprintf(0, "%s: can't create listen socket\n", __func__);
       exit(1);
     }
     if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (void *)&reuse, sizeof(reuse)) == -1){
-      lprintf(0, "minit_console: SO_REUSEADDR error\n");
+      lprintf(0, "%s: SO_REUSEADDR error\n", __func__);
       exit(1);
     }
     if(bind(s, (struct sockaddr*)&moption.laddr, sizeof(moption.laddr)) == -1){
-      lprintf(0, "minit_console: bind error\n");
+      lprintf(0, "%s: bind error\n", __func__);
       exit(1);
     }
   }
   if(listen(s,5) == -1){
-    lprintf(0, "minit_console: listen error\n");
+    lprintf(0, "%s: listen error\n", __func__);
     exit(1);
   }
   moption.lisocket = s;
@@ -369,7 +369,7 @@ static void minit_console()
 static void minit_chdir()
 {
   if(chdir(moption.base_dir) == -1){
-    lprintf(0, "minit_chdir: can't chdir %s\n", moption.base_dir);
+    lprintf(0, "%s: can't chdir %s\n", __func__,  moption.base_dir);
     exit(1);
   }
   getcwd(moption.real_dir, PATH_MAX);
@@ -377,12 +377,13 @@ static void minit_chdir()
 
 static void minit_chroot()
 {
+  char tz[256];
   if(moption.chroot){
     tzset();
-    sprintf(TZ,"%s%d",tzname[0],timezone/3600);
-    setenv("TZ",TZ,0);
+    sprintf(tz, "%s%d", tzname[0], timezone/3600);
+    setenv("TZ", tz, 0);
     if(chroot(moption.base_dir) == -1){
-      lprintf(0, "minit_chroot: can't chroot %s\n", moption.base_dir);
+      lprintf(0, "%s: can't chroot %s\n", __func__, moption.base_dir);
       exit(0);
     }
   }
@@ -392,7 +393,7 @@ static void minit_chroot()
 static void minit_setguid()
 {
   if(setguid(moption.uid, moption.gid) == -1){
-    lprintf(0, "minit_setguid: can't setguid %d:%d\n", moption.uid, moption.gid);
+    lprintf(0, "%s: can't setguid %d:%d\n", __func__, moption.uid, moption.gid);
     exit(0);
   }
 }
@@ -405,7 +406,7 @@ static void minit_daemonize()
 
   pid = fork();
   if(pid == -1){
-    lprintf(0,"minit_daemonize: can't fork()\n");
+    lprintf(0,"%s: can't fork()\n", __func__);
     exit(1); 
   }
   if(pid)
@@ -413,7 +414,7 @@ static void minit_daemonize()
   setsid();
   pid=fork();
   if(pid == -1){
-    lprintf(0,"minit_daemonize: can't fork()\n");
+    lprintf(0,"%s: can't fork()\n", __func__);
     exit(1); 
   }
   if(pid)
@@ -434,19 +435,19 @@ static void minit_bootlog()
   lprintf(0,"makuosan version %s\n",MAKUOSAN_VERSION);
   lprintf(0,"loglevel  : %d\n", moption.loglevel);
 if(moption.chroot)
-  lprintf(0,"chroot     : %s\n", moption.real_dir);
-  lprintf(0,"base dir   : %s\n", moption.base_dir);
-  lprintf(0,"multicast  : %s\n", inet_ntoa(moption.maddr.sin_addr));
-  lprintf(0,"port       : %d\n", ntohs(moption.maddr.sin_port));
-  lprintf(0,"uid        : %d\n", geteuid());
-  lprintf(0,"gid        : %d\n", getegid());
-  lprintf(0,"don't recv : %s\n", yesno[moption.dontrecv]);
-  lprintf(0,"don't send : %s\n", yesno[moption.dontsend]);
-  lprintf(0,"don't fork : %s\n", yesno[moption.dontfork]);
-  lprintf(0,"encrypt    : %s\n", yesno[moption.cryptena]);
-  lprintf(0,"console    : %s\n", yesno[moption.comm_ena]);
-  lprintf(0,"passwoed   : %s\n", yesno[moption.commpass]);
-  lprintf(0,"owner match: %s\n", yesno[moption.ownmatch]);
+  lprintf(0,"chroot    : %s\n", moption.real_dir);
+  lprintf(0,"base dir  : %s\n", moption.base_dir);
+  lprintf(0,"multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
+  lprintf(0,"port      : %d\n", ntohs(moption.maddr.sin_port));
+  lprintf(0,"uid       : %d\n", geteuid());
+  lprintf(0,"gid       : %d\n", getegid());
+  lprintf(0,"don't recv: %s\n", yesno[moption.dontrecv]);
+  lprintf(0,"don't send: %s\n", yesno[moption.dontsend]);
+  lprintf(0,"don't fork: %s\n", yesno[moption.dontfork]);
+  lprintf(0,"encrypt   : %s\n", yesno[moption.cryptena]);
+  lprintf(0,"console   : %s\n", yesno[moption.comm_ena]);
+  lprintf(0,"passwoed  : %s\n", yesno[moption.commpass]);
+  lprintf(0,"ownermatch: %s\n", yesno[moption.ownmatch]);
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);

@@ -86,7 +86,7 @@ void recv_timeout(mfile *m)
     do{
       for(h=members;h;h=h->next){
         if(h->state == MAKUO_RECVSTATE_NONE){
-          lprintf(0,"recv_timeout: %s(%s) timeout\n", inet_ntoa(h->ad), h->hostname);
+          lprintf(0,"%s: %s(%s) timeout\n", __func__, inet_ntoa(h->ad), h->hostname);
           member_del(h);
           break;
         }
@@ -103,7 +103,7 @@ struct timeval *pingpong(int n)
   char buff[MAKUO_HOSTNAME_MAX + 1];
 
   if(!m){
-    lprintf(0, "pingpong: out of memmory\r\n");
+    lprintf(0, "%s: out of memmory\r\n", __func__);
     return(0);
   }
   switch(n){
@@ -198,7 +198,7 @@ int mcomm_accept(mcomm *c, fd_set *fds, int s)
   }
   c[i].addrlen = sizeof(c[i].addr);
   c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
-  lprintf(2, "mcomm_accept: accept from %s i=%d fd=%d\n", inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
+  lprintf(2, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
   /*cprintf(0, &(c[i]),"\xff\xfd\x18\r");*/
   c[i].working = 1;
   return(0);
@@ -244,7 +244,7 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
     }else{
       if(c[i].cpid){
         if(waitpid(c[i].cpid, NULL, WNOHANG) == c[i].cpid){
-          lprintf(0,"mcomm_fdset: send complete\n");
+          lprintf(0, "%s: send complete\n", __func__);
           c[i].cpid = 0;
         }
       }
@@ -312,25 +312,27 @@ int mloop()
     mcomm_fdset(moption.comm, &rfds);
     if(select(1024, &rfds, &wfds, NULL, &tv) < 0)
       continue;
+
     gettimeofday(&curtime,NULL);
     if(FD_ISSET(moption.mcsocket,&wfds))
       msend(moption.mcsocket, mftop[0]);
     if(FD_ISSET(moption.mcsocket,&rfds))
       mrecv(moption.mcsocket);
+
     mrecv_gc();
-    mcomm_accept(moption.comm, &rfds, moption.lisocket);
-    mcomm_read(moption.comm, &rfds);
+    mcomm_accept(moption.comm, &rfds, moption.lisocket); /* new console  */
+    mcomm_read(moption.comm, &rfds);                     /* command exec */
   }
   return(0);
 }
 
 void mexit()
 {
-  lprintf(0, "mexit: shutdown start\n");
+  lprintf(0, "%s: shutdown start\n", __func__);
   restoreguid(); /* euid,egidを元に戻す      */
   chexit();      /* chrootから脱出           */
   cleanup();     /* ディスクリプタの開放など */
-  lprintf(0, "mexit: shutdown complete\n");
+  lprintf(0, "%s: shutdown complete\n", __func__);
 }
 
 int main(int argc, char *argv[])

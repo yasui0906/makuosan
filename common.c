@@ -4,7 +4,6 @@ mopt moption;
 mfile *mftop[2] = {NULL,NULL};
 mhost *members  = NULL;
 int loop_flag   = 1;
-char TZ[256];
 struct timeval curtime;
 BF_KEY EncKey;
 
@@ -215,7 +214,7 @@ mhost *member_add(struct in_addr *addr, mdata *data)
   if(!t){
     t = malloc(sizeof(mhost));
     if(!t){
-      lprintf(0,"member_add: out of memory\n");
+      lprintf(0,"%s: out of memory\n", __func__);
       return(NULL);
     }
     memcpy(&t->ad, addr, sizeof(t->ad));
@@ -243,7 +242,7 @@ mhost *member_add(struct in_addr *addr, mdata *data)
     }
   }
   if(f){
-    lprintf(0,"member_add: %s (%s)\n", inet_ntoa(t->ad), t->hostname);
+    lprintf(0,"%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
   }
   mtimeget(&(t->lastrecv));
   return(t);
@@ -256,7 +255,7 @@ void member_del(mhost *t)
   mhost *n;
   if(!t)
     return;
-  lprintf(0,"member_del: %s (%s)\n", inet_ntoa(t->ad), t->hostname);
+  lprintf(0,"%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
   if(p = (mhost *)t->prev)
     p->next = t->next;
   if(n = (mhost *)t->next)
@@ -275,7 +274,7 @@ void member_del(mhost *t)
             mremove(moption.base_dir,m->tn);
           }
         }
-        lprintf(0,"member_del: mfile break %s\n", m->fn);
+        lprintf(0,"%s: mfile break %s\n", __func__, m->fn);
         mfdel(m);
         break;
       }
@@ -478,7 +477,7 @@ int mremove(char *base, char *name)
     strcpy(path,name);
   }else{
     sprintf(path,"%s/%s", base, name);
-    lprintf(0,"mremove: %s\n",  path);
+    lprintf(0,"%s: %s\n", __func__, path);
   }
   if(is_dir(path)){
     if(d = opendir(path)){
