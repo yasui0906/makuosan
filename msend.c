@@ -453,14 +453,14 @@ static void msend_req_send_close(int s, mfile *m)
     return;
   }
   lprintf(9,"%s: %s\n", __func__, m->fn);
-  msend_mfdel(m);
-  m = NULL;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
 }
 
 static void msend_req_send_last(int s, mfile *m)
 {
-  m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
+  lprintf(9, "%s: %s\n", __func__, m->fn);
   msend_packet(s, &(m->mdata), &(m->addr));
+  msend_mfdel(m);
 }
 
 /*----- send -----*/
