@@ -2,7 +2,7 @@
  * [MAKUOSAN]
  *  multicast file synchronization system
  */
-#define MAKUOSAN_VERSION "0.8.7"
+#define MAKUOSAN_VERSION "0.8.8"
 #define PROTOCOL_VERSION 3
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -65,12 +65,14 @@
 #define MAKUO_FLAG_CRYPT 2
 
 /*----- sendstatus -----*/
-#define MAKUO_SENDSTATE_STAT       0
-#define MAKUO_SENDSTATE_OPEN       1
-#define MAKUO_SENDSTATE_MARK       2
-#define MAKUO_SENDSTATE_CLOSE      3
-#define MAKUO_SENDSTATE_ERROR      4
-#define MAKUO_SENDSTATE_BREAK      5
+#define MAKUO_SENDSTATE_STAT       0  /* 更新確認待 */
+#define MAKUO_SENDSTATE_OPEN       1  /* オープン待 */
+#define MAKUO_SENDSTATE_DATA       2  /* データ送信 */
+#define MAKUO_SENDSTATE_MARK       3  /* 再送確認待 */
+#define MAKUO_SENDSTATE_CLOSE      4  /* クローズ待 */
+#define MAKUO_SENDSTATE_LAST       5  /* 送信完了   */
+#define MAKUO_SENDSTATE_ERROR      6  /* エラー発生 */
+#define MAKUO_SENDSTATE_BREAK      7  /* 送信中断   */
 
 /*----- recvstatus -----*/
 #define MAKUO_RECVSTATE_NONE       0
