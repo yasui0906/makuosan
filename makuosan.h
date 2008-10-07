@@ -2,7 +2,7 @@
  * [MAKUOSAN]
  *  multicast file synchronization system
  */
-#define MAKUOSAN_VERSION "0.8.9"
+#define MAKUOSAN_VERSION "0.9.0"
 #define PROTOCOL_VERSION 3
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -41,6 +41,7 @@
 #define MAX_COMM             8
 #define MAKUO_BUFFER_SIZE 1024
 #define MAKUO_HOSTNAME_MAX 255
+#define MAKUO_PARALLEL_MAX   8
 
 /*----- default -----*/
 #define MAKUO_LOCAL_ADDR  "127.0.0.1"
@@ -48,11 +49,11 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                     */
-#define MAKUO_SEND_RETRYCNT 120    /* 再送回数                         */
-#define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms) */
-#define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                 */
-#define MAKUO_RECV_GCWAIT   300000
+#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
+#define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
+#define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
+#define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
+#define MAKUO_RECV_GCWAIT   300000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
 
 /*----- operation -----*/
 #define MAKUO_OP_PING 0
@@ -83,6 +84,7 @@
 #define MAKUO_RECVSTATE_CLOSE      5
 #define MAKUO_RECVSTATE_IGNORE     6
 #define MAKUO_RECVSTATE_READONLY   7
+#define MAKUO_RECVSTATE_RETRY      8
 #define MAKUO_RECVSTATE_MD5OK      10
 #define MAKUO_RECVSTATE_MD5NG      11
 #define MAKUO_RECVSTATE_OPENERROR  90
@@ -197,7 +199,8 @@ typedef struct
 
 typedef struct
 {
-  int state;
+  uint8_t state[MAKUO_PARALLEL_MAX];
+  mfile *mflist[MAKUO_PARALLEL_MAX];
   char hostname[MAKUO_HOSTNAME_MAX];
   char version[32];
   struct in_addr ad;
@@ -219,6 +222,7 @@ typedef struct
   int comm_ena;
   int commpass;
   int ownmatch;
+  int parallel;
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;
@@ -264,14 +268,17 @@ int    seq_delmark(mfile *m, uint32_t seq);
 int    seq_addmark(mfile *m, uint32_t lseq, uint32_t useq);
 int    linkcmp(mfile *m);
 int    statcmp(struct stat *s1, struct stat *s2);
-int    mremove(char *base, char *name);
-int    mcreate(char *base, char *name, mode_t mode);
-int    mcreatedir(char *base, char *name, mode_t mode);
-int    space_escape(char *str);
-int    workend(mcomm *c);
-int    ack_clear(mfile *m, int state);
-int    ack_check(mfile *m, int state);
-int    mtimeget(struct timeval *tv);
-int    mtimeout(struct timeval *tf, uint32_t msec);
+int      mremove(char *base, char *name);
+int      mcreatedir(char  *base, char *name, mode_t mode);
+int      mcreatefile(char *base, char *name, mode_t mode);
+int      mcreatelink(char *base, char *name, char *link);
+int      space_escape(char *str);
+int      workend(mcomm *c);
+void     clr_hoststate(mfile *m);
+uint8_t *get_hoststate(mhost *t, mfile *m);
+int      ack_clear(mfile *m, int state);
+int      ack_check(mfile *m, int state);
+int      mtimeget(struct timeval *tv);
+int      mtimeout(struct timeval *tf, uint32_t msec);
 excludeitem *mfnmatch(char *str, excludeitem *exclude);
 

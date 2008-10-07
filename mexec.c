@@ -308,7 +308,7 @@ int mexec_send(mcomm *c, int n)
 	m->mdata.head.seqno  = 0;
   m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
 	m->comm      = c;
-	m->sendwait  = 1;
+	m->sendwait  = 0;
   m->sendto    = 0;
   m->dryrun    = (mode == MAKUO_MEXEC_DRY);
   m->initstate = 1;

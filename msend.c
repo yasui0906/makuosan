@@ -18,6 +18,7 @@ static mfile *msend_mfdel(mfile *m)
     close(m->fd);   
   if(m->mark)
     free(m->mark);
+  clr_hoststate(m);
   mfdel(m);
   return(r);
 }
@@ -80,23 +81,29 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 /* retry */
 static void msend_retry(mfile *m)
 {
+  uint8_t *r;
+  mhost   *t;
+
   if(!m->sendwait){
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return;
   }
-
-  mhost *t;
   lprintf(2, "%s: send retry count=%02d rid=%06d state=%d %s\n", __func__,
     m->retrycnt, m->mdata.head.reqid, m->mdata.head.nstate, m->fn);
   for(t=members;t;t=t->next){
+    r = get_hoststate(t, m);
+    if(!r){
+      lprintf(0, "%s:   can't alloc state area\n", __func__);
+      continue;
+    }
     switch(moption.loglevel){
       case 3:
-        if(t->state == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s:   state=%d %s(%s)\n", __func__, t->state, inet_ntoa(t->ad), t->hostname);
+        if(*r == MAKUO_RECVSTATE_NONE){
+          lprintf(0, "%s:   state=%d %s(%s)\n", __func__, (int)*r, inet_ntoa(t->ad), t->hostname);
         }
         break;
       default:
-        lprintf(4, "%s:   state=%d %s(%s)\n", __func__, t->state, inet_ntoa(t->ad), t->hostname);
+        lprintf(4, "%s:   state=%d %s(%s)\n", __func__, (int)*r, inet_ntoa(t->ad), t->hostname);
         break;
     }
   }
@@ -123,9 +130,9 @@ void msend(int s, mfile *m)
   msend_retry(m);
   mtimeget(&m->lastsend);
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-    msend_ack(s, m);  /* source node task */
+    msend_ack(s, m); /* source node task */
   }else{
-    msend_req(s, m);  /* destination node task */
+    msend_req(s, m); /* destination node task */
   }
 }
 
@@ -184,66 +191,6 @@ static void msend_req_send_break(int s, mfile *m)
   msend_mfdel(m);
 }
 
-static void msend_req_send_markdata(int s, mfile *m)
-{
-  int i;
-  int r;
-  if(!m->markcount){
-    /* close */
-    m->initstate = 1;
-    m->mdata.head.seqno  = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-    lprintf(4, "%s: file send complate! %s\n", __func__, m->fn);
-    return;
-  }
-  lprintf(4, "%s: block send retry %d\n", __func__, m->markcount);
-  for(i=0;i<m->markcount;i++){
-    m->mdata.head.seqno = m->mark[i];
-    lseek(m->fd, (m->mdata.head.seqno - 1) * MAKUO_BUFFER_SIZE, SEEK_SET);
-    r = read(m->fd, m->mdata.data, MAKUO_BUFFER_SIZE);
-    if(r>0){
-      m->mdata.head.szdata = r;
-      msend_packet(s, &(m->mdata), &(m->addr));
-    }else{
-      if(!r){
-        lprintf(0, "%s: read eof? seqno=%d\n", __func__, m->mdata.head.seqno);
-      }else{
-        lprintf(0, "%s: read err! seqno=%d errno=%d\n", __func__, m->mdata.head.seqno, errno);
-      }
-    }
-  }
-  /* eof */
-  m->markcount = 0;
-  m->initstate = 1;
-  m->mdata.head.seqno  = 0;
-  m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
-}
-
-static void msend_req_send_filedata(int s, mfile *m)
-{
-  int readsize;
-  lseek(m->fd, (m->mdata.head.seqno - 1) * MAKUO_BUFFER_SIZE, SEEK_SET);
-  readsize = read(m->fd, m->mdata.data, MAKUO_BUFFER_SIZE);
-  if(readsize > 0){
-    m->mdata.head.szdata = readsize;
-    if(msend_packet(s, &(m->mdata), &(m->addr)) == 1){
-      m->mdata.head.seqno++;
-    }
-  }else{
-    if(readsize == -1){
-      /* err */
-      lprintf(0, "%s: read error! seqno=%d errno=%d\n", __func__, m->mdata.head.seqno, errno);
-    }else{
-      /* eof */
-      lprintf(4, "%s: block send count=%d\n", __func__, m->mdata.head.seqno);
-      m->mdata.head.seqno = 0;
-      m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
-      m->initstate = 1;
-      m->lickflag  = 1;
-    }
-  }
-}
-
 static void msend_req_send_stat_init(int s, mfile *m)
 {
   mstat fs;
@@ -284,7 +231,8 @@ static void msend_req_send_stat_init(int s, mfile *m)
 
 static void msend_req_send_stat(int s, mfile *m)
 {
-  mhost *h;
+  uint8_t *r;
+  mhost   *t;
 
   if(m->initstate){
     msend_req_send_stat_init(s, m);
@@ -301,13 +249,14 @@ static void msend_req_send_stat(int s, mfile *m)
     }else{
       cprintf(0, m->comm, "[%s]\r\n", m->fn);
       if(!m->sendto){
-        for(h=members;h;h=h->next){
-          if(h->state == MAKUO_RECVSTATE_UPDATE)
-            cprintf(1, m->comm, "%s: update\r\n", h->hostname);
-          if(h->state == MAKUO_RECVSTATE_SKIP)
-            cprintf(2, m->comm, "%s: skip\r\n", h->hostname);
-          if(h->state == MAKUO_RECVSTATE_READONLY)
-            cprintf(2, m->comm, "%s: skip(read only)\r\n", h->hostname);
+        for(t=members;t;t=t->next){
+          r = get_hoststate(t, m);
+          if(*r == MAKUO_RECVSTATE_UPDATE)
+            cprintf(1, m->comm, "%s: update\r\n", t->hostname);
+          if(*r == MAKUO_RECVSTATE_SKIP)
+            cprintf(2, m->comm, "%s: skip\r\n", t->hostname);
+          if(*r == MAKUO_RECVSTATE_READONLY)
+            cprintf(2, m->comm, "%s: skip(read only)\r\n", t->hostname);
         }
       }
     }
@@ -322,13 +271,14 @@ static void msend_req_send_stat(int s, mfile *m)
       lprintf(1, "%s: update %s\n", __func__, m->fn);
       cprintf(1, m->comm, "[%s]\r\n", m->fn);
       if(!m->sendto){
-        for(h=members;h;h=h->next){
-          if(h->state == MAKUO_RECVSTATE_UPDATE)
-            cprintf(2, m->comm, "%s: update\r\n", h->hostname);
-          if(h->state == MAKUO_RECVSTATE_SKIP)
-            cprintf(3, m->comm, "%s: skip\r\n", h->hostname);
-          if(h->state == MAKUO_RECVSTATE_READONLY)
-            cprintf(3, m->comm, "%s: skip(read only)\r\n", h->hostname);
+        for(t=members;t;t=t->next){
+          r = get_hoststate(t, m);
+          if(*r == MAKUO_RECVSTATE_UPDATE)
+            cprintf(2, m->comm, "%s: update\r\n", t->hostname);
+          if(*r == MAKUO_RECVSTATE_SKIP)
+            cprintf(3, m->comm, "%s: skip\r\n", t->hostname);
+          if(*r == MAKUO_RECVSTATE_READONLY)
+            cprintf(3, m->comm, "%s: skip(read only)\r\n", t->hostname);
         }
       }
       m->initstate = 1;
@@ -360,7 +310,7 @@ static void msend_req_send_open_init(int s, mfile *m)
         m->initstate = 1;
         m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
         cprintf(0, m->comm, "error: file open error errno=%d %s\n", errno, m->fn);
-        lprintf(0,          "%s: open error errno=%d %s\n", __func__, errno, m->fn);
+        lprintf(0, "%s: open error errno=%d %s\n", __func__, errno, m->fn);
       }
     }
   }
@@ -390,9 +340,69 @@ static void msend_req_send_open(int s, mfile *m)
         m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
       }
       if(S_ISREG(m->fs.st_mode)){
-        m->mdata.head.seqno  = 1;
+        m->mdata.head.seqno  = 0;
         m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
       }
+    }
+  }
+}
+
+static void msend_req_send_markdata(int s, mfile *m)
+{
+  int i;
+  int r;
+  if(!m->markcount){
+    /* close */
+    m->initstate = 1;
+    m->mdata.head.seqno  = 0;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+    lprintf(4, "%s: file send complate! %s\n", __func__, m->fn);
+    return;
+  }
+  lprintf(4, "%s: block send retry %d\n", __func__, m->markcount);
+  for(i=0;i<m->markcount;i++){
+    m->mdata.head.seqno = m->mark[i];
+    lseek(m->fd, m->mdata.head.seqno * MAKUO_BUFFER_SIZE, SEEK_SET);
+    r = read(m->fd, m->mdata.data, MAKUO_BUFFER_SIZE);
+    if(r>0){
+      m->mdata.head.szdata = r;
+      msend_packet(s, &(m->mdata), &(m->addr));
+    }else{
+      if(!r){
+        lprintf(0, "%s: read eof? seqno=%d\n", __func__, m->mdata.head.seqno);
+      }else{
+        lprintf(0, "%s: read err! seqno=%d errno=%d\n", __func__, m->mdata.head.seqno, errno);
+      }
+    }
+  }
+  /* eof */
+  m->markcount = 0;
+  m->initstate = 1;
+  m->mdata.head.seqno  = 0;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+}
+
+static void msend_req_send_filedata(int s, mfile *m)
+{
+  int readsize;
+  lseek(m->fd, m->mdata.head.seqno * MAKUO_BUFFER_SIZE, SEEK_SET);
+  readsize = read(m->fd, m->mdata.data, MAKUO_BUFFER_SIZE);
+  if(readsize > 0){
+    m->mdata.head.szdata = readsize;
+    if(msend_packet(s, &(m->mdata), &(m->addr)) == 1){
+      m->mdata.head.seqno++;
+    }
+  }else{
+    if(readsize == -1){
+      /* err */
+      lprintf(0, "%s: read error! seqno=%d errno=%d\n", __func__, m->mdata.head.seqno, errno);
+    }else{
+      /* eof */
+      lprintf(4, "%s: block send count=%d\n", __func__, m->mdata.head.seqno);
+      m->mdata.head.seqno  = 0;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+      m->initstate = 1;
+      m->lickflag  = 1;
     }
   }
 }
@@ -405,9 +415,9 @@ static void msend_req_send_data(int s, mfile *m)
     return;
   }
   if(m->lickflag){
-    msend_req_send_markdata(s, m); /* send rery */
+    msend_req_send_markdata(s, m); /* send retry */
   }else{
-    msend_req_send_filedata(s, m); /* send data */
+    msend_req_send_filedata(s, m); /* send data  */
   }
 }
 
@@ -429,7 +439,6 @@ static void msend_req_send_mark(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  m->mdata.head.seqno  = 1;
   m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
 }
 

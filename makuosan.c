@@ -19,6 +19,7 @@ void usage()
   printf("  -U path  # unix domain socket\n");
   printf("  -k file  # key file (encrypt password)\n");
   printf("  -K file  # key file (console password)\n");
+  printf("  -f num   # parallel send count(default: 1) \n");
   printf("  -c       # chroot to base dir\n");
   printf("  -n       # don't fork\n");
   printf("  -r       # don't recv\n");
@@ -285,6 +286,7 @@ int ismsend(mfile *m)
 /***** main loop *****/
 int mloop()
 {
+  int i;
   fd_set rfds;
   fd_set wfds;
   struct timeval *lastpong;
@@ -306,16 +308,27 @@ int mloop()
     if(mftop[0]){
       tv.tv_sec  = 0;
       tv.tv_usec = 10000;
-      if(ismsend(mftop[0]))
-        FD_SET(moption.mcsocket, &wfds);
+      FD_SET(moption.mcsocket, &wfds);
     }
     mcomm_fdset(moption.comm, &rfds);
     if(select(1024, &rfds, &wfds, NULL, &tv) < 0)
       continue;
 
     gettimeofday(&curtime,NULL);
-    if(FD_ISSET(moption.mcsocket,&wfds))
-      msend(moption.mcsocket, mftop[0]);
+    if(FD_ISSET(moption.mcsocket,&wfds)){
+      mfile *m = mftop[0];
+      mfile *n = NULL;
+      for(i=0;i<moption.parallel;i++){
+        n = m->next;
+        if(ismsend(m)){
+          msend(moption.mcsocket, m);
+        }
+        m = n;
+        if(!m){
+          break;
+        }
+      }
+    }
     if(FD_ISSET(moption.mcsocket,&rfds))
       mrecv(moption.mcsocket);
 

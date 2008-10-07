@@ -12,7 +12,6 @@ int md5sum(int fd, unsigned char *digest)
   int  rd;
   char buff[1024];
   MD5_CTX ctx;
-
   MD5_Init(&ctx);
   while(rd = read(fd, buff, sizeof(buff))){
     if(rd == -1){
@@ -217,10 +216,8 @@ mhost *member_add(struct in_addr *addr, mdata *data)
       lprintf(0,"%s: out of memory\n", __func__);
       return(NULL);
     }
+    memset(t, 0, sizeof(mhost));
     memcpy(&t->ad, addr, sizeof(t->ad));
-    t->state = 0;
-    t->prev  = NULL;
-    t->next  = NULL;
     if(members){
       members->prev = t;
       t->next = members;
@@ -262,47 +259,50 @@ void member_del(mhost *t)
     n->prev = t->prev;
   if(members == t)
     members = n;
-  do{
-    for(m=mftop[1];m;m=m->next){
-      if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
-        if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
-          if(m->fd != -1){
-            close(m->fd);
-          }
-          m->fd = -1;
-          if(S_ISREG(m->fs.st_mode)){
-            mremove(moption.base_dir,m->tn);
-          }
-        }
-        lprintf(0,"%s: mfile break %s\n", __func__, m->fn);
-        mfdel(m);
-        break;
-      }
-    }
-  }while(m);
   free(t);
 }
 
 int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
 {
-  int i,j;
+  int i, j;
   int size;
-  void *n;
+  void  *n;
+  mfile *a;
 
   if(!m->mark){
     m->markcount = 0;
     m->marksize  = 512;
     m->mark = malloc(sizeof(uint32_t) * m->marksize);
+    if(!m->mark){
+      lprintf(0,"%s: out of memory\n", __func__);
+      return(-1); 
+    }
   }
   size = m->marksize;
   while(size < m->markcount + useq - lseq)
     size += 512;
   if(size != m->marksize){
-    n = malloc(sizeof(uint32_t) * size);
-    memcpy(n, m->mark, sizeof(uint32_t) * m->marksize);
-    free(m->mark);
+    n = realloc(m->mark, sizeof(uint32_t) * size);
+    if(!n){
+      lprintf(0,"%s: out of memory\n", __func__);
+      return(-1); 
+    }
     m->mark = n;
     m->marksize = size;
+
+    /***** retry(apap) *****/
+    a = mfins(0);
+    if(!a){
+      lprintf(0,"%s: out of memory\n", __func__);
+    }else{
+      a->mdata.head.flags |= MAKUO_FLAG_ACK;
+      a->mdata.head.opcode = m->mdata.head.opcode;
+      a->mdata.head.reqid  = m->mdata.head.reqid;
+      a->mdata.head.szdata = 0;
+      a->mdata.head.seqno  = m->mdata.head.seqno;
+      a->mdata.head.nstate = MAKUO_RECVSTATE_RETRY;
+      memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+    }
   }
   for(i=lseq;i<useq;i++){
     for(j=0;j<m->markcount;j++)
@@ -344,20 +344,65 @@ int seq_popmark(mfile *m, int n)
   }
 }
 
+void clr_hoststate(mfile *m)
+{
+  int    i;
+  mhost *t;
+
+  for(t=members;t;t=t->next){
+    for(i=0;i<MAKUO_PARALLEL_MAX;i++){
+      if(t->mflist[i] == m){
+        t->mflist[i] = NULL;
+        t->state[i]  = 0;
+      }
+    }
+  }
+}
+
+uint8_t *get_hoststate(mhost *t, mfile *m)
+{
+  int i;
+  int r;
+  if(!t || !m){
+    return(NULL);
+  }
+  r = -1;
+  for(i=0;i<MAKUO_PARALLEL_MAX;i++){
+    if(t->mflist[i] == m){
+      return(&(t->state[i]));
+    }else{
+      if((r == -1) && !(t->mflist[i])){
+        r = i;
+      }
+    }
+  }
+  if(r != -1){
+    t->mflist[r] = m;
+    return(&(t->state[r]));
+  }
+  return(NULL);
+}
+
 int ack_clear(mfile *m, int state)
 {
-  mhost *h;
-  for(h=members;h;h=h->next){
+  uint8_t *s;
+  mhost   *t;
+  for(t=members;t;t=t->next){
     if(!m->sendto){
-      if(state == -1 || h->state == state)
-        h->state = MAKUO_RECVSTATE_NONE;
+      if(s = get_hoststate(t, m)){
+        if(state == -1 || *s == state){
+          *s = MAKUO_RECVSTATE_NONE;
+        }
+      }
     }else{
-      if(!memcmp(&(m->addr.sin_addr), &(h->ad), sizeof(m->addr.sin_addr))){
-        if(state == -1 || h->state == state){
-          h->state = MAKUO_RECVSTATE_NONE;
-          return(1);
-        }else{
-          return(0);
+      if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
+        if(s = get_hoststate(t, m)){
+          if(state == -1 || *s == state){
+            *s = MAKUO_RECVSTATE_NONE;
+            return(1);
+          }else{
+            return(0);
+          }
         }
       }
     }
@@ -379,18 +424,23 @@ int ack_clear(mfile *m, int state)
 */
 int ack_check(mfile *m, int state)
 {
-  mhost *h;
-  for(h=members;h;h=h->next){
+  uint8_t *s;
+  mhost   *t;
+  for(t=members;t;t=t->next){
     if(!m->sendto){
-      if(h->state == state){
-        return(1);
+      if(s=get_hoststate(t,m)){
+        if(*s == state){
+          return(1);
+        }
       }
     }else{
-      if(!memcmp(&(m->addr.sin_addr), &(h->ad), sizeof(m->addr.sin_addr))){
-        if(h->state == state){
-          return(1);
-        }else{
-          return(0);
+      if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
+        if(s=get_hoststate(t,m)){
+          if(*s == state){
+            return(1);
+          }else{
+            return(0);
+          }
         }
       }
     }
@@ -534,7 +584,7 @@ int mcreatedir(char *base, char *name, mode_t mode)
   return(0);
 }
 
-int mcreate(char *base, char *name, mode_t mode)
+int mcreatefile(char *base, char *name, mode_t mode)
 {
   int fd = -1;
   char path[PATH_MAX];
@@ -543,6 +593,16 @@ int mcreate(char *base, char *name, mode_t mode)
     fd = open(path, O_RDWR | O_CREAT | O_TRUNC, mode & 0xFFF);
   }
   return(fd);
+}
+
+int mcreatelink(char *base, char *name, char *link)
+{
+  char path[PATH_MAX];
+  if(!mcreatedir(base,name,0755)){
+    sprintf(path,"%s/%s",base,name);
+    return(symlink(link,path));
+  }
+  return(-1);
 }
 
 int space_escape(char *str)

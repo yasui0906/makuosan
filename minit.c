@@ -50,6 +50,7 @@ static void minit_option_setdefault()
   moption.comm_ena              = 1;
   moption.commpass              = 0;
   moption.ownmatch              = 0;
+  moption.parallel              = 1;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
@@ -171,10 +172,20 @@ static void minit_getopt(int argc, char *argv[])
   struct passwd *pw;
   struct group  *gr;
 
-  while((r=getopt(argc, argv, "u:g:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
+  while((r=getopt(argc, argv, "f:u:g:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
     switch(r){
       case 'h':
         usage();
+
+      case 'f':
+        moption.parallel = atoi(optarg);
+        if(moption.parallel < 1){
+          moption.parallel = 1;
+        }
+        if(moption.parallel >= MAKUO_PARALLEL_MAX){
+          moption.parallel = MAKUO_PARALLEL_MAX - 1;
+        }
+        break;
 
       case 'n':
         moption.dontfork = 1;
@@ -441,6 +452,7 @@ if(moption.chroot)
   lprintf(0,"port      : %d\n", ntohs(moption.maddr.sin_port));
   lprintf(0,"uid       : %d\n", geteuid());
   lprintf(0,"gid       : %d\n", getegid());
+  lprintf(0,"parallel  : %d\n", moption.parallel);
   lprintf(0,"don't recv: %s\n", yesno[moption.dontrecv]);
   lprintf(0,"don't send: %s\n", yesno[moption.dontsend]);
   lprintf(0,"don't fork: %s\n", yesno[moption.dontfork]);
