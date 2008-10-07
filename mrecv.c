@@ -536,6 +536,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
     case MAKUO_RECVSTATE_MARK:
       m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+      break;
     case MAKUO_RECVSTATE_CLOSE:
     case MAKUO_RECVSTATE_CLOSEERROR:
       break;
@@ -581,6 +582,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
       }
     }
   }
+
   a = mfins(0);
   if(!a){
     lprintf(0,"%s: out of memory\n", __func__);
@@ -647,6 +649,10 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   uint16_t fnlen;
   uint16_t lnlen;
 
+  if(data->head.nstate != MAKUO_SENDSTATE_STAT){
+    return(NULL);
+  }
+
   /* create object */
   if(!(m = mfadd(1))){
     return(NULL);
@@ -692,6 +698,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
 {
+  mfile *a; 
   mfile *m; 
   for(m=mftop[1];m;m=m->next){
     if(!memcmp(&m->addr, addr, sizeof(m->addr)) && m->mdata.head.reqid == data->head.reqid){
@@ -700,12 +707,25 @@ static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
   }
   if(!m){
     m = mrecv_req_send_create(data, addr);
-    if(!m){
-      lprintf(0, "%s: out of memory\n", __func__);
+  }
+  if(m){
+    mtimeget(&(m->lastrecv));
+    mrecv_req_send_next(m, data);
+  }else{
+    if(data->head.nstate != MAKUO_SENDSTATE_DATA){
+      a = mfins(0);
+      if(!a){
+        lprintf(0,"%s: out of memory\n", __func__);
+      }else{
+        a->mdata.head.flags |= MAKUO_FLAG_ACK;
+        a->mdata.head.opcode = data->head.opcode;
+        a->mdata.head.reqid  = data->head.reqid;
+        a->mdata.head.seqno  = data->head.seqno;
+        a->mdata.head.nstate = MAKUO_RECVSTATE_IGNORE;
+        memcpy(&(a->addr), addr, sizeof(a->addr));
+      }
     }
   }
-  mtimeget(&(m->lastrecv));
-  mrecv_req_send_next(m, data);
 }
 
 static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)

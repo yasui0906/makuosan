@@ -303,17 +303,6 @@ int mexec_send(mcomm *c, int n)
 	  lprintf(0, "%s: out of memorry\n", __func__);
     return(0);
 	}
-	m->mdata.head.reqid  = getrid();
-	m->mdata.head.opcode = MAKUO_OP_SEND;
-	m->mdata.head.seqno  = 0;
-  m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
-	m->comm      = c;
-	m->sendwait  = 0;
-  m->sendto    = 0;
-  m->dryrun    = (mode == MAKUO_MEXEC_DRY);
-  m->initstate = 1;
-  m->ln[0]     = 0;
-	strcpy(m->fn, fn);
 	if(lstat(fn, &m->fs) == -1){
 	  cprintf(0, c, "error: lstat() error %s\n", fn);
 		lprintf(1,    "%s: lstat() error argc=%d cmd=%s\n", __func__, c->argc[n], c->cmdline[n]);
@@ -323,6 +312,17 @@ int mexec_send(mcomm *c, int n)
 		mfdel(m);
     return(0);
 	}
+	strcpy(m->fn, fn);
+	m->mdata.head.reqid  = getrid();
+	m->mdata.head.opcode = MAKUO_OP_SEND;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
+	m->comm      = c;
+  m->dryrun    = (mode == MAKUO_MEXEC_DRY);
+  m->initstate = 1;
+  m->seqnomax  = m->fs.st_size / MAKUO_BUFFER_SIZE;
+  if(m->fs.st_size % MAKUO_BUFFER_SIZE){
+    m->seqnomax++; 
+  }
 
   /*----- owner check -----*/
   if(moption.ownmatch && (moption.uid != m->fs.st_uid)){
