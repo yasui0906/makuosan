@@ -548,8 +548,8 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
     fstat(m->fd, &fs);
     close(m->fd);
     m->fd = -1;
-    mftime.actime  = fs.st_ctime; 
-    mftime.modtime = fs.st_mtime;
+    mftime.actime  = m->fs.st_ctime; 
+    mftime.modtime = m->fs.st_mtime;
     if(S_ISLNK(m->fs.st_mode)){
       if(!mrename(moption.base_dir, m->tn, m->fn)){
       }else{
