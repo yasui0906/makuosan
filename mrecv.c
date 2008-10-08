@@ -388,7 +388,6 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
     mtempname(moption.base_dir, m->fn, m->tn);
     sprintf(tpath, "%s/%s", moption.base_dir, m->tn);
     if(!mcreatelink(moption.base_dir, m->tn, m->ln)){
-      lprintf(2, "%s: open %s -> %s\n", __func__, m->ln, m->fn);
     }else{
       lprintf(0, "%s: symlink error %s -> %s\n", __func__, m->ln, m->fn);
       m->mdata.head.nstate = MAKUO_RECVSTATE_OPENERROR;
@@ -516,7 +515,8 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
     a->markcount = a->marksize;
     a->mark = malloc(a->marksize * sizeof(uint32_t));
     memcpy(a->mark, m->mark, a->marksize * sizeof(uint32_t));
-    lprintf(3, "%s: retry %s recv=%d mark=%d reqest=%d\n", __func__, m->fn , m->recvcount, m->markcount, a->markcount);
+    lprintf(3, "%s: repeat mark=%04d reqest=%03d recv=%06d size=%06d %s\n", __func__,
+      m->markcount, a->markcount, m->recvcount, m->seqnomax,  m->fn);
   }
 }
 
@@ -587,7 +587,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
 
   a = mfins(0);
   if(!a){
-    lprintf(0,"%s: out of memory\n", __func__);
+    lprintf(0, "%s: out of memory\n", __func__);
   }else{
     a->mdata.head.flags |= MAKUO_FLAG_ACK;
     a->mdata.head.opcode = r->head.opcode;
@@ -623,7 +623,7 @@ static void mrecv_req_send_next(mfile *m, mdata *r)
 
     case MAKUO_SENDSTATE_MARK:
       lprintf(9,"%s: MAKUO_SENDSTATE_MARK : state=%d seqno=%d max=%d cnt=%d %s\n", __func__,
-             m->mdata.head.nstate, m->mdata.head.seqno, m->seqnomax, m->markcount, m->fn);
+        m->mdata.head.nstate, m->mdata.head.seqno, m->seqnomax, m->markcount, m->fn);
       mrecv_req_send_mark(m, r);
       break;
 

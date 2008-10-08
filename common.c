@@ -203,8 +203,8 @@ mfile *mfins(int n)
 
 mhost *member_add(struct in_addr *addr, mdata *data)
 {
-  int    f = 1;
-  int    l = 0;
+  int f = 1;
+  int l = 0;
   mhost *t = NULL;
   mping *p = NULL;
   for(t=members;t;t=t->next)
@@ -213,7 +213,7 @@ mhost *member_add(struct in_addr *addr, mdata *data)
   if(!t){
     t = malloc(sizeof(mhost));
     if(!t){
-      lprintf(0,"%s: out of memory\n", __func__);
+      lprintf(0, "%s: out of memory\n", __func__);
       return(NULL);
     }
     memset(t, 0, sizeof(mhost));
@@ -239,7 +239,7 @@ mhost *member_add(struct in_addr *addr, mdata *data)
     }
   }
   if(f){
-    lprintf(0,"%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
+    lprintf(0, "%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
   }
   mtimeget(&(t->lastrecv));
   return(t);
@@ -252,7 +252,7 @@ void member_del(mhost *t)
   mhost *n;
   if(!t)
     return;
-  lprintf(0,"%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
+  lprintf(0, "%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
   if(p = (mhost *)t->prev)
     p->next = t->next;
   if(n = (mhost *)t->next)
@@ -265,16 +265,16 @@ void member_del(mhost *t)
 int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
 {
   int i, j;
-  int size;
-  void  *n;
-  mfile *a;
+  int size = 0;
+  void  *n = NULL;
+  mfile *a = NULL;
 
   if(!m->mark){
     m->markcount = 0;
     m->marksize  = 1024;
     m->mark = malloc(sizeof(uint32_t) * m->marksize);
     if(!m->mark){
-      lprintf(0,"%s: out of memory\n", __func__);
+      lprintf(0, "%s: out of memory(mark)\n", __func__);
       return(-1); 
     }
   }
@@ -284,29 +284,15 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
   if(size != m->marksize){
     n = realloc(m->mark, sizeof(uint32_t) * size);
     if(!n){
-      lprintf(0,"%s: out of memory\n", __func__);
+      lprintf(0, "%s: out of memory(realloc)\n", __func__);
       return(-1); 
     }
-    m->mark     = n;
+    a = mfins(0);
+    m->mark = n;
     m->marksize = size;
-
-    /***** retry(apap) *****/
-    if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
-      a = mfins(0);
-      if(!a){
-        lprintf(0,"%s: out of memory\n", __func__);
-      }else{
-        lprintf(0,"%s: mark over(%d/%d) retry %s\n", __func__, m->markcount, m->marksize, m->fn);
-        a->mdata.head.flags |= MAKUO_FLAG_ACK;
-        a->mdata.head.opcode = m->mdata.head.opcode;
-        a->mdata.head.reqid  = m->mdata.head.reqid;
-        a->mdata.head.szdata = 0;
-        a->mdata.head.seqno  = m->mdata.head.seqno;
-        a->mdata.head.nstate = MAKUO_RECVSTATE_RETRY;
-        memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
-      }
-    }
   }
+
+  /***** mark ******/
   for(i=lseq;i<useq;i++){
     for(j=0;j<m->markcount;j++)
       if(i == m->mark[j])
@@ -314,6 +300,18 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
     if(j == m->markcount){
       m->mark[m->markcount++] = i;
     }
+  }
+
+  /***** complaint *****/
+  if(a){
+    lprintf(2,"%s: complaint (%d/%d) %s\n", __func__, m->markcount, m->marksize, m->fn);
+    a->mdata.head.flags |= MAKUO_FLAG_ACK;
+    a->mdata.head.opcode = m->mdata.head.opcode;
+    a->mdata.head.reqid  = m->mdata.head.reqid;
+    a->mdata.head.szdata = 0;
+    a->mdata.head.seqno  = m->mdata.head.seqno;
+    a->mdata.head.nstate = MAKUO_RECVSTATE_RETRY;
+    memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
   }
   return(0);
 }
@@ -349,7 +347,7 @@ int seq_popmark(mfile *m, int n)
 
 void clr_hoststate(mfile *m)
 {
-  int    i;
+  int i;
   mhost *t;
   for(t=members;t;t=t->next){
     for(i=0;i<MAKUO_PARALLEL_MAX;i++){
@@ -539,8 +537,8 @@ int mremove(char *base, char *name)
   if(!base){
     strcpy(path,name);
   }else{
-    sprintf(path,"%s/%s", base, name);
-    lprintf(0,"%s: %s\n", __func__, path);
+    sprintf(path, "%s/%s", base, name);
+    lprintf(0, "%s: %s\n", __func__, path);
   }
   if(is_dir(path)){
     if(d = opendir(path)){

@@ -33,7 +33,7 @@ int mexec_scan_cmd(int fd, char *buff)
     if(FD_ISSET(fd,&fds)){
       r = write(fd, cmd, size);
       if(r == -1){
-        lprintf(0,"%s: commend write error! %s", __func__, buff);
+        lprintf(0, "%s: commend write error! %s", __func__, buff);
         return(-1);
       }
       size -= r;
@@ -149,7 +149,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode)
 
   if(pipe(p) == -1){
     cprintf(0, c, "error: pipe error\n");    
-    lprintf(0,    "%s: pipe error\n", __func__);    
+    lprintf(0, "%s: pipe error\n", __func__);    
     return(-1);
   }
 
@@ -165,7 +165,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode)
     close(p[0]);
     close(p[1]);
     cprintf(0, c, "error: fork error\n");
-    lprintf(0,    "%s: fork error\n", __func__);
+    lprintf(0, "%s: fork error\n", __func__);
     return(-1);
   }
   if(pid){
@@ -188,7 +188,7 @@ int mexec_close(mcomm *c, int n)
 {
   mfile *m;
 
-  lprintf(2,"%s: n=%d\n", __func__, n);
+  lprintf(2, "%s: n=%d\n", __func__, n);
   if(c->fd[n] != -1)
     close(c->fd[n]);
   c->fd[n]  = -1;
@@ -304,11 +304,11 @@ int mexec_send(mcomm *c, int n)
     return(0);
 	}
 	if(lstat(fn, &m->fs) == -1){
-	  cprintf(0, c, "error: lstat() error %s\n", fn);
-		lprintf(1,    "%s: lstat() error argc=%d cmd=%s\n", __func__, c->argc[n], c->cmdline[n]);
+	  cprintf(0, c, "error: file not found %s\n", fn);
+		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n", __func__, c->argc[n], c->cmdline[n]);
     for(i=0;i<c->argc[n];i++)
-		  lprintf(1,    "%s: read error argv[%d]=%s\n", __func__, i, c->parse[n][i]);
-		lprintf(0,    "%s: read error file=%s\n", __func__, fn);
+		  lprintf(1, "%s: read error argv[%d]=%s\n", __func__, i, c->parse[n][i]);
+		lprintf(0, "%s: read error file=%s\n", __func__, fn);
 		mfdel(m);
     return(0);
 	}
@@ -327,7 +327,7 @@ int mexec_send(mcomm *c, int n)
   /*----- owner check -----*/
   if(moption.ownmatch && (moption.uid != m->fs.st_uid)){
 	  cprintf(0, c, "skip: owner unmatch %s (%d != %d)\n", fn, moption.uid, m->fs.st_uid);
-		lprintf(0,      "%s: owner unmatch %s (%d != %d)\n", __func__, fn, moption.uid, m->fs.st_uid);
+		lprintf(0, "%s: owner unmatch %s (%d != %d)\n", __func__, fn, moption.uid, m->fs.st_uid);
 		mfdel(m);
     return(0);
   }
@@ -345,7 +345,7 @@ int mexec_send(mcomm *c, int n)
       m->ln[size] = 0;
     }else{
 		  cprintf(0, c, "error: readlink error %s\n", fn);
-		  lprintf(0,    "%s: readlink error %s\n", __func__, fn);
+		  lprintf(0, "%s: readlink error %s\n", __func__, fn);
 		  mfdel(m);
     }
   }  
@@ -563,7 +563,7 @@ int mexec_md5(mcomm *c, int n)
   m = mfadd(0);
   if(!m){
 	  lprintf(0, "%s: out of memorry\n", __func__);
-	  cprintf(0, c, "out of memorry\n");
+	  cprintf(0, c, "error: out of memorry\n");
     return(0);
 	}
 	m->mdata.head.reqid  = getrid();

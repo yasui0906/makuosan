@@ -89,7 +89,7 @@ void recv_timeout(mfile *m)
       for(t=members;t;t=t->next){
         r = get_hoststate(t, m);
         if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0,"%s: %s(%s) timeout\n", __func__, inet_ntoa(t->ad), t->hostname);
+          lprintf(0, "%s: %s(%s) timeout\n", __func__, inet_ntoa(t->ad), t->hostname);
           member_del(t);
           break;
         }
@@ -202,7 +202,6 @@ int mcomm_accept(mcomm *c, fd_set *fds, int s)
   c[i].addrlen = sizeof(c[i].addr);
   c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
   lprintf(2, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
-  /*cprintf(0, &(c[i]),"\xff\xfd\x18\r");*/
   c[i].working = 1;
   return(0);
 }
@@ -238,6 +237,12 @@ int mcomm_read(mcomm *c, fd_set *fds){
 int mcomm_fdset(mcomm *c, fd_set *fds)
 {
   int i;
+
+  /*----- listen socket -----*/
+  if(moption.lisocket != -1)
+    FD_SET(moption.lisocket, fds);
+
+  /*----- connect socket -----*/
   for(i=0;i<MAX_COMM;i++){
     if(c[i].fd[0] != -1){
       FD_SET(c[i].fd[0], fds);
@@ -247,7 +252,7 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
     }else{
       if(c[i].cpid){
         if(waitpid(c[i].cpid, NULL, WNOHANG) == c[i].cpid){
-          lprintf(0, "%s: send complete\n", __func__);
+          lprintf(0, "%s: operation completed\n", __func__);
           c[i].cpid = 0;
         }
       }
@@ -307,18 +312,19 @@ int mloop()
     tv.tv_usec = 0;
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
+
     gettimeofday(&curtime,NULL);
     if(mtimeout(lastpong, MAKUO_PONG_INTERVAL))
       lastpong = pingpong(1);
-    FD_SET(moption.mcsocket, &rfds);
-    if(moption.lisocket != -1)
-      FD_SET(moption.lisocket, &rfds);
+
+    mcomm_fdset(moption.comm, &rfds);
+    FD_SET(moption.mcsocket,  &rfds);
     if(mftop[0]){
       tv.tv_sec  = 0;
       tv.tv_usec = 10000;
       FD_SET(moption.mcsocket, &wfds);
     }
-    mcomm_fdset(moption.comm, &rfds);
+
     if(select(1024, &rfds, &wfds, NULL, &tv) < 0)
       continue;
 

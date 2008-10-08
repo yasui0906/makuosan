@@ -51,10 +51,10 @@
 /*----- timeout -----*/
 #define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
-#define MAKUO_SEND_DELAYSTP 1      /* 送出遅延時間の増分(ms)                        */
+#define MAKUO_SEND_DELAYSTP 1      /* 送出遅延時間の増分(ms)                       */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
-#define MAKUO_RECV_GCWAIT   300000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
+#define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
 
 /*----- operation -----*/
 #define MAKUO_OP_PING 0
