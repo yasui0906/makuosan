@@ -202,10 +202,9 @@ static void mrecv_ack_ping(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
 {
-  uint8_t *s;
+  uint8_t *r;
   mhost   *t;
   mfile   *m;
-
   if(mrecv_ack_search(&t, &m, data, addr)){
     return;
   }
@@ -215,7 +214,7 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
     lprintf(0,          "%s: file update ignore rid=%06d state=%02d %s(%s) %s\n", __func__, 
       data->head.reqid, data->head.nstate, inet_ntoa(t->ad), t->hostname, m->fn);
   }
-  if(data->head.nstate == MAKUO_RECVSTATE_OPEN){
+  if(data->head.nstate == MAKUO_RECVSTATE_MARK){
     uint32_t *d = (uint32_t *)(data->data);
     while(d < (uint32_t *)&data->data[data->head.szdata]){
       if(*d >= m->seqnomax){
@@ -235,8 +234,8 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
     m->mdata.head.seqno  = 0;
     m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
   }else{
-    if(s = get_hoststate(t, m)){
-      *s = data->head.nstate;
+    if(r = get_hoststate(t, m)){
+      *r = data->head.nstate;
     }else{
       lprintf(0, "%s: hoststate error\n", __func__);
     }
@@ -249,7 +248,6 @@ static void mrecv_ack_md5(mdata *data, struct sockaddr_in *addr)
   uint8_t *s;
   mhost   *t;
   mfile   *m;
-
   mrecv_ack_search(&t, &m, data, addr);
   if(!t || !m){
     return;
@@ -286,7 +284,6 @@ static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
     case MAKUO_OP_MD5:
       mrecv_ack_md5(data, addr);
       break;
-
     /* 機能追加はここへ */
   }
 }
@@ -345,7 +342,7 @@ static void mrecv_req_send_break(mfile *m, mdata *r)
 
 static void mrecv_req_send_stat(mfile *m, mdata *r)
 {
-  mfile *a;
+  mfile  *a;
   struct stat fs;
   struct utimbuf mftime;
 
@@ -500,8 +497,10 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
   a->mdata.head.opcode = r->head.opcode;
   a->mdata.head.reqid  = r->head.reqid;
   a->mdata.head.seqno  = r->head.seqno;
-  a->mdata.head.nstate = m->mdata.head.nstate;
+  a->mdata.head.ostate = m->mdata.head.nstate;
+  a->mdata.head.nstate = MAKUO_RECVSTATE_MARK;
   a->mdata.head.szdata = 0;
+
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
   m->lickflag = 1;
   if(m->mdata.head.seqno < m->seqnomax){

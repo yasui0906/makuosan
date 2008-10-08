@@ -271,7 +271,7 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
 
   if(!m->mark){
     m->markcount = 0;
-    m->marksize  = 512;
+    m->marksize  = 1024;
     m->mark = malloc(sizeof(uint32_t) * m->marksize);
     if(!m->mark){
       lprintf(0,"%s: out of memory\n", __func__);
@@ -280,7 +280,7 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
   }
   size = m->marksize;
   while(size < m->markcount + useq - lseq)
-    size += 512;
+    size += 1024;
   if(size != m->marksize){
     n = realloc(m->mark, sizeof(uint32_t) * size);
     if(!n){
@@ -296,6 +296,7 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
       if(!a){
         lprintf(0,"%s: out of memory\n", __func__);
       }else{
+        lprintf(0,"%s: mark over(%d/%d) retry %s\n", __func__, m->markcount, m->marksize, m->fn);
         a->mdata.head.flags |= MAKUO_FLAG_ACK;
         a->mdata.head.opcode = m->mdata.head.opcode;
         a->mdata.head.reqid  = m->mdata.head.reqid;
@@ -350,13 +351,23 @@ void clr_hoststate(mfile *m)
 {
   int    i;
   mhost *t;
-
   for(t=members;t;t=t->next){
     for(i=0;i<MAKUO_PARALLEL_MAX;i++){
       if(t->mflist[i] == m){
         t->mflist[i] = NULL;
         t->state[i]  = 0;
       }
+    }
+  }
+}
+
+void dump_hoststate(mfile *m, char *func)
+{
+  mhost   *t;
+  uint8_t *r;
+  for(t=members;t;t=t->next){
+    if(r=get_hoststate(t,m)){
+      lprintf(9,"%s: state=%d from %s %s\n", func, (int)(*r), t->hostname, m->fn);
     }
   }
 }

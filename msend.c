@@ -292,6 +292,7 @@ static void msend_req_send_open_init(int s, mfile *m)
   m->sendwait  = 1;
   m->initstate = 0;
   ack_clear(m, MAKUO_RECVSTATE_UPDATE);
+
   /*----- symlink -----*/
   if(S_ISLNK(m->fs.st_mode)){
     msend_packet(s, &(m->mdata), &(m->addr));
@@ -326,23 +327,23 @@ static void msend_req_send_open(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  lprintf(9,"%s: %s\n", __func__, m->fn);
-  if(ack_check(m, MAKUO_RECVSTATE_OPEN) != 1){
-    m->sendwait  = 1;
+  lprintf(9, "%s: %s\n", __func__, m->fn);
+  if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
+    m->sendwait = 1;
     ack_clear(m, MAKUO_RECVSTATE_UPDATE);
+    return;
+  }
+  if(S_ISLNK(m->fs.st_mode)){
+    m->initstate = 1;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
   }else{
-    if(S_ISLNK(m->fs.st_mode)){
+    if(S_ISDIR(m->fs.st_mode)){
       m->initstate = 1;
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-    }else{
-      if(S_ISDIR(m->fs.st_mode)){
-        m->initstate = 1;
-        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-      }
-      if(S_ISREG(m->fs.st_mode)){
-        m->mdata.head.seqno  = 0;
-        m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
-      }
+    }
+    if(S_ISREG(m->fs.st_mode)){
+      m->mdata.head.seqno  = 0;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
     }
   }
 }
@@ -351,6 +352,7 @@ static void msend_req_send_markdata(int s, mfile *m)
 {
   int i;
   int r;
+  dump_hoststate(m, __func__);
   if(!m->markcount){
     /* close */
     m->initstate = 1;
@@ -375,11 +377,11 @@ static void msend_req_send_markdata(int s, mfile *m)
       }
     }
   }
-  /* eof */
   m->markcount = 0;
   m->initstate = 1;
   m->mdata.head.seqno  = 0;
   m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+  ack_clear(m, MAKUO_RECVSTATE_MARK);
 }
 
 static void msend_req_send_filedata(int s, mfile *m)
@@ -395,10 +397,10 @@ static void msend_req_send_filedata(int s, mfile *m)
   }else{
     if(readsize == -1){
       /* err */
-      lprintf(0, "%s: read error! seqno=%d errno=%d\n", __func__, m->mdata.head.seqno, errno);
+      lprintf(0, "%s: read error! seqno=%d errno=%d %s\n", __func__, m->mdata.head.seqno, errno, m->fn);
     }else{
       /* eof */
-      lprintf(4, "%s: block send count=%d\n", __func__, m->mdata.head.seqno);
+      lprintf(4, "%s: block send count=%d %s\n", __func__, m->mdata.head.seqno, m->fn);
       m->mdata.head.seqno  = 0;
       m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
       m->initstate = 1;
@@ -425,6 +427,7 @@ static void msend_req_send_mark_init(int s, mfile *m)
 {
   m->sendwait  = 1;
   m->initstate = 0;
+  ack_clear(m, MAKUO_RECVSTATE_UPDATE);
   ack_clear(m, MAKUO_RECVSTATE_OPEN);
   msend_packet(s, &(m->mdata), &(m->addr));
 }
@@ -439,6 +442,15 @@ static void msend_req_send_mark(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
+  if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
+    msend_req_send_mark_init(s, m);
+    return;
+  }
+  if(ack_check(m, MAKUO_RECVSTATE_OPEN) == 1){
+    msend_req_send_mark_init(s, m);
+    return;
+  }
+  lprintf(9, "%s: mark=%d %s\n", __func__, m->markcount, m->fn);
   m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
 }
 
@@ -446,8 +458,9 @@ static void msend_req_send_close_init(int s, mfile *m)
 {
   m->sendwait  = 1;
   m->initstate = 0;
-  ack_clear(m, MAKUO_RECVSTATE_OPEN);
   ack_clear(m, MAKUO_RECVSTATE_UPDATE);
+  ack_clear(m, MAKUO_RECVSTATE_OPEN);
+  ack_clear(m, MAKUO_RECVSTATE_MARK);
   msend_packet(s, &(m->mdata), &(m->addr));
 }
 
@@ -461,14 +474,16 @@ static void msend_req_send_close(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  if(ack_check(m, MAKUO_RECVSTATE_OPEN) == 1){
-    m->sendwait  = 1;
-    ack_clear(m, MAKUO_RECVSTATE_OPEN);
+  if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
+    msend_req_send_close_init(s, m);
     return;
   }
-  if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
-    m->sendwait  = 1;
-    ack_clear(m, MAKUO_RECVSTATE_UPDATE);
+  if(ack_check(m, MAKUO_RECVSTATE_OPEN) == 1){
+    msend_req_send_close_init(s, m);
+    return;
+  }
+  if(ack_check(m, MAKUO_RECVSTATE_MARK) == 1){
+    msend_req_send_close_init(s, m);
     return;
   }
   lprintf(9,"%s: %s\n", __func__, m->fn);

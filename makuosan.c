@@ -81,18 +81,20 @@ int restoreguid()
 
 void recv_timeout(mfile *m)
 {
-  mhost *h;
+  mhost   *t;
+  uint8_t *r;
   if(m){
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     do{
-      for(h=members;h;h=h->next){
-        if(h->state == MAKUO_RECVSTATE_NONE){
-          lprintf(0,"%s: %s(%s) timeout\n", __func__, inet_ntoa(h->ad), h->hostname);
-          member_del(h);
+      for(t=members;t;t=t->next){
+        r = get_hoststate(t, m);
+        if(*r == MAKUO_RECVSTATE_NONE){
+          lprintf(0,"%s: %s(%s) timeout\n", __func__, inet_ntoa(t->ad), t->hostname);
+          member_del(t);
           break;
         }
       }
-    }while(h); 
+    }while(t); 
   }
 }
 
@@ -254,44 +256,45 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
   return(0);
 }
 
-int ismsend(mfile *m)
+int ismsend(int s, mfile *m)
 {
   int r;
-
-  if(!m)
+  if(!m){
     return(0);
-  if(!m->sendwait){
-    return(1);
   }
-  r = ack_check(m,MAKUO_RECVSTATE_NONE);
+  if(!S_ISLNK(m->fs.st_mode) && S_ISDIR(m->fs.st_mode)){
+    if(m != mftop[0]){
+      return(0);
+    }
+  }
+  if(m->senddelay){
+    if(!mtimeout(&(m->lastsend), m->senddelay)){
+      return(1);
+    }
+  }
+  r = ack_check(m, MAKUO_RECVSTATE_NONE);
   if(r == -1){
     m->mdata.head.seqno  = 0;
     m->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
-    return(1);
   }
   if(!r){
     m->sendwait = 0;
-    if(!(m->senddelay)){
-      return(1);
-    }
-    if(mtimeout(&(m->lastsend), m->senddelay)){
-      return(1);
-    }
   }
-  if(mtimeout(&(m->lastsend), MAKUO_SEND_TIMEOUT)){
-    if(m->retrycnt){
+  if(m->sendwait){
+    if(!mtimeout(&(m->lastsend), MAKUO_SEND_TIMEOUT)){
       return(1);
-    }else{
+    }
+    if(!(m->retrycnt)){
       recv_timeout(m);
     }
   }
-  return(0);
+  msend(s,m);
+  return(1);
 }
 
 /***** main loop *****/
 int mloop()
 {
-  int i;
   fd_set rfds;
   fd_set wfds;
   struct timeval *lastpong;
@@ -321,23 +324,14 @@ int mloop()
 
     gettimeofday(&curtime,NULL);
     if(FD_ISSET(moption.mcsocket,&wfds)){
-      mfile *m = mftop[0];
+      int para = 0;
       mfile *n = NULL;
-      for(i=0;i<moption.parallel;i++){
+      mfile *m = mftop[0];
+      while(m){
         n = m->next;
-        if(ismsend(m)){
-          if(S_ISLNK(m->fs.st_mode) || !S_ISDIR(m->fs.st_mode)){
-            msend(moption.mcsocket, m);
-          }else{
-            if(m == mftop[0]){
-              msend(moption.mcsocket, m);
-            }else{
-              i--;
-            }
-          }
-        }
+        para += ismsend(moption.mcsocket, m);
         m = n;
-        if(!m){
+        if(para == moption.parallel){
           break;
         }
       }
