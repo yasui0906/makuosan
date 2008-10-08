@@ -326,7 +326,15 @@ int mloop()
       for(i=0;i<moption.parallel;i++){
         n = m->next;
         if(ismsend(m)){
-          msend(moption.mcsocket, m);
+          if(S_ISLNK(m->fs.st_mode) || !S_ISDIR(m->fs.st_mode)){
+            msend(moption.mcsocket, m);
+          }else{
+            if(m == mftop[0]){
+              msend(moption.mcsocket, m);
+            }else{
+              i--;
+            }
+          }
         }
         m = n;
         if(!m){
