@@ -328,8 +328,8 @@ static void msend_req_send_open(int s, mfile *m)
   }
   lprintf(9,"%s: %s\n", __func__, m->fn);
   if(ack_check(m, MAKUO_RECVSTATE_OPEN) != 1){
-    m->initstate = 1;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+    m->sendwait  = 1;
+    ack_clear(m, MAKUO_RECVSTATE_UPDATE);
   }else{
     if(S_ISLNK(m->fs.st_mode)){
       m->initstate = 1;
@@ -459,6 +459,16 @@ static void msend_req_send_close(int s, mfile *m)
   }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  if(ack_check(m, MAKUO_RECVSTATE_OPEN) == 1){
+    m->sendwait  = 1;
+    ack_clear(m, MAKUO_RECVSTATE_OPEN);
+    return;
+  }
+  if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
+    m->sendwait  = 1;
+    ack_clear(m, MAKUO_RECVSTATE_UPDATE);
     return;
   }
   lprintf(9,"%s: %s\n", __func__, m->fn);

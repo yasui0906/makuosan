@@ -475,17 +475,30 @@ int mexec_status(mcomm *c, int n)
 {
   int count;
   mfile  *m;
-  cprintf(0,c,"MAKUOSAN version %s\n", MAKUOSAN_VERSION);
-  
+  struct tm *t;
+
+  cprintf(0,c,"version  : %s\n", MAKUOSAN_VERSION);
   count = 0;
   for(m=mftop[0];m;m=m->next)
     count++;
-  cprintf(0,c,"send object: %d\n", count);
+  cprintf(0,c,"send file: %d\n", count);
+  for(m=mftop[0];m;m=m->next){
+    if(m->lickflag){
+      cprintf(0, c, "  state=%d %s (%d/%d)\n",m->mdata.head.nstate, m->fn, m->mdata.head.seqno,m->seqnomax); 
+    }else{
+      cprintf(0, c, "  state=%d %s (%d/%d)\n",m->mdata.head.nstate, m->fn, m->mdata.head.seqno,m->seqnomax); 
+    }
+  }
 
   count = 0;
   for(m=mftop[1];m;m=m->next)
     count++;
-  cprintf(0,c,"recv object: %d\n", count);
+  cprintf(0, c, "recv file: %d\n", count);
+  for(m=mftop[1];m;m=m->next){
+    t = localtime(&(m->lastrecv.tv_sec));
+    cprintf(0, c, "  state=%d %02d:%02d:%02d %s (%d/%d) mark=%d\n",
+      m->mdata.head.nstate, t->tm_hour, t->tm_min, t->tm_sec, m->fn, m->recvcount, m->seqnomax, m->markcount); 
+  }
   return(0);
 }
 

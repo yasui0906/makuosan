@@ -51,6 +51,7 @@
 /*----- timeout -----*/
 #define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
+#define MAKUO_SEND_DELAYSTP 1      /* 送出遅延時間の増分(ms)                        */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
 #define MAKUO_RECV_GCWAIT   300000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
@@ -181,6 +182,7 @@ typedef struct
   uint32_t retrycnt;
   uint32_t sendwait;
   uint32_t lickflag;
+  uint32_t senddelay;
   uint32_t initstate;
   uint32_t recvcount;
   uint32_t markcount;

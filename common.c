@@ -287,21 +287,23 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
       lprintf(0,"%s: out of memory\n", __func__);
       return(-1); 
     }
-    m->mark = n;
+    m->mark     = n;
     m->marksize = size;
 
     /***** retry(apap) *****/
-    a = mfins(0);
-    if(!a){
-      lprintf(0,"%s: out of memory\n", __func__);
-    }else{
-      a->mdata.head.flags |= MAKUO_FLAG_ACK;
-      a->mdata.head.opcode = m->mdata.head.opcode;
-      a->mdata.head.reqid  = m->mdata.head.reqid;
-      a->mdata.head.szdata = 0;
-      a->mdata.head.seqno  = m->mdata.head.seqno;
-      a->mdata.head.nstate = MAKUO_RECVSTATE_RETRY;
-      memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+    if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
+      a = mfins(0);
+      if(!a){
+        lprintf(0,"%s: out of memory\n", __func__);
+      }else{
+        a->mdata.head.flags |= MAKUO_FLAG_ACK;
+        a->mdata.head.opcode = m->mdata.head.opcode;
+        a->mdata.head.reqid  = m->mdata.head.reqid;
+        a->mdata.head.szdata = 0;
+        a->mdata.head.seqno  = m->mdata.head.seqno;
+        a->mdata.head.nstate = MAKUO_RECVSTATE_RETRY;
+        memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+      }
     }
   }
   for(i=lseq;i<useq;i++){

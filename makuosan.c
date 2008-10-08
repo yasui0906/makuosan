@@ -271,7 +271,12 @@ int ismsend(mfile *m)
   }
   if(!r){
     m->sendwait = 0;
-    return(1);
+    if(!(m->senddelay)){
+      return(1);
+    }
+    if(mtimeout(&(m->lastsend), m->senddelay)){
+      return(1);
+    }
   }
   if(mtimeout(&(m->lastsend), MAKUO_SEND_TIMEOUT)){
     if(m->retrycnt){

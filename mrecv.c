@@ -228,8 +228,10 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
     }
   }
   if(data->head.nstate == MAKUO_RECVSTATE_RETRY){
-    lprintf(1, "%s: send retry %s from %s\n", __func__, m->fn, t->hostname);
-    m->lickflag = 0;
+    lprintf(0, "%s: send retry %s from %s\n", __func__, m->fn, t->hostname);
+    m->sendwait   = 0;
+    m->lickflag   = 0;
+    m->senddelay += MAKUO_SEND_DELAYSTP;
     m->mdata.head.seqno  = 0;
     m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
   }else{
@@ -502,7 +504,6 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
   a->mdata.head.szdata = 0;
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
   m->lickflag = 1;
-  a->lickflag = 1;
   if(m->mdata.head.seqno < m->seqnomax){
     seq_addmark(m, m->mdata.head.seqno, m->seqnomax);
     m->mdata.head.seqno = m->seqnomax;
@@ -530,24 +531,12 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
   sprintf(fpath, "%s/%s", moption.base_dir, m->fn);
   sprintf(tpath, "%s/%s", moption.base_dir, m->tn);
 
-  switch(m->mdata.head.nstate){
-    case MAKUO_RECVSTATE_OPEN:
-    case MAKUO_RECVSTATE_UPDATE:
-    case MAKUO_RECVSTATE_MARK:
-      m->mdata.head.ostate = m->mdata.head.nstate;
-      m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
-      break;
-    case MAKUO_RECVSTATE_CLOSE:
-    case MAKUO_RECVSTATE_CLOSEERROR:
-      break;
-    default:
-      return;
-  }
-
-  if(m->fd != -1){
-    fstat(m->fd, &fs);
-    close(m->fd);
-    m->fd = -1;
+  if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
+    if(m->fd != -1){
+      fstat(m->fd, &fs);
+      close(m->fd);
+      m->fd = -1;
+    }
     mftime.actime  = m->fs.st_ctime; 
     mftime.modtime = m->fs.st_mtime;
     if(S_ISLNK(m->fs.st_mode)){
@@ -566,7 +555,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
         if(fs.st_size != m->fs.st_size){
           m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
           lprintf(0, "%s: close error %s (file size mismatch %d != %d)\n", __func__, m->fn, (int)(fs.st_size), (int)(m->fs.st_size));
-          lprintf(0, "%s: seq=%d max=%d markcnt=%d\n", __func__, m->mdata.head.seqno, m->seqnomax, m->markcount);
+          lprintf(0, "%s: seq=%d max=%d mark=%d recv=%d\n", __func__, m->mdata.head.seqno, m->seqnomax, m->markcount, m->recvcount);
           mremove(moption.base_dir, m->tn);
         }else{
           if(!mrename(moption.base_dir, m->tn, m->fn)){
@@ -581,6 +570,20 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
         chown(fpath, m->fs.st_uid, m->fs.st_gid);
       }
     }
+  }
+
+  switch(m->mdata.head.nstate){
+    case MAKUO_RECVSTATE_OPEN:
+    case MAKUO_RECVSTATE_UPDATE:
+    case MAKUO_RECVSTATE_MARK:
+      m->mdata.head.ostate = m->mdata.head.nstate;
+      m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+      break;
+    case MAKUO_RECVSTATE_CLOSE:
+    case MAKUO_RECVSTATE_CLOSEERROR:
+      break;
+    default:
+      return;
   }
 
   a = mfins(0);
