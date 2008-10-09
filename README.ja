@@ -1,0 +1,30 @@
+「インストール」
+$ tar zxvf makuosan-0.9.0.tar.gz
+$ make
+$ cp makuosan /usr/local/sbin/
+
+「起動」
+host1:~# /usr/local/sbin/makuosan -u www-data -g www-data -b /var/www
+host2:~# /usr/local/sbin/makuosan -u www-data -g www-data -b /var/www
+host3:~# /usr/local/sbin/makuosan -u www-data -g www-data -b /var/www
+host4:~# /usr/local/sbin/makuosan -u www-data -g www-data -b /var/www
+host5:~# /usr/local/sbin/makuosan -u www-data -g www-data -b /var/www
+  .
+  .
+  .
+  .
+  .
+
+
+「準備」
+ host1の/var/www/ 以下にファイルを作ります。
+ 
+
+ host2,host3,host4,,,には今作ったファイルはありません。
+
+
+「同期」
+host1:~$ makuo -r
+
+
+「確認」 
