@@ -15,16 +15,13 @@ host5:~# /usr/local/sbin/makuosan -u www-data -g www-data -b /var/www
   .
   .
 
-
 「準備」
  host1の/var/www/ 以下にファイルを作ります。
- 
-
  host2,host3,host4,,,には今作ったファイルはありません。
-
 
 「同期」
 host1:~$ makuo -r
 
 
-「確認」 
+「確認」
+host1:~$ ls -la /var/www/ 
