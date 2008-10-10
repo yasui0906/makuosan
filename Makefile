@@ -4,6 +4,7 @@ all: makuosan.c minit.c msend.c mrecv.c mexec.c common.c
 
 clean:
 	rm -f makuosan
+	rm -f makuo
 
 install:
 	cp -fp makuosan /usr/local/sbin/
