@@ -828,7 +828,6 @@ static void mrecv_req(mdata *data, struct sockaddr_in *addr)
     case MAKUO_OP_MD5:
       mrecv_req_md5(data, addr);
       break;
-
     /* 機能追加はここへ */
   }
 }
