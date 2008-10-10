@@ -31,29 +31,29 @@ done
 ・転送中に転送先のサーバがダウンすると、処理が滞ってしまう
 ・送信元のホストが何度も同じファイルを読むのは無駄に感じる
 ・rsyncを適切に利用した安全なスクリプトを書くのは難易度が高いと思う
-　- 動作検証しにくい
-  - ちょっとしたバグが致命傷に繋がることもある
+  - ちょっとしたバグが致命傷に繋がることがある
+　- 動作検証も結構大変だし、、、
 
-
-※「まくお」はこれらの問題をすべて解決してくれます。
-
+============= 「まくお」はこれらの悩みをすべて解決してくれます =============
 
 【まくおの特徴】
 　makuosan（まくおさん：通称「まくお」）は、複数のサーバへ同時にファイルを転
-送するツールで、以下のような特徴があります。
+送するツールです。以下のような特徴があります。
 
 ・デーモンとして各サーバに常駐させて利用する
 
 ・各サーバに常駐している「まくお」同士が通信して自動的にメンバシップを構築する
-
-・新しくサーバを増設する際も面倒な設定は不要
-　- 新しいサーバ上で「まくお」を起動するだけ
-  - 既設サーバの設定を変更する必要はない
+  - サーバを増設する際も面倒な設定は不要
+　- 新しいサーバ上で「まくお」を起動しておくだけ
+  - 既設サーバの設定変更は不要
 
 ・サーバが何台あっても、1度の処理で全サーバへ同時にファイルを転送できる
 
 
 【まくおの動作】
+　ファイル転送にTCPは利用しません。以下の図のhost1はUDPパケットをマルチキャス
+トアドレスに送出することでファイル転送します。host2, host3, host4は、そのマル
+チキャストパケットを受信してローカルファイルを生成します。
 
                                   +-------+
                        +--------> | host2 |
@@ -67,81 +67,62 @@ done
                        +--------> | host4 |
                                   +-------+
 
+【ファイル構成】
+　「まくお」をインストールすると、以下のファイルがインストールされます。
 
-【インストール】
-$ tar zxvf makuosan-0.9.0.tar.gz
-$ make
-$ make install
+  /usr/local/sbin/makuosan # 「まくお」本体。全サーバで起動しておく。
+  /usr/local/bin/makuo     # コマンドラインツール。転送したい時に使用する。
+
+【起動と停止】
+　「まくお」起動時には -bオプションでベースディレクトリを指定します。転送する
+ファイルを指定する際には、ベースディレクトリからの相対パスを指定します。
+ 
+例）
+ # makuosan -b /var/www -u www-data -g www-data
+
+まくおを停止するには、killコマンドなどでSIGTERMを送って下さい。
+
+例）
+ # killall makuosan
 
 
-【起動】
-host1:~# makuosan -u www-data -g www-data -b /var/www
-host2:~# makuosan -u www-data -g www-data -b /var/www
-host3:~# makuosan -u www-data -g www-data -b /var/www
-host4:~# makuosan -u www-data -g www-data -b /var/www
-  .
-  .
-  .
+【まくおの使いかた】
+　実際にファイルを転送するには「makuoコマンド」を使用します。
+makuoコマンドはフロントエンドツールです。ユーザ（もしくはアプリケーションなど）
+から「まくお」の機能を簡単に利用できるようにしたものです。
 
+使用例）ベースディレクトリ配下のツリーを全部転送する
+ $ makuo send -r
 
-【準備】
-host1の /var/www/ 以下にファイルを作ります。
+また、makuoコマンドを使わずに転送する方法もあったりします。
 
-host1:~# cd /var/www/
-host1:/var/www# echo hoge > hoge.html
-host1:/var/www# echo fuga > fuga.html
-host1:/var/www# chown www-data:www-data hoge.html fuga.html
-host1:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
-
-他のホストにはファイルはありません。
-host2:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
-
-host3:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
-
-host4:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
-
-【同期】
-host1:~$ makuo tcp:127.0.0.1:5000 send -r
-
-または
-
-host1:~$ telnet 127.0.0.1 5000
+$ telnet 127.0.0.1 5000
 > send -r
 > quit
 
-【確認】
-host2:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+これでも、makuo send -r と同じことができます。つまり、makuoコマンドは単純にソケ
+ット通信をしてコマンドを中継しているだけなので、以下のようにtelnet や socatを利
+用しても同様の操作が可能です。
 
-host3:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+host1:~$ telnet 127.0.0.1 5000
+Trying 127.0.0.1...
+Connected to 127.0.0.1.
+Escape character is '^]'.
+> help
+COMMAND:
+  quit
+  exclude add PATTERN
+  exclude del PATTERN
+  exclude list
+  exclude clear
+  send [-n] [-r] [-t host] [filename]
+  md5 [-r] [-t host] [filename]
+  loglevel num (0-9)
+  members
+  help
+> quit
+host1:~$ 
 
-host4:/var/www# ls -la
-total 16
-drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
-drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
--rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+その他、インストール手順やオプションの詳細についてはINSTALLを参照してください。
+
 
