@@ -394,7 +394,7 @@ static void minit_chroot()
     sprintf(tz, "%s%d", tzname[0], timezone/3600);
     setenv("TZ", tz, 0);
     if(chroot(moption.base_dir) == -1){
-      lprintf(0, "%s: can't chroot %s\n", __func__, moption.base_dir);
+      fprintf(stderr, "%s: can't chroot %s\n", __func__, moption.base_dir);
       exit(0);
     }
   }
@@ -404,7 +404,7 @@ static void minit_chroot()
 static void minit_setguid()
 {
   if(setguid(moption.uid, moption.gid) == -1){
-    lprintf(0, "%s: can't setguid %d:%d\n", __func__, moption.uid, moption.gid);
+    fprintf(stderr, "%s: can't setguid %d:%d\n", __func__, moption.uid, moption.gid);
     exit(0);
   }
 }
@@ -417,7 +417,7 @@ static void minit_daemonize()
 
   pid = fork();
   if(pid == -1){
-    lprintf(0,"%s: can't fork()\n", __func__);
+    fprintf(stderr, "%s: can't fork()\n", __func__);
     exit(1); 
   }
   if(pid)
@@ -425,7 +425,7 @@ static void minit_daemonize()
   setsid();
   pid=fork();
   if(pid == -1){
-    lprintf(0,"%s: can't fork()\n", __func__);
+    fprintf(stderr, "%s: can't fork()\n", __func__);
     exit(1); 
   }
   if(pid)
@@ -475,10 +475,13 @@ if(moption.chroot)
  */
 void minit(int argc, char *argv[])
 {
+  if(argc == 1){
+    usage();
+  }
   minit_option_setdefault(); /* 各オプションのデフォルト値を設定 */
   minit_option_getenv();     /* 環境変数からオプションを読み込む */
   minit_getopt(argc, argv);  /* コマンドラインパラメータを解析   */
-  minit_syslog();            /* syslogの使用を開始(openlog)      */
+  minit_syslog();            /* syslogの使用を開始               */
   minit_socket();            /* マルチキャストソケットの初期化   */
   minit_console();           /* コンソールソケットの初期化       */
   minit_signal();            /* シグナルハンドラを設定           */
@@ -488,5 +491,3 @@ void minit(int argc, char *argv[])
   minit_daemonize();         /*                                  */
   minit_bootlog();           /* ブートメッセージを出力する       */
 }
-
-
