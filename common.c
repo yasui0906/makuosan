@@ -132,7 +132,7 @@ int workend(mcomm *c)
     if(c->working && !c->cpid){
       c->working = 0;
       if(moption.commpass && !c->authchk){
-        cprintf(0, c, "Password: \x1b]E");
+        cprintf(0, c, "password: \x1b]E");
       }else{
         cprintf(0,c,"> ");
       }

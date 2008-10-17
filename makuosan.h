@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <pthread.h>
+#include <netdb.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>

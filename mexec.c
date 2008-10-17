@@ -75,6 +75,9 @@ int mexec_scan_send(int fd, char *path, char *sendhost, int mode)
       sprintf(comm, "send -n %s%s\r\n", buff, path);
       break;
     case MAKUO_MEXEC_MD5:
+      if(!is_reg(path)){
+        return(0);
+      }
       sprintf(comm, "md5 %s%s\r\n",     buff, path);
       break;
   }
@@ -193,8 +196,8 @@ int mexec_close(mcomm *c, int n)
     close(c->fd[n]);
   c->fd[n]  = -1;
   c->size[n] = 0;
-  c->authchk = 0;
   if(!n){
+    c->authchk  = 0;
     c->loglevel = 0;
     if(c->cpid){
       kill(c->cpid, SIGTERM);
@@ -478,6 +481,11 @@ int mexec_status(mcomm *c, int n)
   struct tm *t;
 
   cprintf(0,c,"version  : %s\n", MAKUOSAN_VERSION);
+  if(moption.chroot){
+    cprintf(0, c, "chroot   : %s\n", moption.real_dir);
+  }else{
+    cprintf(0, c, "basedir  : %s\n", moption.base_dir);
+  }
   count = 0;
   for(m=mftop[0];m;m=m->next)
     count++;
@@ -656,6 +664,11 @@ int mexec_parse(mcomm *c, int n)
     c->authchk = mexec_password(c->cmdline[n]);
     c->cmdline[n][0]=0;
     cprintf(0, c,"\r");
+    if(!c->authchk){
+      cprintf(0, c, "sorry.\n");
+      mexec_close(c, n);
+      return(-1);
+    }
   }else{
     lprintf(8, "%s: %s\n", __func__, c->cmdline[n]);
     strcpy(cmd, c->cmdline[n]);
@@ -688,10 +701,10 @@ int mexec_parse(mcomm *c, int n)
 int mexec(mcomm *c, int n)
 {
   int r;
-  int size = MAKUO_BUFFER_SIZE - c->size[n];
+  int size   = MAKUO_BUFFER_SIZE - c->size[n];
   char *buff = c->readbuff[n] + c->size[n];
-  mfile *m = NULL;
-  int count = 0;
+  mfile *m   = NULL;
+  int count  = 0;
 
   if(n == 0 && c->working){
     c->size[n] = 0;
@@ -738,7 +751,7 @@ int mexec(mcomm *c, int n)
       cprintf(0, c, "mexec: command error '%s'\n", c->parse[n][0]);
     }
     if(moption.commpass && !c->authchk){
-      cprintf(0,c,"Password: \x1b]E");
+      cprintf(0,c,"password: \x1b]E");
     }else{
       cprintf(0, c, "> ");
     }

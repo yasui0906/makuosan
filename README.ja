@@ -33,7 +33,7 @@
 　以下のファイルがインストールされます。
 
   /usr/local/sbin/makuosan # 「まくお」本体、全サーバで動かすデーモン
-  /usr/local/bin/makuo     # ファイルを転送に使うコマンドラインツール
+  /usr/local/bin/msync     # ファイルを転送に使うコマンドラインツール
 
 
 【起動と停止】
@@ -51,13 +51,13 @@
 　ファイルを転送するには「makuoコマンド」を使用します。
 
   例1）ベースディレクトリ直下のindex.htmlを転送する(/var/www/index.html)
-   $ makuo send index.html
+   $ msync send index.html
 
   例2）ベースディレクトリ以下のディレクトリツリーを全部転送する
-   $ makuo send -r
+   $ msync send -r
 
   例3）転送されるファイルを確認する(dry run)
-   $ makuo send -r -n
+   $ msync send -r -n
 
 
 【まくおを利用するメリット】
@@ -73,7 +73,7 @@ rsyncやscpのような、1対1の転送ツール利用する場合は、必ず�
 そのかわり、ファイル転送は、以下の例のように転送したいファイルやディレクトリ
 を伝えるだけで済みます。
 
- $ makuo send -r hogehoge/
+ $ msync send -r hogehoge/
 
 このコマンド一発で、「まくお」が稼働している全てのサーバに hogehoge/を転送す
 ることができます。rsyncやscpを利用する場合と比べて、遥かにシンプルで簡単に転
@@ -81,7 +81,7 @@ rsyncやscpのような、1対1の転送ツール利用する場合は、必ず�
 
 また「指定したサーバにだけ転送したい」というニーズもあるので、
 
- $ makuo send -t host3 -r hogehoge/
+ $ msync send -t host3 -r hogehoge/
 
 というように、特定のサーバにだけ転送するオプションも用意しています。
 
@@ -145,7 +145,7 @@ rsyncやscpのような、1対1の転送ツール利用する場合は、必ず�
 
  == ファイルを転送する ==
 
- host1:~$ makuo send -r
+ host1:~$ msync send -r
 
 
  == 転送されたファイルを確認 ==
