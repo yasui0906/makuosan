@@ -126,7 +126,7 @@ void mrecv_gc()
   while(m){
     if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
       if(MAKUO_RECVSTATE_CLOSE != m->mdata.head.nstate){
-        lprintf(0,"%s: mfile object GC state=%d %s\n", __func__, m->mdata.head.nstate, m->fn);
+        lprintf(0,"%s: mfile object GC rstate=%s %s\n", __func__, RSTATE(m->mdata.head.nstate), m->fn);
       }
       m = mrecv_mfdel(m);
       continue;
@@ -167,12 +167,14 @@ static int mrecv_ack_search(mhost **lpt, mfile **lpm, mdata *data, struct sockad
     lprintf(0, "%s: member not found %s\n", __func__, inet_ntoa(addr->sin_addr));
     return(-1);
   }
-  for(m=mftop[0];m;m=m->next)
-    if(m->mdata.head.reqid == data->head.reqid)
+  for(m=mftop[0];m;m=m->next){
+    if(m->mdata.head.reqid == data->head.reqid){
       break;
+    }
+  }
   if(!m){
-    lprintf(4, "%s: mfile not found rid=%06d state=%02d %s(%s)\n", __func__,
-      data->head.reqid, data->head.nstate, inet_ntoa(addr->sin_addr), t->hostname);
+    lprintf(8, "%s: mfile not found rid=%06d rstate=%s %s(%s)\n", __func__,
+      data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(addr->sin_addr), t->hostname);
     return(-1);
   }
   *lpt = t;
@@ -184,18 +186,18 @@ static void mrecv_ack_report(mfile *m, mhost *h, mdata *data)
 {
   if(data->head.nstate == MAKUO_RECVSTATE_OPENERROR){
     cprintf(0, m->comm, "%s: file open error %s\n", h->hostname, m->fn);
-    lprintf(0,          "%s: file open error rid=%06d state=%02d %s(%s) %s\n", __func__,
-      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
+    lprintf(0,          "%s: file open error rid=%06d rstate=%s %s(%s) %s\n", __func__,
+      data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(h->ad), h->hostname, m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_WRITEERROR){
     cprintf(0, m->comm, "%s: file write error %s\n", h->hostname, m->fn);
-    lprintf(0,          "%s: file write error rid=%06d state=%02d %s(%s) %s\n", __func__,
-     data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
+    lprintf(0,          "%s: file write error rid=%06d rstate=%s %s(%s) %s\n", __func__,
+     data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(h->ad), h->hostname, m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
     cprintf(0, m->comm, "%s: file close error %s\n", h->hostname, m->fn);
-    lprintf(0,          "%s: file close error rid=%06d state=%02d %s(%s) %s\n", __func__,
-      data->head.reqid, data->head.nstate, inet_ntoa(h->ad), h->hostname, m->fn);
+    lprintf(0,          "%s: file close error rid=%06d state=%s %s(%s) %s\n", __func__,
+      data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(h->ad), h->hostname, m->fn);
   }
 }
 
@@ -215,8 +217,8 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
   mtimeget(&m->lastrecv);
   if(data->head.nstate == MAKUO_RECVSTATE_IGNORE){
     cprintf(4, m->comm, "%s: file update ignore %s\n", t->hostname, m->fn);
-    lprintf(0,          "%s: file update ignore rid=%06d state=%02d %s(%s) %s\n", __func__, 
-      data->head.reqid, data->head.nstate, inet_ntoa(t->ad), t->hostname, m->fn);
+    lprintf(0,          "%s: file update ignore rid=%06d rstate=%s %s(%s) %s\n", __func__, 
+      data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(t->ad), t->hostname, m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_MARK){
     uint32_t *d = (uint32_t *)(data->data);
@@ -612,12 +614,12 @@ static void mrecv_req_send_next(mfile *m, mdata *r)
 {
   switch(r->head.nstate){
     case MAKUO_SENDSTATE_STAT:
-      lprintf(9,"%s: MAKUO_SENDSTATE_STAT : state=%d %s\n", __func__,  m->mdata.head.nstate, m->fn);
+      lprintf(9,"%s: sstate=%s %s\n", __func__, SSTATE(m->mdata.head.nstate), m->fn);
       mrecv_req_send_stat(m, r);
       break;
 
     case MAKUO_SENDSTATE_OPEN:
-      lprintf(9,"%s: MAKUO_SENDSTATE_OPEN : state=%d %s\n", __func__,  m->mdata.head.nstate, m->fn);
+      lprintf(9,"%s: sstate=%s %s\n", __func__, SSTATE(m->mdata.head.nstate), m->fn);
       mrecv_req_send_open(m, r);
       break;
 
@@ -626,23 +628,23 @@ static void mrecv_req_send_next(mfile *m, mdata *r)
       break;
 
     case MAKUO_SENDSTATE_MARK:
-      lprintf(9,"%s: MAKUO_SENDSTATE_MARK : state=%d seqno=%d max=%d cnt=%d %s\n", __func__,
-        m->mdata.head.nstate, m->mdata.head.seqno, m->seqnomax, m->markcount, m->fn);
+      lprintf(9,"%s: sstate=%s seqno=%d max=%d cnt=%d %s\n", __func__,
+        SSTATE(m->mdata.head.nstate), m->mdata.head.seqno, m->seqnomax, m->markcount, m->fn);
       mrecv_req_send_mark(m, r);
       break;
 
     case MAKUO_SENDSTATE_CLOSE:
-      lprintf(9,"%s: MAKUO_SENDSTATE_CLOSE: state=%d %s\n", __func__,  m->mdata.head.nstate, m->fn);
+      lprintf(9,"%s: sstate=%s %s\n", __func__, SSTATE(m->mdata.head.nstate), m->fn);
       mrecv_req_send_close(m, r);
       break;
 
     case MAKUO_SENDSTATE_LAST:
-      lprintf(9,"%s: MAKUO_SENDSTATE_LAST : state=%d %s\n", __func__,  m->mdata.head.nstate, m->fn);
+      lprintf(9,"%s: sstate=%s %s\n", __func__, SSTATE(m->mdata.head.nstate), m->fn);
       mrecv_req_send_last(m, r);
       break;
 
     case MAKUO_SENDSTATE_BREAK:
-      lprintf(9,"%s: MAKUO_SENDSTATE_BREAK: state=%d %s\n", __func__,  m->mdata.head.nstate, m->fn);
+      lprintf(9,"%s: sstate=%s %s\n", __func__, SSTATE(m->mdata.head.nstate), m->fn);
       mrecv_req_send_break(m, r);
       break;
   }

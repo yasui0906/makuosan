@@ -65,15 +65,15 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
       break;
     }else{
       if(r != -1){
-        lprintf(0,"%s: size error sock=%d op=%d rid=%d state=%d size=%d send=%d seqno=%d\n", __func__,
-          s, data->head.opcode, data->head.reqid, data->head.nstate, sizeof(mhead) + szdata, r, data->head.seqno);
+        lprintf(0,"%s: size error sock=%d op=%d rid=%d sstate=%s size=%d send=%d seqno=%d\n", __func__,
+          s, data->head.opcode, data->head.reqid, SSTATE(data->head.nstate), sizeof(mhead) + szdata, r, data->head.seqno);
         return(0);
       }else{
         if(errno == EINTR){
           continue;
         }else{
-          lprintf(0,"%s: send error errno=%d sock=%d op=%d rid=%d state=%d size=%d seqno=%d\n", __func__,
-            errno, s, data->head.opcode, data->head.reqid, data->head.nstate, sizeof(mhead) + szdata, data->head.seqno);
+          lprintf(0,"%s: send error errno=%d sock=%d op=%d rid=%d sstate=%s size=%d seqno=%d\n", __func__,
+            errno, s, data->head.opcode, data->head.reqid, SSTATE(data->head.nstate), sizeof(mhead) + szdata, data->head.seqno);
           return(-1);
         }
       }
@@ -92,8 +92,8 @@ static void msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return;
   }
-  lprintf(2, "%s: send retry count=%02d rid=%06d state=%d %s\n", __func__,
-    m->retrycnt, m->mdata.head.reqid, m->mdata.head.nstate, m->fn);
+  lprintf(2, "%s: send retry count=%02d rid=%06d sstate=%s %s\n", __func__,
+    m->retrycnt, m->mdata.head.reqid, SSTATE(m->mdata.head.nstate), m->fn);
   for(t=members;t;t=t->next){
     r = get_hoststate(t, m);
     if(!r){
@@ -103,11 +103,11 @@ static void msend_retry(mfile *m)
     switch(moption.loglevel){
       case 3:
         if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s:   state=%d %s(%s)\n", __func__, (int)*r, inet_ntoa(t->ad), t->hostname);
+          lprintf(0, "%s:   rstate=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
         }
         break;
       default:
-        lprintf(4, "%s:   state=%d %s(%s)\n", __func__, (int)*r, inet_ntoa(t->ad), t->hostname);
+        lprintf(4, "%s:   rstate=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
         break;
     }
   }
@@ -331,7 +331,7 @@ static void msend_req_send_open(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  lprintf(9, "%s: %s\n", __func__, m->fn);
+  lprintf(9, "%s: OPEN %s\n", __func__, m->fn);
   if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
     m->sendwait = 1;
     ack_clear(m, MAKUO_RECVSTATE_UPDATE);
@@ -454,7 +454,7 @@ static void msend_req_send_mark(int s, mfile *m)
     msend_req_send_mark_init(s, m);
     return;
   }
-  lprintf(9, "%s: mark=%d %s\n", __func__, m->markcount, m->fn);
+  lprintf(9, "%s: MARK mark=%d %s\n", __func__, m->markcount, m->fn);
   m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
 }
 
@@ -490,13 +490,13 @@ static void msend_req_send_close(int s, mfile *m)
     msend_req_send_close_init(s, m);
     return;
   }
-  lprintf(9,"%s: %s\n", __func__, m->fn);
+  lprintf(9,"%s: CLOSE %s\n", __func__, m->fn);
   m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
 }
 
 static void msend_req_send_last(int s, mfile *m)
 {
-  lprintf(9, "%s: %s\n", __func__, m->fn);
+  lprintf(9, "%s: LAST %s\n", __func__, m->fn);
   msend_packet(s, &(m->mdata), &(m->addr));
   msend_mfdel(m);
 }

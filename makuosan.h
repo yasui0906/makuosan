@@ -43,6 +43,7 @@
 #define MAKUO_BUFFER_SIZE 1024
 #define MAKUO_HOSTNAME_MAX 255
 #define MAKUO_PARALLEL_MAX   8
+#define MAKUO_STATE_MAX    255
 
 /*----- default -----*/
 #define MAKUO_LOCAL_ADDR  "127.0.0.1"

@@ -2,7 +2,6 @@
  * common.c
  * Copyright (C) 2008 KLab Inc. All rights reserved.
  */
-
 #include "makuosan.h"
 
 mopt moption;
@@ -11,6 +10,82 @@ mhost *members  = NULL;
 int loop_flag   = 1;
 struct timeval curtime;
 BF_KEY EncKey;
+
+char *sstatestrlist[9]={"STAT",
+                        "OPEN",
+                        "DATA",
+                        "MARK",
+                        "CLOSE",
+                        "LAST",
+                        "ERROR",
+                        "BREAK"
+                        "UNKNOWN"};
+
+uint8_t sstatenumlist[9]={MAKUO_SENDSTATE_STAT,
+                          MAKUO_SENDSTATE_OPEN,
+                          MAKUO_SENDSTATE_DATA,
+                          MAKUO_SENDSTATE_MARK,
+                          MAKUO_SENDSTATE_CLOSE,
+                          MAKUO_SENDSTATE_LAST,
+                          MAKUO_SENDSTATE_ERROR,
+                          MAKUO_SENDSTATE_BREAK,
+                          MAKUO_STATE_MAX};
+
+char *rstatestrlist[16] = {"NONE",
+                           "UPDATE",
+                           "SKIP",
+                           "OPEN",
+                           "MARK",
+                           "CLOSE",
+                           "IGNORE",
+                           "READONLY",
+                           "RETRY",
+                           "MD5OK",
+                           "MD5NG",
+                           "OPENERR",
+                           "READERR", 
+                           "WRITEERR", 
+                           "CLOSEERR", 
+                           "UNKNOWN"};
+
+uint8_t rstatenumlist[16]={MAKUO_RECVSTATE_NONE,
+                           MAKUO_RECVSTATE_UPDATE,
+                           MAKUO_RECVSTATE_SKIP,
+                           MAKUO_RECVSTATE_OPEN,
+                           MAKUO_RECVSTATE_MARK,
+                           MAKUO_RECVSTATE_CLOSE,
+                           MAKUO_RECVSTATE_IGNORE,
+                           MAKUO_RECVSTATE_READONLY,
+                           MAKUO_RECVSTATE_RETRY,
+                           MAKUO_RECVSTATE_MD5OK,
+                           MAKUO_RECVSTATE_MD5NG,
+                           MAKUO_RECVSTATE_OPENERROR,
+                           MAKUO_RECVSTATE_READERROR,
+                           MAKUO_RECVSTATE_WRITEERROR,
+                           MAKUO_RECVSTATE_CLOSEERROR,
+                           MAKUO_STATE_MAX};
+
+char *SSTATE(uint8_t n)
+{
+  int i;
+  for(i=0;sstatenumlist[i] != MAKUO_STATE_MAX;i++){
+    if(sstatenumlist[i] == n){
+      break;
+    }
+  }
+  return(sstatestrlist[i]);
+}
+
+char *RSTATE(uint8_t n)
+{
+  int i;
+  for(i=0;rstatenumlist[i] != MAKUO_STATE_MAX;i++){
+    if(rstatenumlist[i] == n){
+      break;
+    }
+  }
+  return(rstatestrlist[i]);
+}
 
 int md5sum(int fd, unsigned char *digest)
 {
@@ -370,7 +445,7 @@ void dump_hoststate(mfile *m, char *func)
   uint8_t *r;
   for(t=members;t;t=t->next){
     if(r=get_hoststate(t,m)){
-      lprintf(9,"%s: state=%d from %s %s\n", func, (int)(*r), t->hostname, m->fn);
+      lprintf(9,"%s: rstate=%s from %s %s\n", func, RSTATE(*r), t->hostname, m->fn);
     }
   }
 }
