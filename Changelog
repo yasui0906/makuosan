@@ -1,8 +1,8 @@
-
-
-0.9.1beta:
+0.9.1:
  - Document write
  - fixed log format
+ - fixed console password function
+ - create msync command
 
 0.9.0beta: Thu Oct 9 14:08:54 2008 +0900
  - initial beta release
