@@ -1,104 +1,111 @@
-#include "makuosan.h"
+/*
+ * msync.c
+ * Copyright (C) 2008 KLab Inc. All rights reserved.
+ */
+#define _GNU_SOURCE
+#define _FILE_OFFSET_BITS 64
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include <netdb.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 void usage()
 {
-  printf("usage: makuo [-v] [-c TARGET] [-K PASSWORDFILE] COMMAND [OPT] \n");
-  printf("       makuo [-v] [-c TARGET] [-K PASSWORDFILE] -f SCRIPT_FILE\n");
+  printf("usage: msync [-l loglevel] [-c TARGET] [-K PASSWORDFILE] COMMAND [OPT] \n");
+  printf("       msync [-l loglevel] [-c TARGET] [-K PASSWORDFILE] -f SCRIPT_FILE\n");
   printf("\n");
   printf("  TARGET\n");
   printf("    tcp:HOST:PORT     ex) tcp:127.0.0.1:5000\n");
-  printf("    unix:SOCKET       ex) tcp:/tmp/makuo.sock\n");
+  printf("    unix:SOCKET       ex) unix:makuosan.sock\n");
   printf("\n");
   printf("  COMMAND\n");
   printf("    send [-n] [-r] [-t HOST] [FILENAME]\n");
   printf("    md5  [-r] [FILENAME]\n");
   printf("    status\n");
   printf("    members\n");
-  exit(0);
 }
 
-int connect_socket_tcp()
+int connect_socket_tcp(char *host, char *port)
 {
-  char *p;
-  char host[256];
-  char port[128];
-  struct sockaddr_in sa;
-  struct hostent *hn;
-
-  int s = socket(AF_INET, SOCK_STREAM, 0);
+  int s;
+  struct addrinfo hint;
+  struct addrinfo *res;
+  if(!host || !port){
+    return(-1);
+  }
+  memset(&hint, 0, sizeof(struct addrinfo));
+  hint.ai_family = AF_INET;
+  if(getaddrinfo(host, port, &hint, &res)){
+    return(-1);
+  }
+  if(!res){
+    return(-1);
+  }
+  s = socket(AF_INET, SOCK_STREAM, 0);
   if(s == -1){
+    freeaddrinfo(res);
     return(-1);
   }
-  p = strtok(NULL,":");
-  if(!p){
+  if(connect(s, res->ai_addr, res->ai_addrlen) == -1){
+    freeaddrinfo(res);
     close(s);
     return(-1);
   }
-  strcpy(host, p);
-  p = strtok(NULL,":");
-  if(!p){
-    close(s);
-    return(-1);
-  }
-  strcpy(port, p);
-  sa.sin_family = AF_INET;
-  sa.sin_port   = htons(atoi(port));
-  if(!inet_aton(host, &(sa.sin_addr))){
-    if(hn = gethostbyname(host)){
-      memcpy(&(sa.sin_addr), hn->h_addr_list[0], hn->h_length);
-    }else{
-      close(s);
-      fprintf(stderr,"not found %s\n", host);
-      return(-1);
-    }
-  }
-  if(connect(s, (struct sockaddr *)&sa, sizeof(sa)) == -1){
-    close(s);
-    fprintf(stderr,"connect error tcp:%s:%s\n", host, port);
-    return(-1);
-  }
+  freeaddrinfo(res);
   return(s);  
 }
 
-int connect_socket_unix()
+int connect_socket_unix(char *path)
 {
-  char *p;
+  int s;
   struct sockaddr_un sa;
-  int s = socket(AF_UNIX, SOCK_STREAM, 0);
-  if(s != -1){
-    p = strtok(NULL,":");
-    if(!p){
-      close(s);
-      return(-1);
-    }
-    sa.sun_family = AF_UNIX;
-    strcpy(sa.sun_path, p);
-    if(connect(s, (struct sockaddr *)&sa, sizeof(sa)) == -1){
-      fprintf(stderr, "can't connect %s\n", sa.sun_path);
-      close(s);
-      return(-1);
-    }
+  if(!path){
+    return(-1);
+  }
+  if(strlen(path) >= sizeof(sa.sun_path)){
+	  return(-1);
+  }
+  s = socket(AF_UNIX, SOCK_STREAM, 0);
+  if(s == -1){
+    return(-1);
+  }
+  sa.sun_family = AF_UNIX;
+  strcpy(sa.sun_path,path);
+  if(connect(s, (struct sockaddr *)&sa, sizeof(sa)) == -1){
+    close(s);
+    return(-1);
   }
   return(s);
 }
 
 int connect_socket(char *target)
 {
+  char *h;
+  char *p;
   char buff[256];
-  char *p = buff;
 
   strcpy(buff, target);
   p = strtok(buff,":");
   if(!p){
     usage();
+    exit(1);
   }
   if(!strcmp(p, "tcp")){
-    return(connect_socket_tcp());
+    h = strtok(NULL,":");
+    p = strtok(NULL,":");
+    return(connect_socket_tcp(h,p));
   }
   if(!strcmp(p, "unix")){
-    return(connect_socket_unix());
+    p = strtok(NULL,":");
+    return(connect_socket_unix(p));
   }
-  fprintf(stderr,"can't connect %s\n", target);
   return(-1);
 }
 
@@ -120,54 +127,53 @@ int writeline(int s, char *buff)
   return(0);
 }
 
+int check_prompt(int s, char *buff, char *passwd)
+{
+  if(!strcmp(buff, "> ")){
+    return(1);
+  }
+  if(!strcmp(buff, "password: \x1b]E") && passwd){
+    writeline(s, passwd);
+    writeline(s, "\r\n");
+    return(2);
+  }
+  return(0);
+}
+
 int readline(int s, char *buff, int size, int prompt, char *passwd)
 {
-  int   c = 0;
-  int   r = 0;
   char  d = 0;
   char *p = buff;
-  fd_set fds;
-  struct timeval tv;
 
-  while(c < size){
-    FD_ZERO(&fds);
-    FD_SET(s,&fds);
-    tv.tv_sec  = 1;
-    tv.tv_usec = 0;
-    if(select(1024, &fds, NULL, NULL, &tv) < 0){
-      continue;
-    }
-    r = read(s, &d, 1);
-    if(r == -1){
-      return(-1);
-    }
-    if(r == 0){
-      *p = 0;
-      return(0);
-    }
-    if(d == '\r'){
-      continue;
-    }
-    if(d == '\n'){
-      *p = 0;
-      return(c);
-    }
-    *(p++) = d;
-    c++;
-    if(c < size){ 
-      *p = 0;
-      if(prompt && !strcmp(buff, "> ")){
-        return(-2);
+  while(p < buff + size){
+    *p = 0;
+    if(prompt){
+      switch(check_prompt(s, buff, passwd)){
+        case 1:
+          return(-2);
+        case 2:
+          p = buff;
+          continue;
       }
-      if(prompt && !strcmp(buff, "password: \x1b]E") && passwd){
-        writeline(s, passwd);
-        writeline(s, "\r\n");
-        c = 0;
-        p = buff;
-      }
+    }
+    switch(read(s, &d, 1)){
+      case 0:
+        return(p - buff);
+      case -1:
+        return(-1);
+        break;
+      default:
+        if(d == '\r'){
+          break;
+        }
+        if((d == '\n') && (p != buff)){
+          return(p - buff);
+        }
+        *(p++) = d;
+        break;
     }
   }
-  return(-1);
+  return(-1); /* over flow */
 }
 
 int wait_prompt(int s, char *passwd){
@@ -190,14 +196,52 @@ int wait_prompt(int s, char *passwd){
 
 int makuo(int s, char *c)
 {
+  int  r;
   char buff[256];
-  sprintf(buff, "%s\r\n", c);
-  if(writeline(s, buff) == -1){
-    fprintf(stderr, "write error\n");
+  if(sizeof(buff) < strlen(c) + 2){
+    fprintf(stderr, "error: command too long\n");
     return(-1);
   }
-  wait_prompt(s, NULL);
+  sprintf(buff, "%s\r\n", c);
+  if(writeline(s, buff) == -1){
+    fprintf(stderr, "error: can't write socket\n");
+    return(-1);
+  }
+  r = wait_prompt(s, NULL);
+  if(r == -1){
+    fprintf(stderr, "error: can't read socket\n");
+    return(-1);
+  }
+  return(r);
+}
+
+int makuolog(int s, int l)
+{
+  int r;
+  char cmd[256];
+  sprintf(cmd, "loglevel %d", l);
+  r = makuo(s, cmd);
+  if(r == 0){
+    fprintf(stderr, "error: remote close\n");
+    return(1);
+  }
+  if(r == -1){
+    return(1);
+  }
   return(0);
+}
+
+int makuoquit(int s)
+{ 
+  int r = makuo(s, "quit");
+  if(r == 0){
+    return(0); /* success */
+  }
+  if(r == -1){
+    return(1);
+  }
+  fprintf(stderr, "quit error?!\n");
+  return(1);
 }
 
 int fromfile(int s, char *filename)
@@ -208,28 +252,68 @@ int fromfile(int s, char *filename)
 
   if(!strcmp(filename, "-")){
     /* f = stdin */
-    f = 0;
+    f = dup(0);
   }else{
     f = open(filename, O_RDONLY);
-    if(f == -1){
-      fprintf(stderr,"can't open: %s\n", filename);
-      return(-1);
-    }
+  }
+  if(f == -1){
+    fprintf(stderr,"can't open: %s\n", filename);
+    return(1);
   }
 
+  /* command read loop */
   while(r = readline(f, line, sizeof(line), 0, NULL)){
     if(r == -1){
       fprintf(stderr, "file read error: %s\n", filename);
-      break;
+      close(f);
+      return(1);
     }
     r = makuo(s, line);
+    if(r == 0){
+      fprintf(stderr, "error: makuosan remote close\n");
+      close(f);
+      return(1);
+    }
     if(r == -1){
-      fprintf(stderr, "makuo error\n");
-      break;
+      close(f);
+      return(1); /* socket error */
     }
   }
-  close(f);
-  return(r);
+
+  /* quit */
+  return(makuoquit(s));
+}
+
+int fromargv(int s, int argc, char *argv[], int start)
+{
+  int i;
+  int r;
+  char cmd[256];
+
+  cmd[0] = 0;
+  for(i=start;i<argc;i++){
+    if(strlen(cmd) + strlen(argv[i]) + 2 > sizeof(cmd)){
+      fprintf(stderr, "error: command too long\n");
+      return(1);
+    }
+    if(cmd[0]){
+      strcat(cmd, " ");
+    }
+    strcat(cmd, argv[i]);
+  }
+
+  /* command execute */
+  r = makuo(s, cmd);
+  if(r == 0){
+    fprintf(stderr, "error: makuosan remote close\n");
+    return(1);
+  }
+  if(r == -1){
+    return(1); /* socket error */
+  }
+
+  /* quit */
+  return(makuoquit(s));
 }
 
 int loadpass(char *filename, char *passwd, int size)
@@ -250,37 +334,19 @@ int loadpass(char *filename, char *passwd, int size)
   return(0);
 }
 
-void defaulttarget(char *target)
+void defaulttarget(char *target, int size)
 {
-  char *p;
-  if(p = getenv("MAKUO_TARGET")){
+  char *p = getenv("MSYNC_TARGET");
+  strcpy(target, "tcp:127.0.0.1:5000");
+  if(p && (strlen(p) < size)){
     strcpy(target, p);
-  }else{
-    strcpy(target, "tcp:127.0.0.1:5000");
   }
 }
-
-int fromargv(int s, int argc, char *argv[], int start)
-{
-  int  i;
-  char cmd[256];
-
-  cmd[0] = 0;
-  for(i=start;i<argc;i++){
-    if(cmd[0]){
-      strcat(cmd, " ");
-    }
-    strcat(cmd, argv[i]);
-  }
-  return(makuo(s, cmd));
-}
-
 
 int main(int argc, char *argv[])
 {
   int r;
   int s;
-  char cmd[256];
 
   /* option */
   int loglevel = 0;
@@ -291,21 +357,36 @@ int main(int argc, char *argv[])
   /* default */
   scfile[0] = 0;
   passwd[0] = 0;
-  defaulttarget(target);
+  defaulttarget(target, sizeof(target));
 
-  while((r = getopt(argc, argv, "+c:f:K:hv")) != -1){
+  while((r = getopt(argc, argv, "+c:f:K:l:h")) != -1){
     switch(r){
       case 'h':
         usage();
-      case 'v':
-        loglevel++; 
+        return(0);
+
+      case 'l':
+        loglevel = atoi(optarg);
         break;
+
       case 'f':
-        strcpy(scfile, optarg);
+        if(strlen(optarg) < sizeof(scfile)){
+          strcpy(scfile, optarg);
+        }else{
+          fprintf(stderr, "filename too long\n");
+          return(1);
+        }
         break;
+
       case 'c':
-        strcpy(target, optarg);
+        if(strlen(optarg) < sizeof(target)){
+          strcpy(target, optarg);
+        }else{
+          fprintf(stderr, "target too long\n");
+          return(1);
+        }
         break;
+
       case 'K':
         if(loadpass(optarg, passwd, sizeof(passwd)) == -1){
           return(1);
@@ -316,23 +397,36 @@ int main(int argc, char *argv[])
 
   if(!scfile[0] && optind == argc){
     usage();
+    return(1);
   }
 
   s = connect_socket(target);
   if(s == -1){
+    fprintf(stderr, "can't connect %s\n", target);
     return(1);
   }
-  r = wait_prompt(s, passwd);
 
-  if(r == 1){
-    sprintf(cmd, "loglevel %d", loglevel);
-    makuo(s, cmd);
-    if(scfile[0]){
-      r = fromfile(s, scfile);
-    }else{
-      r = fromargv(s, argc, argv, optind);
-    }
-    makuo(s, "quit");
+  r = wait_prompt(s, passwd);
+  if(r == 0){
+    fprintf(stderr, "remote socket close\n");
+    close(s);
+    return(1);
+  }
+  if(r == -1){
+    fprintf(stderr, "socket read error\n");
+    close(s);
+    return(1);
+  }
+
+  if(makuolog(s, loglevel)){
+    close(s);
+    return(1);
+  }
+
+  if(scfile[0]){
+    r = fromfile(s, scfile);
+  }else{
+    r = fromargv(s, argc, argv, optind);
   }
   close(s);
   return(r);

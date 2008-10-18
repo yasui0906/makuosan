@@ -1,3 +1,7 @@
+/*
+ * mrecv.c
+ * Copyright (C) 2008 KLab Inc. All rights reserved.
+ */
 #include "makuosan.h"
 
 static void mrecv_req(mdata *data, struct sockaddr_in *addr);

@@ -1,8 +1,6 @@
 /*
- *  minit.c
- *  まくお起動時の処理
- *  各関数の役割は最後のminit()関数のコメント参照
- *
+ * minit.c
+ * Copyright (C) 2008 KLab Inc. All rights reserved.
  */
 #include "makuosan.h"
 

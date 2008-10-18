@@ -1,6 +1,6 @@
-/*
- * [MAKUOSAN]
- *  multicast file synchronization system
+/* 
+ * makuosan.h
+ * Copyright (C) 2008 KLab Inc. All rights reserved.
  */
 #define MAKUOSAN_VERSION "0.9.1"
 #define PROTOCOL_VERSION 3
@@ -26,7 +26,6 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <pthread.h>
-#include <netdb.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -35,6 +34,7 @@
 #include <sys/timeb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <openssl/md5.h>
 #include <openssl/blowfish.h>
 

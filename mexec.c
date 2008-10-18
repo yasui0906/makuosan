@@ -1,3 +1,8 @@
+/*
+ * mexec.c
+ * Copyright (C) 2008 KLab Inc. All rights reserved.
+ */
+
 #include "makuosan.h"
 
 char *command_list[]={"quit",     /*  */
@@ -357,10 +362,10 @@ int mexec_send(mcomm *c, int n)
 
 int mexec_members(mcomm *c, int n)
 {
-  int count = 0;
+  int count=0;
   mhost *h;
 	for(h=members;h;h=h->next){
-    cprintf(0, c, "Ver%s: %s (%s)\n", h->version, inet_ntoa(h->ad), h->hostname);
+    cprintf(0, c, "%s: %s %s\n", h->version, h->hostname, inet_ntoa(h->ad));
     count++;
   }
   cprintf(0, c, "Total: %d members\n", count);
@@ -482,9 +487,9 @@ int mexec_status(mcomm *c, int n)
 
   cprintf(0,c,"version  : %s\n", MAKUOSAN_VERSION);
   if(moption.chroot){
-    cprintf(0, c, "chroot   : %s\n", moption.real_dir);
+    cprintf(0, c, "chroot   : %s/\n", moption.real_dir);
   }else{
-    cprintf(0, c, "basedir  : %s\n", moption.base_dir);
+    cprintf(0, c, "basedir  : %s/\n", moption.base_dir);
   }
   count = 0;
   for(m=mftop[0];m;m=m->next)

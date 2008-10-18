@@ -1,3 +1,7 @@
+/*
+ * msend.c
+ * Copyright (C) 2008 KLab Inc. All rights reserved.
+ */
 #include "makuosan.h"
 
 static void msend_ack(int s, mfile *m);
