@@ -1,0 +1,51 @@
+[makuolog]
+  == Level0 ==
+  - error only
+
+  == Level1 ==
+  - command line operation
+
+  == Level2 ==
+  - retry status
+
+  == Level3 ==
+
+  == Level4 ==
+  - retry host status
+
+  == Level5 ==
+
+  == Level6 ==
+
+  == Level7 ==
+
+  == Level8 ==
+  - all file status
+
+  == Level9 ==
+  - all
+
+
+[msynclog]
+  == Level0 ==
+  - error only
+
+  == Level1 ==
+
+  == Level2 ==
+
+  == Level3 ==
+
+  == Level4 ==
+
+  == Level5 ==
+
+  == Level6 ==
+
+  == Level7 ==
+
+  == Level8 ==
+
+  == Level9 ==
+  - all
+
