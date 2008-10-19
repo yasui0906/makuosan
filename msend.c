@@ -103,11 +103,11 @@ static void msend_retry(mfile *m)
     switch(moption.loglevel){
       case 3:
         if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s:   state=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
+          lprintf(0, "%s:   %s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
         }
         break;
       default:
-        lprintf(4, "%s:   state=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
+        lprintf(4, "%s:   %s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
         break;
     }
   }

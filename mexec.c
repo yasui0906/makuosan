@@ -294,7 +294,6 @@ int mexec_send(mcomm *c, int n)
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    lprintf(0, "%s: cmd='%s'\n", __func__, c->cmdline[n]);
     return(mexec_scan(c, fn, h, mode));
   }
   /*----- help -----*/
@@ -497,9 +496,9 @@ int mexec_status(mcomm *c, int n)
   cprintf(0,c,"send file: %d\n", count);
   for(m=mftop[0];m;m=m->next){
     if(m->lickflag){
-      cprintf(0, c, "  state=%s %s (%d/%d)\n", SSTATE(m->mdata.head.nstate), m->fn, m->mdata.head.seqno,m->seqnomax); 
+      cprintf(0, c, "  %s %s (%d/%d)\n", SSTATE(m->mdata.head.nstate), m->fn, m->mdata.head.seqno,m->seqnomax); 
     }else{
-      cprintf(0, c, "  state=%s %s (%d/%d)\n", SSTATE(m->mdata.head.nstate), m->fn, m->mdata.head.seqno,m->seqnomax); 
+      cprintf(0, c, "  %s %s (%d/%d)\n", SSTATE(m->mdata.head.nstate), m->fn, m->mdata.head.seqno,m->seqnomax); 
     }
   }
 
@@ -509,7 +508,7 @@ int mexec_status(mcomm *c, int n)
   cprintf(0, c, "recv file: %d\n", count);
   for(m=mftop[1];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
-    cprintf(0, c, "  state=%s %02d:%02d:%02d %s (%d/%d) mark=%d\n",
+    cprintf(0, c, "  %s %02d:%02d:%02d %s (%d/%d) mark=%d\n",
       RSTATE(m->mdata.head.nstate), t->tm_hour, t->tm_min, t->tm_sec, m->fn, m->recvcount, m->seqnomax, m->markcount); 
   }
   return(0);
@@ -560,7 +559,6 @@ int mexec_md5(mcomm *c, int n)
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    lprintf(0, "%s: cmd='%s'\n", __func__, c->cmdline[n]);
     return(mexec_scan(c, fn, t, MAKUO_MEXEC_MD5));
   }
 
@@ -763,7 +761,7 @@ int mexec(mcomm *c, int n)
       cprintf(0, c, "> ");
     }
   }else{
-    lprintf(1, "%s: %s\n", __func__, c->cmdline[n]);
+    lprintf(1 + n * 7, "%s: %s\n", __func__, c->cmdline[n]);
     c->working = 1;
 
     if(!strcmp("help",command_list[r]))

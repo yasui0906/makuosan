@@ -173,8 +173,6 @@ static int mrecv_ack_search(mhost **lpt, mfile **lpm, mdata *data, struct sockad
     }
   }
   if(!m){
-    lprintf(8, "%s: mfile not found rid=%06d state=%s %s(%s)\n", __func__,
-      data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(addr->sin_addr), t->hostname);
     return(-1);
   }
   *lpt = t;
@@ -267,7 +265,7 @@ static void mrecv_ack_md5(mdata *data, struct sockaddr_in *addr)
   if(*s != data->head.nstate){
     if(data->head.nstate == MAKUO_RECVSTATE_MD5OK){
       cprintf(1, m->comm, "%s: OK %s\r\n", t->hostname, m->fn);
-      lprintf(1,          "%s: OK %s:%s\n", __func__, t->hostname, m->fn);
+      lprintf(8,          "%s: OK %s:%s\n", __func__, t->hostname, m->fn);
     }
     if(data->head.nstate == MAKUO_RECVSTATE_MD5NG){
       cprintf(0, m->comm, "%s: NG %s\r\n", t->hostname, m->fn);
