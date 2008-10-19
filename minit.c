@@ -1,6 +1,6 @@
 /*
  * minit.c
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc.
  */
 #include "makuosan.h"
 
@@ -441,23 +441,23 @@ static void minit_daemonize()
 static void minit_bootlog()
 {
   char *yesno[2]={"No","Yes"};
-  lprintf(0,"makuosan version %s\n",MAKUOSAN_VERSION);
-  lprintf(0,"loglevel  : %d\n", moption.loglevel);
+  lprintf(0, "makuosan version %s\n",MAKUOSAN_VERSION);
+  lprintf(0, "loglevel  : %d\n", moption.loglevel);
 if(moption.chroot)
-  lprintf(0,"chroot    : %s\n", moption.real_dir);
-  lprintf(0,"base dir  : %s\n", moption.base_dir);
-  lprintf(0,"multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
-  lprintf(0,"port      : %d\n", ntohs(moption.maddr.sin_port));
-  lprintf(0,"uid       : %d\n", geteuid());
-  lprintf(0,"gid       : %d\n", getegid());
-  lprintf(0,"parallel  : %d\n", moption.parallel);
-  lprintf(0,"don't recv: %s\n", yesno[moption.dontrecv]);
-  lprintf(0,"don't send: %s\n", yesno[moption.dontsend]);
-  lprintf(0,"don't fork: %s\n", yesno[moption.dontfork]);
-  lprintf(0,"encrypt   : %s\n", yesno[moption.cryptena]);
-  lprintf(0,"console   : %s\n", yesno[moption.comm_ena]);
-  lprintf(0,"passwoed  : %s\n", yesno[moption.commpass]);
-  lprintf(0,"ownermatch: %s\n", yesno[moption.ownmatch]);
+  lprintf(0, "chroot    : %s\n", moption.real_dir);
+  lprintf(0, "base dir  : %s\n", moption.base_dir);
+  lprintf(0, "multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
+  lprintf(0, "port      : %d\n", ntohs(moption.maddr.sin_port));
+  lprintf(0, "uid       : %d\n", geteuid());
+  lprintf(0, "gid       : %d\n", getegid());
+  lprintf(0, "parallel  : %d\n", moption.parallel);
+  lprintf(0, "don't recv: %s\n", yesno[moption.dontrecv]);
+  lprintf(0, "don't send: %s\n", yesno[moption.dontsend]);
+  lprintf(0, "don't fork: %s\n", yesno[moption.dontfork]);
+  lprintf(0, "encrypt   : %s\n", yesno[moption.cryptena]);
+  lprintf(0, "console   : %s\n", yesno[moption.comm_ena]);
+  lprintf(0, "passwoed  : %s\n", yesno[moption.commpass]);
+  lprintf(0, "ownermatch: %s\n", yesno[moption.ownmatch]);
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);
@@ -489,3 +489,5 @@ void minit(int argc, char *argv[])
   minit_daemonize();         /*                                  */
   minit_bootlog();           /* ブートメッセージを出力する       */
 }
+
+

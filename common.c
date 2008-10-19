@@ -1,6 +1,6 @@
 /*
  * common.c
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc.
  */
 #include "makuosan.h"
 
@@ -11,15 +11,15 @@ int loop_flag   = 1;
 struct timeval curtime;
 BF_KEY EncKey;
 
-char *sstatestrlist[9]={"STAT",
-                        "OPEN",
-                        "DATA",
-                        "MARK",
-                        "CLOSE",
-                        "LAST",
-                        "ERROR",
-                        "BREAK"
-                        "UNKNOWN"};
+char *sstatestrlist[9]={"SEND_STAT",
+                        "SEND_OPEN",
+                        "SEND_DATA",
+                        "SEND_MARK",
+                        "SEND_CLOSE",
+                        "SEND_LAST",
+                        "SEND_ERROR",
+                        "SEND_BREAK"
+                        "SEND_UNKNOWN"};
 
 uint8_t sstatenumlist[9]={MAKUO_SENDSTATE_STAT,
                           MAKUO_SENDSTATE_OPEN,
@@ -31,22 +31,22 @@ uint8_t sstatenumlist[9]={MAKUO_SENDSTATE_STAT,
                           MAKUO_SENDSTATE_BREAK,
                           MAKUO_STATE_MAX};
 
-char *rstatestrlist[16] = {"NONE",
-                           "UPDATE",
-                           "SKIP",
-                           "OPEN",
-                           "MARK",
-                           "CLOSE",
-                           "IGNORE",
-                           "READONLY",
-                           "RETRY",
-                           "MD5OK",
-                           "MD5NG",
-                           "OPENERR",
-                           "READERR", 
-                           "WRITEERR", 
-                           "CLOSEERR", 
-                           "UNKNOWN"};
+char *rstatestrlist[16] = {"RECV_NONE",
+                           "RECV_UPDATE",
+                           "RECV_SKIP",
+                           "RECV_OPEN",
+                           "RECV_MARK",
+                           "RECV_CLOSE",
+                           "RECV_IGNORE",
+                           "RECV_READONLY",
+                           "RECV_RETRY",
+                           "RECV_MD5OK",
+                           "RECV_MD5NG",
+                           "RECV_OPENERR",
+                           "RECV_READERR", 
+                           "RECV_WRITEERR", 
+                           "RECV_CLOSEERR", 
+                           "RECV_UNKNOWN"};
 
 uint8_t rstatenumlist[16]={MAKUO_RECVSTATE_NONE,
                            MAKUO_RECVSTATE_UPDATE,
@@ -171,15 +171,16 @@ void fdprintf(int s, char *fmt, ...)
 void lprintf(int l, char *fmt, ...)
 {
   va_list arg;
-  char msg[512];
+  char msg[2048];
   if(moption.loglevel >= l){
     va_start(arg, fmt);
     vsprintf(msg, fmt, arg);
     va_end(arg);
     if(moption.dontfork){
+      fprintf(stderr, "%d:",l);
       fprintf(stderr, msg);
     }
-    syslog(LOG_ERR, "%s: %s", moption.user_name, msg);
+    syslog(LOG_ERR, "%s: %d: %s", moption.user_name, l, msg);
   }
 }
 
@@ -215,6 +216,7 @@ int workend(mcomm *c)
         cprintf(0, c, "password: \x1b]E");
       }else{
         cprintf(0,c,"> ");
+        lprintf(1,"mexec: ******** task separator ********\n");
       }
     }
   }

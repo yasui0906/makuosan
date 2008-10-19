@@ -1,6 +1,6 @@
 /*
  * msync.c
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc. 
  */
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64

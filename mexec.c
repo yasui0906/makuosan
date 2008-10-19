@@ -1,6 +1,6 @@
 /*
  * mexec.c
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc.
  */
 
 #include "makuosan.h"
@@ -196,7 +196,7 @@ int mexec_close(mcomm *c, int n)
 {
   mfile *m;
 
-  lprintf(2, "%s: n=%d\n", __func__, n);
+  lprintf(1, "%s: fd=%d n=%d\n", __func__, c->fd[n], n);
   if(c->fd[n] != -1)
     close(c->fd[n]);
   c->fd[n]  = -1;
@@ -675,7 +675,6 @@ int mexec_parse(mcomm *c, int n)
       return(-1);
     }
   }else{
-    lprintf(8, "%s: %s\n", __func__, c->cmdline[n]);
     strcpy(cmd, c->cmdline[n]);
     p=strtok(cmd, " ");
     for(j=0;j<8;j++){
@@ -723,12 +722,15 @@ int mexec(mcomm *c, int n)
     }
     return(-1);
   }
-  if(n == 1)
-    for(m=mftop[0];m;m=m->next)
-      if(m->comm == c)
-        if(count++ == 8)
+  if(n == 1){
+    for(m=mftop[0];m;m=m->next){
+      if(m->comm == c){
+        if(count++ == 8){
           return(-1);
-
+        }
+      }
+    }
+  }
   if(!size){
     lprintf(0, "%s: buffer over fllow n=%d\n", __func__, n);
     mexec_close(c, n);
@@ -761,6 +763,7 @@ int mexec(mcomm *c, int n)
       cprintf(0, c, "> ");
     }
   }else{
+    lprintf(1, "%s: %s\n", __func__, c->cmdline[n]);
     c->working = 1;
 
     if(!strcmp("help",command_list[r]))

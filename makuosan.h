@@ -1,6 +1,6 @@
 /* 
  * makuosan.h
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc. 
  */
 #define MAKUOSAN_VERSION "0.9.1"
 #define PROTOCOL_VERSION 3
@@ -256,22 +256,24 @@ extern struct timeval curtime;
 extern BF_KEY EncKey;
 
 /*----- function -----*/
-void   lprintf(int l, char *fmt, ...);
-void   cprintf(int l, mcomm *c, char *fmt, ...);
-void   fdprintf(int s, char *fmt, ...);
-int    getrid();
-void   mfdel(mfile *m);
-mfile *mfadd(int n);
-mfile *mfins(int n);
-mhost *member_add(struct in_addr *addr, mdata *recvdata);
-void   member_del(mhost *h);
-void   mrecv(int s);
-void   msend(int s, mfile *m);
-int    seq_popmark(mfile *m, int n);
-int    seq_delmark(mfile *m, uint32_t seq);
-int    seq_addmark(mfile *m, uint32_t lseq, uint32_t useq);
-int    linkcmp(mfile *m);
-int    statcmp(struct stat *s1, struct stat *s2);
+char    *SSTATE(uint8_t n);
+char    *RSTATE(uint8_t n);
+void     lprintf(int l, char *fmt, ...);
+void     cprintf(int l, mcomm *c, char *fmt, ...);
+void     fdprintf(int s, char *fmt, ...);
+int      getrid();
+void     mfdel(mfile *m);
+mfile   *mfadd(int n);
+mfile   *mfins(int n);
+mhost   *member_add(struct in_addr *addr, mdata *recvdata);
+void     member_del(mhost *h);
+void     mrecv(int s);
+void     msend(int s, mfile *m);
+int      seq_popmark(mfile *m, int n);
+int      seq_delmark(mfile *m, uint32_t seq);
+int      seq_addmark(mfile *m, uint32_t lseq, uint32_t useq);
+int      linkcmp(mfile *m);
+int      statcmp(struct stat *s1, struct stat *s2);
 int      mremove(char *base, char *name);
 int      mcreatedir(char  *base, char *name, mode_t mode);
 int      mcreatefile(char *base, char *name, mode_t mode);

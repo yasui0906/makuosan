@@ -1,6 +1,6 @@
 /*
  * msend.c
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc. 
  */
 #include "makuosan.h"
 
@@ -65,14 +65,14 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
       break;
     }else{
       if(r != -1){
-        lprintf(0,"%s: size error sock=%d op=%d rid=%d sstate=%s size=%d send=%d seqno=%d\n", __func__,
+        lprintf(0,"%s: size error sock=%d op=%d rid=%d state=%s size=%d send=%d seqno=%d\n", __func__,
           s, data->head.opcode, data->head.reqid, SSTATE(data->head.nstate), sizeof(mhead) + szdata, r, data->head.seqno);
         return(0);
       }else{
         if(errno == EINTR){
           continue;
         }else{
-          lprintf(0,"%s: send error errno=%d sock=%d op=%d rid=%d sstate=%s size=%d seqno=%d\n", __func__,
+          lprintf(0,"%s: send error errno=%d sock=%d op=%d rid=%d state=%s size=%d seqno=%d\n", __func__,
             errno, s, data->head.opcode, data->head.reqid, SSTATE(data->head.nstate), sizeof(mhead) + szdata, data->head.seqno);
           return(-1);
         }
@@ -92,7 +92,7 @@ static void msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return;
   }
-  lprintf(2, "%s: send retry count=%02d rid=%06d sstate=%s %s\n", __func__,
+  lprintf(2, "%s: send retry count=%02d rid=%06d state=%s %s\n", __func__,
     m->retrycnt, m->mdata.head.reqid, SSTATE(m->mdata.head.nstate), m->fn);
   for(t=members;t;t=t->next){
     r = get_hoststate(t, m);
@@ -103,11 +103,11 @@ static void msend_retry(mfile *m)
     switch(moption.loglevel){
       case 3:
         if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s:   rstate=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
+          lprintf(0, "%s:   state=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
         }
         break;
       default:
-        lprintf(4, "%s:   rstate=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
+        lprintf(4, "%s:   state=%s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
         break;
     }
   }
@@ -356,7 +356,6 @@ static void msend_req_send_markdata(int s, mfile *m)
 {
   int i;
   int r;
-  dump_hoststate(m, __func__);
   if(!m->markcount){
     /* close */
     m->initstate = 1;

@@ -1,6 +1,6 @@
 /*
  * makuosan.c
- * Copyright (C) 2008 KLab Inc. All rights reserved.
+ * Copyright (C) 2008 KLab Inc.
  */
 #include "makuosan.h"
 
@@ -201,7 +201,7 @@ int mcomm_accept(mcomm *c, fd_set *fds, int s)
   }
   c[i].addrlen = sizeof(c[i].addr);
   c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
-  lprintf(2, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
+  lprintf(1, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
   c[i].working = 1;
   return(0);
 }
@@ -225,7 +225,6 @@ int mcomm_read(mcomm *c, fd_set *fds){
       }
       if(!m){
         if(c[i].working && !c[i].cpid){
-          lprintf(9,"************* work end **************\n"); 
           workend(&c[i]);
         }
       }
@@ -252,7 +251,6 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
     }else{
       if(c[i].cpid){
         if(waitpid(c[i].cpid, NULL, WNOHANG) == c[i].cpid){
-          lprintf(0, "%s: operation completed\n", __func__);
           c[i].cpid = 0;
         }
       }
