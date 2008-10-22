@@ -1,0 +1,159 @@
+[What is makuosan?]
+
+Makuosan(MAKUO for short) is a software which transfer files to multiple servers simultaneously using UDP multicast.
+(MAKUO consists of makuosan daemon and command line utility makuo. The makuosan should be run on every server in a cluster. The makuo talk to makuosan daemon.)
+MAKUO has following features;
+
+ * Simple configuration
+Each makuosan daemon maintains available server list by periodically checking existence of other makuosan daemons on different servers.
+The makuosan transfers files only to those servers where makuosan daemon is also alive. Therefore, it never stalls waiting for a dead server, or timeouts.
+
+ * Scalability
+The time required to transfer files to multiple servers does not depend on the number of the target servers. It takes almost as same amount of time to transfer files to 20 servers as it does to 10 servers. However, it is desirable to use MAKUO among servers with similar performance, because transfer speed is limited by the slowest server.
+
+ * Simultaneous update on every server.
+The makuosan transfers files simultaneously using IP multicast. Therefore, there should not be any out of sync server.
+
+[Installation]
+  $ tar zxvf makuosan-x.x.x
+  $ cd makuosan-x.x.x
+  $ make
+  $ su -
+  # make install
+ 
+[Components]
+The following files will be installed.
+
+  /usr/local/sbin/makuosan # The main makuosan daemon. This should be running on every server.
+  /usr/local/bin/msync     # cli utility to transfer files.
+                           ?? command line interface to makuosan daemon
+
+[Starting/stopping makuosan daemon]
+The makuosan must be invoked with -b option specifying the base directory. The target file can be specified using relative path from the base directory.
+
+   # makuosan -b /var/www -u www-data -g www-data
+
+Makuosan is terminated by sending SIGTERM
+
+   # killall makuosan
+
+[How to transfer files]
+The msync command line is used to transfer files.
+
+Example 1) To send index.html in the base directory.(/var/www/index.html)
+   $ msync send index.html
+
+Example 2) To recursively send file system tree in the base directory.
+   $ msync send -r
+
+Example 3) To show what will be transfered.(dry run)
+   $ msync send -r -n
+
+
+[Advantages of Makuosan]
+MAKUO does not need to specify the receivers.
+File transferring tools such as rsync or scp require explicit receiver(or sender) hostname.
+In order to transfer files to multiple servers, a user need to invoke the command as many time as the number of receivers.
+
+Example;
+
+ $ for h in host2 host3 host4 host5 host6;do rsync -aRv hogehoge $h:/;done
+
+In the case of MAKUO, file transfer is done between makuosan daemon. 
+Accordingly, you need to make makuosan up and running on every server, where you want to transfer the files to. As a result, the command line only requires the target files or the target directory.
+
+ $ msync send -r hogehoge/
+
+This is it. This will have a makuosan send hogehoge/ to all other makuosan daemons in the cluster. This is much simpler and easier than the situation where rsync or scp is used.
+
+What if a user want to send files only to specified servers?
+There is -t option to specify the receiver.
+
+ $ msync send -t host3 -r hogehoge/
+
+[A case study]
+
+ == Network configuration ==
+ Files on host1 will be transfered to host2, host3 and host4.
+
+                  +-------+
+                  | host2 |
+                  +-------+
+                      |
+  +-------+     +-----------+     +-------+
+  | host1 |-----| L2 SWITCH |-----| host3 |
+  +-------+     +-----------+     +-------+
+                      |
+                  +-------+
+                  | host4 |
+                  +-------+
+
+
+ == Start makuosan daemon ==
+
+ host1:~# makuosan -b /var/www -u www-data -g www-data
+ host2:~# makuosan -b /var/www -u www-data -g www-data
+ host3:~# makuosan -b /var/www -u www-data -g www-data
+ host4:~# makuosan -b /var/www -u www-data -g www-data
+
+ == Create target files ==
+ Create files under the /var/www/ directory on host1.
+
+ host1:~# cd /var/www/
+ host1:/var/www# echo hoge > hoge.html
+ host1:/var/www# echo fuga > fuga.html
+ host1:/var/www# chown www-data:www-data hoge.html fuga.html
+ host1:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+
+ Other hosts do not have files under the /var/www/ directory.
+
+ host2:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+
+ host3:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+
+ host4:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+
+
+ == Issue file transferring instruction ==
+
+ host1:~$ msync send -r
+
+
+ == Confirm the result ==
+ (Files on the host1 transfered to other hosts.)
+
+ host2:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+ 
+ host3:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+
+ host4:/var/www# ls -la
+ total 16
+ drwxr-xr-x  3 root     root      176 Oct 10 10:31 .
+ drwxr-xr-x 15 root     root      360 Oct  9 04:52 ..
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 fuga.html
+ -rw-r--r--  1 www-data www-data    5 Oct 10 10:31 hoge.html
+
