@@ -31,14 +31,18 @@
   - error only
 
   == Level1 ==
+  - update file
 
   == Level2 ==
+  - retry message
 
   == Level3 ==
 
   == Level4 ==
+  - 
 
   == Level5 ==
+  - skip file
 
   == Level6 ==
 
@@ -48,4 +52,6 @@
 
   == Level9 ==
   - all
+
+
 
