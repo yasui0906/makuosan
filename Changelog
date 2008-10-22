@@ -1,6 +1,7 @@
 0.9.1:
  - Document write
- - fixed log format
+ - change log format
+ - fixed encrypt function
  - fixed console password function
  - create msync command
 

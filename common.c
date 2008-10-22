@@ -216,7 +216,7 @@ int workend(mcomm *c)
         cprintf(0, c, "password: \x1b]E");
       }else{
         cprintf(0,c,"> ");
-        lprintf(1,"mexec: ******** task separator ********\n");
+        lprintf(1,"mexec: ======= separator =======\n");
       }
     }
   }

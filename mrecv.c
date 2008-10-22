@@ -41,7 +41,7 @@ static int mrecv_decrypt(mdata *data, struct sockaddr_in *addr)
 
   if(data->head.flags & MAKUO_FLAG_CRYPT){
     if(!moption.cryptena){
-      lprintf(0, "%s: recv encrypt packet from %s. I have not key!", __func__, inet_ntoa(addr->sin_addr));
+      lprintf(0, "%s: encrypt packet from %s. I have not key!\n", __func__, inet_ntoa(addr->sin_addr));
       return(-1);
     }
     if(data->head.szdata){
@@ -55,6 +55,11 @@ static int mrecv_decrypt(mdata *data, struct sockaddr_in *addr)
         lprintf(0, "%s: protocol checksum error from %s\n", __func__, inet_ntoa(addr->sin_addr));
         return(-1);
       }
+    }
+  }else{
+    if(moption.cryptena){
+      lprintf(0, "%s: not encrypt packet from %s. I have key!\n", __func__, inet_ntoa(addr->sin_addr));
+      return(-1);
     }
   }
   return(0);

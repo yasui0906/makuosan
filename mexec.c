@@ -196,7 +196,7 @@ int mexec_close(mcomm *c, int n)
 {
   mfile *m;
 
-  lprintf(1, "%s: fd=%d n=%d\n", __func__, c->fd[n], n);
+  lprintf(1 + n * 7, "%s: fd=%d n=%d\n", __func__, c->fd[n], n);
   if(c->fd[n] != -1)
     close(c->fd[n]);
   c->fd[n]  = -1;
@@ -214,7 +214,7 @@ int mexec_close(mcomm *c, int n)
     for(m=mftop[0];m;m=m->next){
       if(m->comm == c){
         m->comm = NULL;
-        lprintf(3, "%s: clear %s\n", __func__, m->fn);
+        lprintf(3, "%s: cancel %s\n", __func__, m->fn);
       }
     }
   }

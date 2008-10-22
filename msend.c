@@ -33,14 +33,16 @@ static int msend_encrypt(mdata *data)
   MD5_CTX ctx;
 
   szdata = data->head.szdata;
-  if(moption.cryptena && data->head.szdata){
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, data->data, data->head.szdata);
-    MD5_Final(data->head.hash, &ctx);
-    for(szdata=0;szdata<data->head.szdata;szdata+=8){
-      BF_encrypt((BF_LONG *)(data->data + szdata), &EncKey);
-    }
+  if(moption.cryptena){
     data->head.flags |= MAKUO_FLAG_CRYPT;
+    if(data->head.szdata){
+      MD5_Init(&ctx);
+      MD5_Update(&ctx, data->data, data->head.szdata);
+      MD5_Final(data->head.hash, &ctx);
+      for(szdata=0;szdata<data->head.szdata;szdata+=8){
+        BF_encrypt((BF_LONG *)(data->data + szdata), &EncKey);
+      }
+    }
   }
   return(szdata);
 }
@@ -265,6 +267,7 @@ static void msend_req_send_stat(int s, mfile *m)
       }
     }
     m->initstate = 1;
+    m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
   }else{
     if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
@@ -286,6 +289,7 @@ static void msend_req_send_stat(int s, mfile *m)
         }
       }
       m->initstate = 1;
+      m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
     }
   }
@@ -313,6 +317,7 @@ static void msend_req_send_open_init(int s, mfile *m)
       }else{
         m->sendwait  = 0;
         m->initstate = 1;
+        m->mdata.head.ostate = m->mdata.head.nstate;
         m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
         cprintf(0, m->comm, "error: file open error errno=%d %s\n", errno, m->fn);
         lprintf(0, "%s: open error errno=%d %s\n", __func__, errno, m->fn);
@@ -343,10 +348,12 @@ static void msend_req_send_open(int s, mfile *m)
   }else{
     if(S_ISDIR(m->fs.st_mode)){
       m->initstate = 1;
+      m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     }
     if(S_ISREG(m->fs.st_mode)){
       m->mdata.head.seqno  = 0;
+      m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
     }
   }
@@ -360,8 +367,8 @@ static void msend_req_send_markdata(int s, mfile *m)
     /* close */
     m->initstate = 1;
     m->mdata.head.seqno  = 0;
+    m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-    lprintf(4, "%s: file send complate! %s\n", __func__, m->fn);
     return;
   }
   lprintf(4, "%s: block send retry %d\n", __func__, m->markcount);
@@ -489,7 +496,11 @@ static void msend_req_send_close(int s, mfile *m)
     msend_req_send_close_init(s, m);
     return;
   }
-  lprintf(9,"%s: CLOSE %s\n", __func__, m->fn);
+  if(m->mdata.head.ostate == MAKUO_SENDSTATE_MARK || 
+     m->mdata.head.ostate == MAKUO_SENDSTATE_DATA ||
+     m->mdata.head.ostate == MAKUO_SENDSTATE_OPEN){
+    lprintf(1,"%s: update complate %s \n", __func__, m->fn);
+  }
   m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
 }
 
