@@ -2,7 +2,9 @@
  * makuosan.h
  * Copyright (C) 2008 KLab Inc. 
  */
-#define MAKUOSAN_VERSION "0.9.1"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #define PROTOCOL_VERSION 3
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64

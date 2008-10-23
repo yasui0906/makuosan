@@ -7,7 +7,7 @@
 void usage()
 {
   printf("makuosan (Multicast Advance Keep Update Overwrite Synchronization Always Network)\n");
-  printf("version %s\n\n", MAKUOSAN_VERSION);
+  printf("version %s\n\n", PACKAGE_VERSION);
   printf("usage: makuosan [OPTION]\n");
   printf("  -d num   # loglevel(0-9)\n");
   printf("  -u uid   # user\n");
@@ -130,12 +130,12 @@ struct timeval *pingpong(int n)
   }
   p = (mping *)(m->mdata.data);
   p->hostnamelen = strlen(buff);
-  p->versionlen  = strlen(MAKUOSAN_VERSION);
+  p->versionlen  = strlen(PACKAGE_VERSION);
   m->mdata.head.szdata = sizeof(mping) + p->hostnamelen + p->versionlen;
   m->mdata.p = p->data;
   memcpy(m->mdata.p, buff, p->hostnamelen);
   m->mdata.p += p->hostnamelen;
-  memcpy(m->mdata.p, MAKUOSAN_VERSION, p->versionlen);
+  memcpy(m->mdata.p, PACKAGE_VERSION, p->versionlen);
   m->mdata.p += p->versionlen;
   p->hostnamelen = htons(p->hostnamelen);
   p->versionlen  = htons(p->versionlen);

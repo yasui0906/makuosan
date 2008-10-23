@@ -484,7 +484,7 @@ int mexec_status(mcomm *c, int n)
   mfile  *m;
   struct tm *t;
 
-  cprintf(0,c,"version  : %s\n", MAKUOSAN_VERSION);
+  cprintf(0,c,"version  : %s\n", PACKAGE_VERSION);
   if(moption.chroot){
     cprintf(0, c, "chroot   : %s/\n", moption.real_dir);
   }else{

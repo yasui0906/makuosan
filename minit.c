@@ -441,7 +441,7 @@ static void minit_daemonize()
 static void minit_bootlog()
 {
   char *yesno[2]={"No","Yes"};
-  lprintf(0, "makuosan version %s\n",MAKUOSAN_VERSION);
+  lprintf(0, "makuosan version %s\n", PACKAGE_VERSION);
   lprintf(0, "loglevel  : %d\n", moption.loglevel);
 if(moption.chroot)
   lprintf(0, "chroot    : %s\n", moption.real_dir);
