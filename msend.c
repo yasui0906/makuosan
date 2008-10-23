@@ -209,6 +209,7 @@ static void msend_req_send_stat_init(int s, mfile *m)
   m->mdata.head.szdata  = sizeof(fs);
   m->mdata.head.szdata += strlen(m->fn);
   m->mdata.head.szdata += strlen(m->ln);
+  m->mdata.head.szdata += sizeof(uint64_t);
   if(m->mdata.head.szdata > MAKUO_BUFFER_SIZE){
     lprintf(0, "%s: buffer size over size=%d file=%s\n", __func__, m->mdata.head.szdata, m->fn);
     cprintf(0, m->comm, "error: buffer size over size=%d file=%s\n", m->mdata.head.szdata, m->fn);
@@ -229,6 +230,10 @@ static void msend_req_send_stat_init(int s, mfile *m)
   m->mdata.p += strlen(m->fn);
   strcpy(m->mdata.p, m->ln);
   m->mdata.p += strlen(m->ln);
+  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(m->fs.st_rdev >> 32));
+  m->mdata.p += sizeof(uint32_t);
+  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(m->fs.st_rdev & 0xFFFFFFFF));
+  m->mdata.p += sizeof(uint32_t);
   m->sendwait  = 1;
   m->initstate = 0;
   ack_clear(m, -1);
@@ -302,26 +307,19 @@ static void msend_req_send_open_init(int s, mfile *m)
   ack_clear(m, MAKUO_RECVSTATE_UPDATE);
 
   /*----- symlink -----*/
-  if(S_ISLNK(m->fs.st_mode)){
+  if(S_ISLNK(m->fs.st_mode) || !S_ISREG(m->fs.st_mode)){
     msend_packet(s, &(m->mdata), &(m->addr));
   }else{
-    /*----- dir -----*/
-    if(S_ISDIR(m->fs.st_mode)){
+    m->fd = open(m->fn, O_RDONLY, 0);
+    if(m->fd != -1){
       msend_packet(s, &(m->mdata), &(m->addr));
-    }
-    /*----- file -----*/
-    if(S_ISREG(m->fs.st_mode)){
-      m->fd = open(m->fn, O_RDONLY, 0);
-      if(m->fd != -1){
-        msend_packet(s, &(m->mdata), &(m->addr));
-      }else{
-        m->sendwait  = 0;
-        m->initstate = 1;
-        m->mdata.head.ostate = m->mdata.head.nstate;
-        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-        cprintf(0, m->comm, "error: file open error errno=%d %s\n", errno, m->fn);
-        lprintf(0, "%s: open error errno=%d %s\n", __func__, errno, m->fn);
-      }
+    }else{
+      m->sendwait  = 0;
+      m->initstate = 1;
+      m->mdata.head.ostate = m->mdata.head.nstate;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+      cprintf(0, m->comm, "error: file open error errno=%d %s\n", errno, m->fn);
+      lprintf(0, "%s: open error errno=%d %s\n", __func__, errno, m->fn);
     }
   }
 }
@@ -342,20 +340,14 @@ static void msend_req_send_open(int s, mfile *m)
     ack_clear(m, MAKUO_RECVSTATE_UPDATE);
     return;
   }
-  if(S_ISLNK(m->fs.st_mode)){
+  if(S_ISLNK(m->fs.st_mode) || !S_ISREG(m->fs.st_mode)){
     m->initstate = 1;
+    m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
   }else{
-    if(S_ISDIR(m->fs.st_mode)){
-      m->initstate = 1;
-      m->mdata.head.ostate = m->mdata.head.nstate;
-      m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-    }
-    if(S_ISREG(m->fs.st_mode)){
-      m->mdata.head.seqno  = 0;
-      m->mdata.head.ostate = m->mdata.head.nstate;
-      m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
-    }
+    m->mdata.head.seqno  = 0;
+    m->mdata.head.ostate = m->mdata.head.nstate;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
   }
 }
 

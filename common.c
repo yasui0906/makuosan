@@ -561,24 +561,22 @@ int linkcmp(mfile *m)
 
 int statcmp(struct stat *s1, struct stat *s2)
 {
-  mode_t s1mode;
-  mode_t s2mode;
-
+  if(s1->st_mtime != s2->st_mtime)
+    return(MAKUO_RECVSTATE_UPDATE);
   if((S_ISDIR(s1->st_mode)) && (S_ISDIR(s2->st_mode))){
-    s1mode = s1->st_mode & 0xFFF;
-    s2mode = s2->st_mode & 0xFFF;
-    if(s1mode != s2mode)
-      return(MAKUO_RECVSTATE_UPDATE);
-    if(s1->st_mtime != s2->st_mtime)
+    if(s1->st_mode != s2->st_mode)
       return(MAKUO_RECVSTATE_UPDATE);
     return(MAKUO_RECVSTATE_SKIP);
   }
   if((S_ISREG(s1->st_mode)) && (S_ISREG(s2->st_mode))){
     if(s1->st_size != s2->st_size)
       return(MAKUO_RECVSTATE_UPDATE);
-    if(s1->st_mtime != s2->st_mtime)
-      return(MAKUO_RECVSTATE_UPDATE);
     return(MAKUO_RECVSTATE_SKIP);
+  }
+  if(s1->st_mode == s2->st_mode){
+    if(s1->st_rdev == s2->st_rdev){
+      return(MAKUO_RECVSTATE_SKIP);
+    }
   }
   return(MAKUO_RECVSTATE_UPDATE);
 } 
@@ -677,14 +675,30 @@ int mcreatedir(char *base, char *name, mode_t mode)
   return(0);
 }
 
+int mcreatenode(char *base, char *name, mode_t mode, dev_t dev)
+{
+  int r = -1;
+  mode_t u = umask(0);
+  char path[PATH_MAX];
+  if(!mcreatedir(base, name, 0755)){
+    sprintf(path,"%s/%s",base,name);
+    r = mknod(path, mode, dev);
+  }
+  umask(u);
+  return(r);
+}
+
 int mcreatefile(char *base, char *name, mode_t mode)
 {
   int fd = -1;
+  mode_t u = umask(0);
   char path[PATH_MAX];
+
   if(!mcreatedir(base,name,0755)){
     sprintf(path,"%s/%s",base,name);
     fd = open(path, O_RDWR | O_CREAT | O_TRUNC, mode & 0xFFF);
   }
+  umask(u);
   return(fd);
 }
 

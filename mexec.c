@@ -310,6 +310,7 @@ int mexec_send(mcomm *c, int n)
 	  lprintf(0, "%s: out of memorry\n", __func__);
     return(0);
 	}
+
 	if(lstat(fn, &m->fs) == -1){
 	  cprintf(0, c, "error: file not found %s\n", fn);
 		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n", __func__, c->argc[n], c->cmdline[n]);
@@ -319,6 +320,7 @@ int mexec_send(mcomm *c, int n)
 		mfdel(m);
     return(0);
 	}
+  
 	strcpy(m->fn, fn);
 	m->mdata.head.reqid  = getrid();
 	m->mdata.head.opcode = MAKUO_OP_SEND;
@@ -329,6 +331,13 @@ int mexec_send(mcomm *c, int n)
   m->seqnomax  = m->fs.st_size / MAKUO_BUFFER_SIZE;
   if(m->fs.st_size % MAKUO_BUFFER_SIZE){
     m->seqnomax++; 
+  }
+
+  /*----- socket check -----*/
+  if(S_ISSOCK(m->fs.st_mode)){
+	  cprintf(0, c, "skip: unix domain socket %s\n", fn);
+		mfdel(m);
+    return(0);
   }
 
   /*----- owner check -----*/

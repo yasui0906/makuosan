@@ -24,6 +24,7 @@
 【インストール方法】
   $ tar zxvf makuosan-x.x.x
   $ cd makuosan-x.x.x
+  $ ./configure
   $ make
   $ su -
   # make install
