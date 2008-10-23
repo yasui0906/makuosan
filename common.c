@@ -563,6 +563,14 @@ int statcmp(struct stat *s1, struct stat *s2)
 {
   if(s1->st_mtime != s2->st_mtime)
     return(MAKUO_RECVSTATE_UPDATE);
+  if(!geteuid() || !getegid()){
+    if(s1->st_uid != s2->st_uid){
+      return(MAKUO_RECVSTATE_UPDATE);
+    }
+    if(s1->st_gid != s2->st_gid){
+      return(MAKUO_RECVSTATE_UPDATE);
+    }
+  }
   if((S_ISDIR(s1->st_mode)) && (S_ISDIR(s2->st_mode))){
     if(s1->st_mode != s2->st_mode)
       return(MAKUO_RECVSTATE_UPDATE);
