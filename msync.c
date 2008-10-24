@@ -1,5 +1,6 @@
 /*
  * msync.c
+ * MAKUOSAN CLI
  * Copyright (C) 2008 KLab Inc. 
  */
 #define _GNU_SOURCE

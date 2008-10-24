@@ -9,6 +9,7 @@ char *command_list[]={"quit",     /*  */
                       "exit",     /*  */
                       "bye",      /*  */
                       "send",     /*  */
+                      "syncdir",  /*  */
                       "members",  /*  */
                       "status",   /*  */
                       "md5",      /*  */
@@ -237,6 +238,7 @@ int mexec_help(mcomm *c, int n)
   cprintf(0, c, "  exclude clear\n");
   cprintf(0, c, "  send [-n] [-r] [-t host] [filename]\n");
   cprintf(0, c, "  md5 [-r] [-t host] [filename]\n");
+  cprintf(0, c, "  syncdir [-r] [-t host] [dirname]\n");
   cprintf(0, c, "  loglevel num (0-9)\n");
   cprintf(0, c, "  members\n");
   cprintf(0, c, "  help\n");
@@ -365,6 +367,118 @@ int mexec_send(mcomm *c, int n)
 		  mfdel(m);
     }
   }  
+  return(0);
+}
+
+int mexec_md5(mcomm *c, int n)
+{
+  int i;
+  int r;
+  ssize_t size;
+  char *argv[9];
+  char *fn = NULL;
+  mfile *m = NULL;
+  mhost *t = NULL;
+  mhash *h = NULL;
+  int recursive = 0;
+
+  for(i=0;i<c->argc[n];i++)
+    argv[i] = c->parse[n][i];
+  argv[i] = NULL;
+  optind = 0;
+  while((i=getopt(c->argc[n], argv, "t:r")) != -1){
+    switch(i){
+      case 'r':
+        recursive = 1;
+        break;
+      case 't':
+        for(t=members;t;t=t->next)
+          if(!strcmp(t->hostname, optarg))
+            break;
+        if(!t){
+          cprintf(0, c, "%s is not contained in members\r\n", optarg);
+          return(0);
+        }
+        break;
+      case '?':
+        cprintf(0, c, "invalid option -- %c\r\n", optopt);
+        return(0); 
+    }
+  }
+
+  while(optind < c->argc[n])
+    fn = c->parse[n][optind++];
+
+  /*----- directory scan -----*/
+  if(recursive){
+    if(c->cpid){
+      cprintf(0, c, "recursive process active now!\n");
+      return(0);
+    }
+    return(mexec_scan(c, fn, t, MAKUO_MEXEC_MD5));
+  }
+
+  /*----- help -----*/
+  if(!fn){
+    cprintf(0, c,"usage: md5 [-t host] [-r] [path]\r\n");
+    cprintf(0, c, "  -r  # dir recursive\r\n");
+    cprintf(0, c, "  -t  # target host\r\n");
+    return(0);
+  }
+
+  /*----- create mfile -----*/
+  m = mfadd(0);
+  if(!m){
+	  lprintf(0, "%s: out of memorry\n", __func__);
+	  cprintf(0, c, "error: out of memorry\n");
+    return(0);
+	}
+	m->mdata.head.reqid  = getrid();
+	m->mdata.head.seqno  = 0;
+	m->mdata.head.opcode = MAKUO_OP_MD5;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+  m->initstate = 1;
+	m->comm      = c;
+  m->sendto    = 0;
+  m->dryrun    = 0;
+  m->ln[0]     = 0;
+	strcpy(m->fn, fn);
+
+  /*----- open -----*/
+  m->fd = open(m->fn, O_RDONLY);
+  if(m->fd == -1){
+	  lprintf(0, "%s: file open error %s\n", __func__, m->fn);
+    cprintf(0, c, "file open error: %s\r\n", m->fn);
+    mfdel(m);
+    return(0);
+  }
+
+  /*----- md5 -----*/
+  h = (mhash *)m->mdata.data;
+  h->fnlen = strlen(m->fn);
+  r = md5sum(m->fd, h->hash);
+  close(m->fd);
+  m->fd = -1;
+  if(r == -1){
+	  lprintf(0, "%s: file read error %s\n", __func__, m->fn);
+    cprintf(0, c, "error: file read error %s\n", m->fn);
+    mfdel(m);
+    return(0);
+  }
+  memcpy(h->filename, m->fn, h->fnlen);
+  m->mdata.head.szdata = sizeof(mhash) + h->fnlen;
+  h->fnlen = htons(h->fnlen);
+
+  /*----- sendto address -----*/
+  if(t){
+    m->sendto = 1;
+    memcpy(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr));
+  }
+  return(0);
+}
+
+int mexec_syncdir(mcomm *c, int n)
+{
   return(0);
 }
 
@@ -523,113 +637,6 @@ int mexec_status(mcomm *c, int n)
   return(0);
 }
 
-int mexec_md5(mcomm *c, int n)
-{
-  int i;
-  int r;
-  ssize_t size;
-  char *argv[9];
-  char *fn = NULL;
-  mfile *m = NULL;
-  mhost *t = NULL;
-  mhash *h = NULL;
-  int recursive = 0;
-
-  for(i=0;i<c->argc[n];i++)
-    argv[i] = c->parse[n][i];
-  argv[i] = NULL;
-  optind = 0;
-  while((i=getopt(c->argc[n], argv, "t:r")) != -1){
-    switch(i){
-      case 'r':
-        recursive = 1;
-        break;
-      case 't':
-        for(t=members;t;t=t->next)
-          if(!strcmp(t->hostname, optarg))
-            break;
-        if(!t){
-          cprintf(0, c, "%s is not contained in members\r\n", optarg);
-          return(0);
-        }
-        break;
-      case '?':
-        cprintf(0, c, "invalid option -- %c\r\n", optopt);
-        return(0); 
-    }
-  }
-
-  while(optind < c->argc[n])
-    fn = c->parse[n][optind++];
-
-  /*----- directory scan -----*/
-  if(recursive){
-    if(c->cpid){
-      cprintf(0, c, "recursive process active now!\n");
-      return(0);
-    }
-    return(mexec_scan(c, fn, t, MAKUO_MEXEC_MD5));
-  }
-
-  /*----- help -----*/
-  if(!fn){
-    cprintf(0, c,"usage: md5 [-t host] [-r] [path]\r\n");
-    cprintf(0, c, "  -r  # dir recursive\r\n");
-    cprintf(0, c, "  -t  # target host\r\n");
-    return(0);
-  }
-
-  /*----- create mfile -----*/
-  m = mfadd(0);
-  if(!m){
-	  lprintf(0, "%s: out of memorry\n", __func__);
-	  cprintf(0, c, "error: out of memorry\n");
-    return(0);
-	}
-	m->mdata.head.reqid  = getrid();
-	m->mdata.head.seqno  = 0;
-	m->mdata.head.opcode = MAKUO_OP_MD5;
-  m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
-  m->initstate = 1;
-	m->comm      = c;
-  m->sendto    = 0;
-  m->dryrun    = 0;
-  m->ln[0]     = 0;
-	strcpy(m->fn, fn);
-
-  /*----- open -----*/
-  m->fd = open(m->fn, O_RDONLY);
-  if(m->fd == -1){
-	  lprintf(0, "%s: file open error %s\n", __func__, m->fn);
-    cprintf(0, c, "file open error: %s\r\n", m->fn);
-    mfdel(m);
-    return(0);
-  }
-
-  /*----- md5 -----*/
-  h = (mhash *)m->mdata.data;
-  h->fnlen = strlen(m->fn);
-  r = md5sum(m->fd, h->hash);
-  close(m->fd);
-  m->fd = -1;
-  if(r == -1){
-	  lprintf(0, "%s: file read error %s\n", __func__, m->fn);
-    cprintf(0, c, "error: file read error %s\n", m->fn);
-    mfdel(m);
-    return(0);
-  }
-  memcpy(h->filename, m->fn, h->fnlen);
-  m->mdata.head.szdata = sizeof(mhash) + h->fnlen;
-  h->fnlen = htons(h->fnlen);
-
-  /*----- sendto address -----*/
-  if(t){
-    m->sendto = 1;
-    memcpy(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr));
-  }
-  return(0);
-}
-
 int mexec_password(char *password)
 {
   unsigned char digest[16];
@@ -729,15 +736,17 @@ int mexec(mcomm *c, int n)
     }
     return(-1);
   }
+
   if(n == 1){
     for(m=mftop[0];m;m=m->next){
       if(m->comm == c){
-        if(count++ == 8){
+        if(count++ == MAKUO_PARALLEL_MAX){
           return(-1);
         }
       }
     }
   }
+
   if(!size){
     lprintf(0, "%s: buffer over fllow n=%d\n", __func__, n);
     mexec_close(c, n);
@@ -790,6 +799,9 @@ int mexec(mcomm *c, int n)
 
     if(!strcmp("md5",command_list[r]))
       return(mexec_md5(c,n));
+
+    if(!strcmp("syncdir",command_list[r]))
+      return(mexec_syncdir(c,n));
 
     if(!strcmp("members",command_list[r]))
       return(mexec_members(c,n));
