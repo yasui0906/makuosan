@@ -1,10 +1,12 @@
 /*
  * msync.c
- * MAKUOSAN CLI
  * Copyright (C) 2008 KLab Inc. 
  */
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -16,21 +18,52 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include "makuosan.h"
+
+excludeitem *exclude = NULL;
 
 void usage()
 {
-  printf("usage: msync [-l loglevel] [-c TARGET] [-K PASSWORDFILE] COMMAND [OPT] \n");
-  printf("       msync [-l loglevel] [-c TARGET] [-K PASSWORDFILE] -f SCRIPT_FILE\n");
+  printf("msync version %s (CLI for makuosan)\n", PACKAGE_VERSION);
+  printf("usage: msync [OPTION] [FILENAME]\n");
   printf("\n");
-  printf("  TARGET\n");
-  printf("    tcp:HOST:PORT     ex) tcp:127.0.0.1:5000\n");
-  printf("    unix:SOCKET       ex) unix:makuosan.sock\n");
+  printf("  OPTION\n");
+  printf("    --status            # show makuosan status\n");
+  printf("    --members           # show makuosan members\n");
+  printf("    --check             # file check use md5\n");
+  printf("    --exclude=PATTERN   # \n"); 
+  printf("    --exclude-from=FILE # \n");
   printf("\n");
-  printf("  COMMAND\n");
-  printf("    send [-n] [-r] [-t HOST] [FILENAME]\n");
-  printf("    md5  [-r] [FILENAME]\n");
-  printf("    status\n");
-  printf("    members\n");
+  printf("    -l LOGLEVEL(0-9)    # log level select. default=0\n");
+  printf("    -c MSYNC_TARGET     # \n");
+  printf("    -f SCRIPT_FILE      # \n");
+  printf("    -t HOSTNAME         # distnation hostname\n");
+  printf("    -v                  # log level increment\n");
+  printf("    -n                  # dry run\n");
+  printf("    -r                  # recurse into directories\n");
+  printf("\n");
+  printf("  MSYNC_TARGET\n");
+  printf("    tcp:HOST:PORT  ex) tcp:127.0.0.1:5000\n");
+  printf("    unix:SOCKET    ex) unix:makuosan.sock\n");
+  printf("\n");
+  printf("  SCRIPT_FILE\n");
+  printf("    (It writes later)\n");
+  printf("\n");
+}
+
+excludeitem *add_exclude(char *pattern)
+{
+  excludeitem *item = malloc(sizeof(excludeitem));
+  item->pattern = malloc(strlen(pattern) + 1);
+  strcpy(item->pattern, pattern);
+  item->prev    = NULL;
+  item->next    = NULL;
+  if(exclude){
+    exclude->prev = item;
+    item->next = exclude;
+  }
+  exclude = item;
+  return(item);
 }
 
 int connect_socket_tcp(char *host, char *port)
@@ -216,7 +249,7 @@ int makuo(int s, char *c)
   return(r);
 }
 
-int makuolog(int s, int l)
+int makuo_log(int s, int l)
 {
   int r;
   char cmd[256];
@@ -232,9 +265,45 @@ int makuolog(int s, int l)
   return(0);
 }
 
-int makuoquit(int s)
+int makuo_exclude(int s)
+{
+  int r;
+  char cmd[1024];
+  excludeitem *item;
+  for(item=exclude;item;item=item->next){
+    sprintf(cmd, "exclude add %s", item->pattern);
+    r = makuo(s, cmd);
+    if(r == 0){
+      fprintf(stderr, "error: makuosan remote close. (%s)\n", cmd);
+      return(1);
+    }
+    if(r == -1){
+      fprintf(stderr, "error: makuosan socket error. (%s)\n", cmd);
+      return(1);
+    }
+  }
+  return(0);
+}
+
+
+int makuo_exec(int s, char *cmd)
+{ 
+  int r = makuo(s, cmd);
+  if(r == 0){
+    fprintf(stderr, "error: makuosan remote close. (%s)\n", cmd);
+    return(1);
+  }
+  if(r == -1){
+    fprintf(stderr, "error: makuosan socket error. (%s)\n", cmd);
+    return(1);
+  }
+  return(0);
+}
+
+int makuo_quit(int s)
 { 
   int r = makuo(s, "quit");
+  close(s);
   if(r == 0){
     return(0); /* success */
   }
@@ -243,6 +312,33 @@ int makuoquit(int s)
   }
   fprintf(stderr, "quit error?!\n");
   return(1);
+}
+
+int exclude_from(char *filename)
+{
+  int  f;
+  int  r;
+  char line[256];
+
+  if(!strcmp(filename, "-")){
+    f = dup(0);
+  }else{
+    f = open(filename, O_RDONLY);
+  }
+  if(f == -1){
+    fprintf(stderr,"can't open: %s\n", filename);
+    return(1);
+  }
+  while(r = readline(f, line, sizeof(line), 0, NULL)){
+    if(r == -1){
+      fprintf(stderr, "file read error: %s\n", filename);
+      close(f);
+      return(1);
+    }
+    add_exclude(line);
+  }
+  close(f);
+  return(0);
 }
 
 int fromfile(int s, char *filename)
@@ -269,52 +365,13 @@ int fromfile(int s, char *filename)
       close(f);
       return(1);
     }
-    r = makuo(s, line);
-    if(r == 0){
-      fprintf(stderr, "error: makuosan remote close\n");
+    if(makuo_exec(s, line)){
       close(f);
       return(1);
     }
-    if(r == -1){
-      close(f);
-      return(1); /* socket error */
-    }
   }
-
-  /* quit */
-  return(makuoquit(s));
-}
-
-int fromargv(int s, int argc, char *argv[], int start)
-{
-  int i;
-  int r;
-  char cmd[256];
-
-  cmd[0] = 0;
-  for(i=start;i<argc;i++){
-    if(strlen(cmd) + strlen(argv[i]) + 2 > sizeof(cmd)){
-      fprintf(stderr, "error: command too long\n");
-      return(1);
-    }
-    if(cmd[0]){
-      strcat(cmd, " ");
-    }
-    strcat(cmd, argv[i]);
-  }
-
-  /* command execute */
-  r = makuo(s, cmd);
-  if(r == 0){
-    fprintf(stderr, "error: makuosan remote close\n");
-    return(1);
-  }
-  if(r == -1){
-    return(1); /* socket error */
-  }
-
-  /* quit */
-  return(makuoquit(s));
+  close(f);
+  return(makuo_quit(s));
 }
 
 int loadpass(char *filename, char *passwd, int size)
@@ -346,25 +403,112 @@ void defaulttarget(char *target, int size)
 
 int main(int argc, char *argv[])
 {
+  int i;
   int r;
   int s;
 
+  if(argc == 1){
+    usage();
+    return(1);
+  }
+
+  /* makuo command */
+  char cmd[1024];
+  char mcmd[256];
+  char mopt[256];
+  strcpy(mcmd,"send");
+  strcpy(mopt,"");
+
   /* option */
+  int loopflag = 1;
   int loglevel = 0;
   char scfile[256];
   char passwd[256];
   char target[256];
+
+  /* long option */
+  struct option longopt[7];
+  memset(longopt, 0, sizeof(longopt));
+  longopt[0].name    = "help";
+  longopt[0].has_arg = 0;
+  longopt[0].flag    = NULL;
+  longopt[0].val     = 'h';
+  longopt[1].name    = "status";
+  longopt[1].has_arg = 0;
+  longopt[1].flag    = NULL;
+  longopt[1].val     = 'S';
+  longopt[2].name    = "members";
+  longopt[2].has_arg = 0;
+  longopt[2].flag    = NULL;
+  longopt[2].val     = 'M';
+  longopt[3].name    = "check";
+  longopt[3].has_arg = 0;
+  longopt[3].flag    = NULL;
+  longopt[3].val     = 'C';
+  longopt[4].name    = "exclude";
+  longopt[4].has_arg = 1;
+  longopt[4].flag    = NULL;
+  longopt[4].val     = 'E';
+  longopt[5].name    = "exclude-from";
+  longopt[5].has_arg = 1;
+  longopt[5].flag    = NULL;
+  longopt[5].val     = 'F';
+  longopt[6].name    = "delete";
+  longopt[6].has_arg = 0;
+  longopt[6].flag    = NULL;
+  longopt[6].val     = 'D';
 
   /* default */
   scfile[0] = 0;
   passwd[0] = 0;
   defaulttarget(target, sizeof(target));
 
-  while((r = getopt(argc, argv, "+c:f:K:l:h")) != -1){
+  while((r = getopt_long(argc, argv, "c:f:t:K:l:hvrn", longopt, NULL)) != -1){
     switch(r){
       case 'h':
         usage();
         return(0);
+
+      case 'S':
+        strcpy(mcmd, "status");
+        loopflag = 0;
+        break;
+
+      case 'M':
+        strcpy(mcmd, "members");
+        loopflag = 0;
+        break;
+
+      case 'C':
+        strcpy(mcmd, "check");
+        break;
+
+      case 'E':
+        add_exclude(optarg);
+        break;
+
+      case 'F':
+        if(exclude_from(optarg)){
+          return(1);
+        }
+        break;
+
+      case 'r':
+        strcat(mopt," -r");
+        break;
+
+      case 'n':
+        strcat(mopt," -n");
+        break;
+
+      case 't':
+        strcat(mopt," -t ");
+        strcat(mopt,optarg);
+        break;
+
+      case 'v':
+        loglevel++;
+        break;
 
       case 'l':
         loglevel = atoi(optarg);
@@ -393,12 +537,12 @@ int main(int argc, char *argv[])
           return(1);
         }
         break;
-    }
-  }
 
-  if(!scfile[0] && optind == argc){
-    usage();
-    return(1);
+      case '?':
+        usage();
+        return(1);
+        break;
+    }
   }
 
   s = connect_socket(target);
@@ -413,23 +557,46 @@ int main(int argc, char *argv[])
     close(s);
     return(1);
   }
+
   if(r == -1){
     fprintf(stderr, "socket read error\n");
     close(s);
     return(1);
   }
 
-  if(makuolog(s, loglevel)){
+  if(makuo_log(s, loglevel)){
+    close(s);
+    return(1);
+  }
+
+  if(makuo_exclude(s)){
     close(s);
     return(1);
   }
 
   if(scfile[0]){
-    r = fromfile(s, scfile);
-  }else{
-    r = fromargv(s, argc, argv, optind);
+    return(fromfile(s, scfile));
   }
-  close(s);
-  return(r);
+
+  if(loopflag && (optind < argc)){
+    for(i=optind;i<argc;i++){
+      sprintf(cmd, "%s%s %s", mcmd, mopt, argv[i]);
+      if(makuo_exec(s, cmd)){
+        close(s);
+        return(1);
+      }
+    }
+  }else{
+    sprintf(cmd, "%s%s", mcmd, mopt);
+    for(i=optind;i<argc;i++){
+      strcat(cmd, " ");
+      strcat(cmd, argv[i]);
+    }
+    if(makuo_exec(s, cmd)){
+      close(s);
+      return(1);
+    }
+  }
+  return(makuo_quit(s));
 }
 

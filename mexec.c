@@ -13,6 +13,7 @@ char *command_list[]={"quit",     /*  */
                       "members",  /*  */
                       "status",   /*  */
                       "md5",      /*  */
+                      "check",    /*  */
                       "echo",     /*  */
                       "exclude",  /*  */
                       "loglevel", /*  */
@@ -84,7 +85,7 @@ int mexec_scan_send(int fd, char *path, char *sendhost, int mode)
       if(!is_reg(path)){
         return(0);
       }
-      sprintf(comm, "md5 %s%s\r\n",     buff, path);
+      sprintf(comm, "check %s%s\r\n",     buff, path);
       break;
   }
   mexec_scan_cmd(fd, comm);
@@ -237,7 +238,7 @@ int mexec_help(mcomm *c, int n)
   cprintf(0, c, "  exclude list\n");
   cprintf(0, c, "  exclude clear\n");
   cprintf(0, c, "  send [-n] [-r] [-t host] [filename]\n");
-  cprintf(0, c, "  md5 [-r] [-t host] [filename]\n");
+  cprintf(0, c, "  check [-r] [-t host] [filename]\n");
   cprintf(0, c, "  syncdir [-r] [-t host] [dirname]\n");
   cprintf(0, c, "  loglevel num (0-9)\n");
   cprintf(0, c, "  members\n");
@@ -370,7 +371,7 @@ int mexec_send(mcomm *c, int n)
   return(0);
 }
 
-int mexec_md5(mcomm *c, int n)
+int mexec_check(mcomm *c, int n)
 {
   int i;
   int r;
@@ -420,7 +421,7 @@ int mexec_md5(mcomm *c, int n)
 
   /*----- help -----*/
   if(!fn){
-    cprintf(0, c,"usage: md5 [-t host] [-r] [path]\r\n");
+    cprintf(0, c,"usage: check [-t host] [-r] [path]\r\n");
     cprintf(0, c, "  -r  # dir recursive\r\n");
     cprintf(0, c, "  -t  # target host\r\n");
     return(0);
@@ -798,7 +799,10 @@ int mexec(mcomm *c, int n)
       return(mexec_send(c,n));
 
     if(!strcmp("md5",command_list[r]))
-      return(mexec_md5(c,n));
+      return(mexec_check(c,n));
+
+    if(!strcmp("check",command_list[r]))
+      return(mexec_check(c,n));
 
     if(!strcmp("syncdir",command_list[r]))
       return(mexec_syncdir(c,n));

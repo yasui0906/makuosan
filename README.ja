@@ -51,20 +51,20 @@
 
 まくおを停止するには、killコマンドなどでSIGTERMを送ります。
 
-   # killall makuosan
+   # pkill makuosan
 
 
 【使用方法】
 　ファイルを転送するには「msyncコマンド」を使用します。
 
   例1）ベースディレクトリ直下のindex.htmlを転送する(/var/www/index.html)
-   $ msync send index.html
+   $ msync index.html
 
   例2）ベースディレクトリ以下のディレクトリツリーを全部転送する
-   $ msync send -r
+   $ msync -r
 
   例3）転送されるファイルを確認する(dry run)
-   $ msync send -r -n
+   $ msync -r -n
 
 
 【利用するメリット】
@@ -82,7 +82,7 @@
 そのかわり、ファイル転送は以下の例のように転送したいファイルやディレクトリ
 を伝えるだけで済みます。
 
- $ msync send -r hogehoge/
+ $ msync -r hogehoge/
 
 このコマンド一発で、「まくお」が稼働している全てのサーバに hogehoge/を転送す
 ることができます。rsyncやscpを利用する場合と比べて、遥かにシンプルで簡単に転
@@ -91,12 +91,12 @@
 また「指定したサーバにだけ転送したい」というニーズのために、特定のサーバにだ
 け転送するオプション(-t)も用意しています。
 
- $ msync send -t host3 -r hogehoge/
+ $ msync -t host3 -r hogehoge/
 
 ただし、この場合でも、host3では makuosanが動いている必要があります。尚、転送
 可能なサーバの一覧は、以下のコマンドで確認することができます。
 
- $ msync members
+ $ msync --members
 
 
 【簡単な使用例】
@@ -158,7 +158,7 @@
 
  == ファイルを転送する ==
 
- host1:~$ msync send -r
+ host1:~$ msync -r
 
 
  == 転送されたファイルを確認 ==

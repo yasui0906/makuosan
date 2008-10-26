@@ -176,10 +176,7 @@ void lprintf(int l, char *fmt, ...)
     va_start(arg, fmt);
     vsprintf(msg, fmt, arg);
     va_end(arg);
-    if(moption.dontfork){
-      fprintf(stderr, "%d:",l);
-      fprintf(stderr, msg);
-    }
+    fprintf(stderr, "%d: %s", l, msg);
     syslog(LOG_ERR, "%s: %d: %s", moption.user_name, l, msg);
   }
 }

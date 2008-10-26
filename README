@@ -42,19 +42,19 @@ The makuosan must be invoked with -b option specifying the base directory. The t
 
 Makuosan is terminated by sending SIGTERM
 
-   # killall makuosan
+   # pkill makuosan
 
 [How to transfer files]
 The msync command line is used to transfer files.
 
 Example 1) To send index.html in the base directory.(/var/www/index.html)
-   $ msync send index.html
+   $ msync index.html
 
 Example 2) To recursively send file system tree in the base directory.
-   $ msync send -r
+   $ msync -r
 
 Example 3) To show what will be transfered.(dry run)
-   $ msync send -r -n
+   $ msync -r -n
 
 
 [Advantages of Makuosan]
@@ -69,14 +69,14 @@ Example;
 In the case of MAKUO, file transfer is done between makuosan daemon. 
 Accordingly, you need to make makuosan up and running on every server, where you want to transfer the files to. As a result, the command line only requires the target files or the target directory.
 
- $ msync send -r hogehoge/
+ $ msync -r hogehoge/
 
 This is it. This will have a makuosan send hogehoge/ to all other makuosan daemons in the cluster. This is much simpler and easier than the situation where rsync or scp is used.
 
 What if a user want to send files only to specified servers?
 There is -t option to specify the receiver.
 
- $ msync send -t host3 -r hogehoge/
+ $ msync -t host3 -r hogehoge/
 
 [A case study]
 
@@ -137,7 +137,7 @@ There is -t option to specify the receiver.
 
  == Issue file transferring instruction ==
 
- host1:~$ msync send -r
+ host1:~$ msync -r
 
 
  == Confirm the result ==
