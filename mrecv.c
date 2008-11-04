@@ -389,15 +389,16 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_UPDATE)
     return;
 
+  mtempname(moption.base_dir, m->fn, m->tn);
   sprintf(fpath, "%s/%s", moption.base_dir, m->fn);
   sprintf(tpath, "%s/%s", moption.base_dir, m->tn);
   m->mdata.head.ostate = m->mdata.head.nstate;
   m->mdata.head.nstate = MAKUO_RECVSTATE_OPENERROR;
+
   if(S_ISLNK(m->fs.st_mode)){
-    mtempname(moption.base_dir, m->fn, m->tn);
-    sprintf(tpath, "%s/%s", moption.base_dir, m->tn);
     if(!mcreatelink(moption.base_dir, m->tn, m->ln)){
       m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+      set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
     }else{
       lprintf(0, "%s: symlink error %s -> %s\n", __func__, m->ln, m->fn);
     }
@@ -406,17 +407,15 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
       if(!is_dir(fpath)){
         mcreatedir(moption.base_dir, m->fn, m->fs.st_mode);
         mkdir(fpath, m->fs.st_mode);
-      }else{
-        chmod(fpath, m->fs.st_mode);
       }
       if(is_dir(fpath)){
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+        set_filestat(fpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0,"%s: mkdir error %s\n", __func__, m->fn);
       }
     }
     if(S_ISREG(m->fs.st_mode)){
-      mtempname(moption.base_dir, m->fn, m->tn);
       m->fd = mcreatefile(moption.base_dir, m->tn, m->fs.st_mode);
       if(m->fd != -1){
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
@@ -425,25 +424,25 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
       }
     }
     if(S_ISCHR(m->fs.st_mode)){
-      mtempname(moption.base_dir, m->fn, m->tn);
       if(!mcreatenode(moption.base_dir, m->tn, m->fs.st_mode, m->fs.st_rdev)){
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+        set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0, "%s: can't create character device %s\n", __func__, m->fn);
       }
     }
     if(S_ISBLK(m->fs.st_mode)){
-      mtempname(moption.base_dir, m->fn, m->tn);
       if(!mcreatenode(moption.base_dir, m->tn, m->fs.st_mode, m->fs.st_rdev)){
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+        set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0, "%s: can't create block device %s\n", __func__, m->fn);
       }
     }
     if(S_ISFIFO(m->fs.st_mode)){
-      mtempname(moption.base_dir, m->fn, m->tn);
       if(!mcreatenode(moption.base_dir, m->tn, m->fs.st_mode, m->fs.st_rdev)){
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+        set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0, "%s: can't create fifo %s\n", __func__, m->fn);
       }
@@ -599,6 +598,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
             mremove(moption.base_dir, m->tn);
           }else{
             if(!mrename(moption.base_dir, m->tn, m->fn)){
+              set_filestat(fpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
             }else{
               m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
               lprintf(0, "%s: close error %s\n", __func__, m->fn);
@@ -606,9 +606,6 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
             }
           }
         }
-      }
-      if(!geteuid()){
-        chown(fpath, m->fs.st_uid, m->fs.st_gid);
       }
     }
   }

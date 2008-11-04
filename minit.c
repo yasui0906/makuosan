@@ -4,7 +4,34 @@
  */
 #include "makuosan.h"
 
-void signal_handler(int n)
+static void usage()
+{
+  printf("makuosan version %s\n\n", PACKAGE_VERSION);
+  printf("(Multicasts All-Kinds of Updating Operation for Servers on Administered Network)\n");
+  printf("usage: makuosan [OPTION]\n");
+  printf("  -d num   # loglevel(0-9)\n");
+  printf("  -u uid   # user\n");
+  printf("  -g gid   # group\n");
+  printf("  -G gid,..# groups\n");
+  printf("  -b dir   # base dir\n");
+  printf("  -p port  # port number       (default: 5000)\n");
+  printf("  -m addr  # multicast address (default: 224.0.0.108)\n");
+  printf("  -l addr  # listen address    (default: 127.0.0.1)\n");
+  printf("  -U path  # unix domain socket\n");
+  printf("  -k file  # key file (encrypt password)\n");
+  printf("  -K file  # key file (console password)\n");
+  printf("  -f num   # parallel send count(default: 3) \n");
+  printf("  -c       # chroot to base dir\n");
+  printf("  -n       # don't fork\n");
+  printf("  -r       # don't recv\n");
+  printf("  -s       # don't send\n");
+  printf("  -o       # don't listen (console off mode)\n");
+  printf("  -O       # owner match limitation mode\n");
+  printf("  -h       # help\n\n"); 
+  exit(0);
+}
+
+static void signal_handler(int n)
 {
   switch(n){
     case SIGINT:
@@ -48,10 +75,11 @@ static void minit_option_setdefault()
   moption.comm_ena              = 1;
   moption.commpass              = 0;
   moption.ownmatch              = 0;
-  moption.parallel              = 1;
+  moption.parallel              = 3;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
+  moption.gids                  = NULL;
   getcwd(moption.base_dir, PATH_MAX);
   for(i=0;i<MAX_COMM;i++){
     moption.comm[i].fd[0] = -1;
@@ -93,6 +121,9 @@ static void minit_option_getenv()
         exit(1);
       }
     }
+  }
+  if(env=getenv("MAKUOSAN_GROUPS")){
+    set_gids(env);
   }
   if(env=getenv("MAKUOSAN_SOCK")){
     strcpy(moption.uaddr.sun_path, env);
@@ -170,10 +201,10 @@ static void minit_getopt(int argc, char *argv[])
   struct passwd *pw;
   struct group  *gr;
 
-  while((r=getopt(argc, argv, "f:u:g:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
+  while((r=getopt(argc, argv, "f:u:g:G:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
     switch(r){
       case 'h':
-        usage();
+        usage(); /* and exit */
 
       case 'f':
         moption.parallel = atoi(optarg);
@@ -227,6 +258,13 @@ static void minit_getopt(int argc, char *argv[])
          if(gr = getgrnam(optarg)){
             moption.gid = gr->gr_gid;
           }
+        }
+        break;
+
+      case 'G':
+        if(set_gids(optarg) == -1){
+          lprintf(0, "%s: set gids error\n", __func__);
+          exit(1);
         }
         break;
 
@@ -401,8 +439,15 @@ static void minit_chroot()
 
 static void minit_setguid()
 {
-  if(setguid(moption.uid, moption.gid) == -1){
-    fprintf(stderr, "%s: can't setguid %d:%d\n", __func__, moption.uid, moption.gid);
+  size_t num;
+  if(set_guid(moption.uid, moption.gid, moption.gids) == -1){
+    fprintf(stderr, "%s: can't setguid %d:%d", __func__, moption.uid, moption.gid);
+    if(moption.gids){
+      for(num=0;moption.gids[num];num++){
+        fprintf(stderr, ",%d", moption.gids[num]);
+      }
+    }
+    fprintf(stderr, "\n");
     exit(0);
   }
 }
@@ -440,16 +485,25 @@ static void minit_daemonize()
 
 static void minit_bootlog()
 {
+  int i;
   char *yesno[2]={"No","Yes"};
   lprintf(0, "makuosan version %s\n", PACKAGE_VERSION);
   lprintf(0, "loglevel  : %d\n", moption.loglevel);
-if(moption.chroot)
-  lprintf(0, "chroot    : %s\n", moption.real_dir);
-  lprintf(0, "base dir  : %s\n", moption.base_dir);
+  if(moption.chroot){
+    lprintf(0, "chroot    : %s\n", moption.real_dir);
+  }else{
+    lprintf(0, "base dir  : %s\n", moption.base_dir);
+  }
   lprintf(0, "multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
   lprintf(0, "port      : %d\n", ntohs(moption.maddr.sin_port));
   lprintf(0, "uid       : %d\n", geteuid());
-  lprintf(0, "gid       : %d\n", getegid());
+  lprintf(0, "gid       : %d"  , getegid());
+  if(moption.gids){
+    for(i=0;moption.gids[i];i++){
+      lprintf(0, ",%d", moption.gids[i]);
+    }
+  }
+  lprintf(0, "\n");
   lprintf(0, "parallel  : %d\n", moption.parallel);
   lprintf(0, "don't recv: %s\n", yesno[moption.dontrecv]);
   lprintf(0, "don't send: %s\n", yesno[moption.dontsend]);
@@ -474,20 +528,19 @@ if(moption.chroot)
 void minit(int argc, char *argv[])
 {
   if(argc == 1){
-    usage();
+    usage(); /* and exit */
   }
-  minit_option_setdefault(); /* 各オプションのデフォルト値を設定 */
-  minit_option_getenv();     /* 環境変数からオプションを読み込む */
-  minit_getopt(argc, argv);  /* コマンドラインパラメータを解析   */
-  minit_syslog();            /* syslogの使用を開始               */
-  minit_socket();            /* マルチキャストソケットの初期化   */
-  minit_console();           /* コンソールソケットの初期化       */
-  minit_signal();            /* シグナルハンドラを設定           */
-  minit_chdir();             /* カレントディレクトリを変更       */
-  minit_chroot();            /*                                  */
-  minit_setguid();           /*                                  */
-  minit_daemonize();         /*                                  */
-  minit_bootlog();           /* ブートメッセージを出力する       */
+  minit_option_setdefault(); /* 各オプションのデフォルト値を設定   */
+  minit_option_getenv();     /* 環境変数からオプションを読み込む   */
+  minit_getopt(argc, argv);  /* コマンドラインオプションを読み込む */
+  minit_syslog();            /* syslogの使用を開始                 */
+  minit_socket();            /* マルチキャストソケットの初期化     */
+  minit_console();           /* コンソールソケットの初期化         */
+  minit_signal();            /* シグナルハンドラを設定             */
+  minit_chdir();             /* カレントディレクトリを変更         */
+  minit_chroot();            /*                                    */
+  minit_setguid();           /*                                    */
+  minit_bootlog();           /* ブートメッセージを出力する         */
+  minit_daemonize();         /*                                    */
 }
-
 

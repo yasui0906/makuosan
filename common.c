@@ -176,8 +176,8 @@ void lprintf(int l, char *fmt, ...)
     va_start(arg, fmt);
     vsprintf(msg, fmt, arg);
     va_end(arg);
-    fprintf(stderr, "%d: %s", l, msg);
-    syslog(LOG_ERR, "%s: %d: %s", moption.user_name, l, msg);
+    fprintf(stderr, "%s", msg);
+    syslog(LOG_ERR, "%s: %s", moption.user_name, msg);
   }
 }
 
@@ -574,6 +574,8 @@ int statcmp(struct stat *s1, struct stat *s2)
     return(MAKUO_RECVSTATE_SKIP);
   }
   if((S_ISREG(s1->st_mode)) && (S_ISREG(s2->st_mode))){
+    if(s1->st_mode != s2->st_mode)
+      return(MAKUO_RECVSTATE_UPDATE);
     if(s1->st_size != s2->st_size)
       return(MAKUO_RECVSTATE_UPDATE);
     return(MAKUO_RECVSTATE_SKIP);
@@ -600,6 +602,93 @@ int is_reg(char *path)
   if(!lstat(path,&mstat))
     return(S_ISREG(mstat.st_mode));
   return(0);
+}
+
+int set_guid(int uid, int gid, gid_t *gids)
+{
+  size_t num;
+
+  /*----- setgids -----*/
+  if(gids){
+    for(num=0;gids[num];num++);
+    if(num){
+      if(setgroups(num,gids) == -1){
+        return(-1);
+      }
+    }
+  }else{
+    if(gid != getegid()){
+      if(setgroups(1, &gid) == -1){
+        return(-1);
+      }
+    }
+  }
+
+  /*----- setgid -----*/
+  if(gid != getegid()){
+    if(setegid(gid) == -1){
+      return(-1);
+    }
+  }
+  /*----- setuid -----*/
+  if(uid != geteuid()){
+    if(seteuid(uid) == -1){
+      return(-1);
+    }
+  }  
+  return(0);
+}
+
+int set_gids(char *groups)
+{
+  char *p;
+  size_t num;
+  struct group *g;
+  char buff[1024];
+
+  num = 0;
+  strcpy(buff, groups);
+  p = strtok(buff,",");
+  while(p){
+    p = strtok(NULL,",");
+    num++;
+  }
+  if(moption.gids){
+    free(moption.gids);
+  }
+  moption.gids = malloc(sizeof(gid_t) * (num + 1));
+ 
+  num = 0; 
+  strcpy(buff, groups);
+  p = strtok(buff,",");
+  while(p){
+    if(*p >= '0' && *p <= '9'){
+      moption.gids[num] = atoi(p);
+    }else{
+      if(g = getgrnam(p)){
+        moption.gids[num] = g->gr_gid;
+      }
+    }
+    p = strtok(NULL,",");
+    num++;
+  }
+  moption.gids[num] = 0;
+  return(0);
+}
+
+void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode)
+{
+  struct stat fs;
+  if(lstat(path, &fs) == -1){
+    return;
+  }
+  if(fs.st_uid != uid){
+    lchown(path, uid, -1);
+  }
+  if(fs.st_gid != gid){
+    lchown(path, -1, gid);
+  }
+  chmod(path, mode & 07777);
 }
 
 void mtempname(char *base, char *fn, char *tn)
@@ -733,5 +822,33 @@ int space_escape(char *str)
   *d = 0;
   strcpy(str, buff);
   return(r);
+}
+
+void chexit()
+{
+  char cwd[PATH_MAX];
+  if(moption.chroot){
+    /*----- chroot exit -----*/
+    mtempname("",".MAKUOWORK",cwd);
+    mkdir(cwd,0700);
+    chroot(cwd);
+    rmdir(cwd);
+    chdir("..");
+    getcwd(cwd,PATH_MAX);
+    while(strcmp("/", cwd)){
+      chdir("..");
+      getcwd(cwd,PATH_MAX);
+    }
+    chroot(".");
+  }
+  return(0);
+}
+
+void restoreguid()
+{
+  if(getuid() != geteuid())
+    seteuid(getuid());
+  if(getgid() != getegid())
+    setegid(getgid());
 }
 

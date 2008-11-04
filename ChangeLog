@@ -1,3 +1,10 @@
+1.0.0:
+ - stable release
+ - change default value -f option. 1 to 3
+ - fixed group missmatch
+ - fixed statcomp
+ - add -G option
+
 0.9.3:
  - change msync command design.
  - fixed daemonize error message.

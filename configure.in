@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
-AC_INIT(makuosan, 0.9.3, info-makuosan@klab.jp)
+AC_INIT(makuosan, 1.0.0, info-makuosan@klab.jp)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([makuosan.c])
 AC_CONFIG_HEADER([config.h])
@@ -11,11 +11,12 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 # Checks for libraries.
-AC_CHECK_LIB(ssl,MD5_Init)
+AC_CHECK_LIB(ssl, MD5_Init)
 
 # Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
+AC_CHECK_HEADERS(openssl/md5.h openssl/blowfish.h,,[AC_MSG_ERROR([Can't found openssl header file])])
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h sys/timeb.h syslog.h unistd.h utime.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
