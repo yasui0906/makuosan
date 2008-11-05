@@ -2,8 +2,10 @@
  - stable release
  - change default value -f option. 1 to 3
  - fixed group missmatch
- - fixed statcomp
+ - fixed statcomp bug
+ - fixed dir perm bug
  - add -G option
+ - autoconf check openssl header file 
 
 0.9.3:
  - change msync command design.

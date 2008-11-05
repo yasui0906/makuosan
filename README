@@ -24,7 +24,7 @@ Each makuosan daemon maintains available server list by periodically checking ex
 The makuosan transfers files only to those servers where makuosan daemon is also alive. Therefore, it never stalls waiting for a dead server, or timeouts.
 
 [Installation]
-  $ tar zxvf makuosan-x.x.x
+  $ tar zxvf makuosan-x.x.x.tar.gz
   $ cd makuosan-x.x.x
   $ ./configure
   $ make
@@ -35,8 +35,7 @@ The makuosan transfers files only to those servers where makuosan daemon is also
 The following files will be installed.
 
   /usr/local/sbin/makuosan # The main makuosan daemon. This should be running on every server.
-  /usr/local/bin/msync     # cli utility to transfer files.
-                           ?? command line interface to makuosan daemon
+  /usr/local/bin/msync     # command line interface to makuosan daemon
 
 [Starting/stopping makuosan daemon]
 The makuosan must be invoked with -b option specifying the base directory. The target file can be specified using relative path from the base directory.
