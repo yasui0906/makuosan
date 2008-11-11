@@ -75,7 +75,9 @@ int connect_socket_tcp(char *host, char *port)
     return(-1);
   }
   memset(&hint, 0, sizeof(struct addrinfo));
-  hint.ai_family = AF_INET;
+  hint. ai_family  = AF_INET;
+  hint.ai_socktype = SOCK_STREAM;
+  hint.ai_protocol = IPPROTO_TCP;
   if(getaddrinfo(host, port, &hint, &res)){
     return(-1);
   }
