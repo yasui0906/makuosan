@@ -2,3 +2,4 @@ bin_PROGRAMS = msync
 sbin_PROGRAMS = makuosan
 makuosan_SOURCES = makuosan.c common.c mexec.c minit.c mrecv.c msend.c makuosan.h
 msync_SOURCES = msync.c 
+EXTRA_DIST = support

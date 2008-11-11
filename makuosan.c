@@ -279,7 +279,7 @@ void mexit()
 {
   lprintf(0, "%s: shutdown start\n", __func__);
   restoreguid(); /* euid,egidを元に戻す      */
-  chexit();      /* chrootから脱出           */
+  chexit();      /* chrootから脱出(LinuxOnly)*/
   cleanup();     /* ディスクリプタの開放など */
   lprintf(0, "%s: shutdown complete\n", __func__);
 }

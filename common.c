@@ -826,9 +826,16 @@ int space_escape(char *str)
 
 void chexit()
 {
+  struct utsname uts;
   char cwd[PATH_MAX];
   if(moption.chroot){
-    /*----- chroot exit -----*/
+    if(uname(&uts) == -1){
+      return(-1);
+    }
+    if(strcmp("Linux", uts.sysname)){
+      return(-1);
+    }
+    /*----- chroot exit(linux only) -----*/
     mtempname("",".MAKUOWORK",cwd);
     mkdir(cwd,0700);
     chroot(cwd);
