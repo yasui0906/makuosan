@@ -689,6 +689,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   mfile *m;
   uint16_t fnlen;
   uint16_t lnlen;
+  uint64_t  rdev;
 
   if(data->head.nstate != MAKUO_SENDSTATE_STAT){
     return(NULL);
@@ -729,11 +730,12 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   data->p += lnlen;
 
   /* rdev */
-  m->fs.st_rdev  = ntohl(*(uint32_t *)(data->p));
+  rdev = ntohl(*(uint32_t *)(data->p));
   data->p += sizeof(uint32_t);
-  m->fs.st_rdev <<= 32;
-  m->fs.st_rdev |= ntohl(*(uint32_t *)(data->p));
+  rdev <<= 32;
+  rdev |= ntohl(*(uint32_t *)(data->p));
   data->p += sizeof(uint32_t);
+  m->fs.st_rdev = (dev_t)rdev;
 
   /* Number of blocks */
   m->seqnomax = m->fs.st_size / MAKUO_BUFFER_SIZE;

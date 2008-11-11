@@ -199,7 +199,8 @@ static void msend_req_send_break(int s, mfile *m)
 
 static void msend_req_send_stat_init(int s, mfile *m)
 {
-  mstat fs;
+  mstat    fs;
+  uint64_t rdev;
   if(!m->comm){
     msend_mfdel(m);
     m = NULL;
@@ -230,9 +231,11 @@ static void msend_req_send_stat_init(int s, mfile *m)
   m->mdata.p += strlen(m->fn);
   strcpy(m->mdata.p, m->ln);
   m->mdata.p += strlen(m->ln);
-  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(m->fs.st_rdev >> 32));
+
+  rdev = (uint64_t)(m->fs.st_rdev);
+  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(rdev >> 32));
   m->mdata.p += sizeof(uint32_t);
-  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(m->fs.st_rdev & 0xFFFFFFFF));
+  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(rdev & 0xFFFFFFFF));
   m->mdata.p += sizeof(uint32_t);
   m->sendwait  = 1;
   m->initstate = 0;

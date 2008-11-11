@@ -830,10 +830,10 @@ void chexit()
   char cwd[PATH_MAX];
   if(moption.chroot){
     if(uname(&uts) == -1){
-      return(-1);
+      return;
     }
     if(strcmp("Linux", uts.sysname)){
-      return(-1);
+      return;
     }
     /*----- chroot exit(linux only) -----*/
     mtempname("",".MAKUOWORK",cwd);
@@ -848,7 +848,7 @@ void chexit()
     }
     chroot(".");
   }
-  return(0);
+  return;
 }
 
 void restoreguid()
