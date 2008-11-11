@@ -1,0 +1,118 @@
+#!/bin/sh
+#
+# makuosan  Multicasts All-Kinds of Updating Operation for Servers on Administered Network
+#
+# Copyright (C) 2008 by KLab Inc.
+#
+# chkconfig: 99 01
+# description: Makuosan(MAKUO for short) is a software \
+#              which transfer files to multiple servers simultaneously \
+#              using UDP multicast.
+#              (MAKUO consists of makuosan daemon and command line utility msync.\
+#              The makuosan should be run on every server in a cluster. \
+#              The makuo talk to makuosan daemon.)
+#
+# processname: /usr/sbin/makuosan
+# config: /etc/sysconfig/makuosan
+# pidfile: /var/run/makuosan.pid
+
+PATH=/sbin:/bin:/usr/bin:/usr/sbin
+
+BASE_DIR=""
+PORT="5000"
+IP_ADDRESS="127.0.0.1"
+SOCKET=""
+
+# Source function library.
+. /etc/init.d/functions
+
+# Get config.
+test -f /etc/sysconfig/network && . /etc/sysconfig/network
+test -f /etc/sysconfig/makuosan && . /etc/sysconfig/makuosan
+
+
+# Check that networking is up.
+[ "${NETWORKING}" = "yes" ] || exit 0
+[ -n "${SOCKET}"] || SOCKET="-U ${SOCKET}"
+
+[ -f /usr/sbin/makuosan ] || exit 1
+
+RETVAL=0
+
+prog="makuosan"
+
+start(){
+    # Check config.
+    if [ -z "${BASE_DIR}" ]; then
+        echo "base directory setting (BASE_DIR) is empty."
+        exit 1
+    fi
+    if [ ! -d "${BASE_DIR}" ]; then
+        echo "${BASE_DIR} is not exists."
+        exit 1
+    fi
+
+    echo -n $"Starting $prog: "
+    $prog -b "$BASE_DIR" -p "$PORT" -l "$IP_ADDRESS" "$SOCKET"
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/$prog
+    echo
+    return $RETVAL
+}
+
+stop(){
+    echo -n $"Stopping $prog: "
+    killproc $prog
+    RETVAL=$?
+    if [ $RETVAL -eq 0 ] ; then
+        rm -f /var/lock/subsys/$prog
+    fi
+    echo
+    return $RETVAL
+}
+
+reload(){
+    echo -n $"Reloading configuration: "	
+    killproc $prog -HUP
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
+restart(){
+    stop
+    start
+}
+
+condrestart(){
+    [ -e /var/lock/subsys/$prog ] && restart
+    return 0
+}
+
+
+# See how we were called.
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+	status $prog
+	;;
+    restart)
+	restart
+	;;
+    reload)
+	reload
+	;;
+    condrestart)
+	condrestart
+	;;
+    *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart|reload}"
+	RETVAL=1
+esac
+
+exit $RETVAL

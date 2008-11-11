@@ -424,10 +424,14 @@ static void minit_chdir()
 
 static void minit_chroot()
 {
+  time_t ttime;
+  struct tm *t;
   char tz[256];
   if(moption.chroot){
+    time(&ttime);
     tzset();
-    sprintf(tz, "%s%d", tzname[0], timezone/3600);
+    t = localtime(&ttime);
+    sprintf(tz, "%s%+ld",   t->tm_zone, -(t->tm_gmtoff/3600));
     setenv("TZ", tz, 0);
     if(chroot(moption.base_dir) == -1){
       fprintf(stderr, "%s: can't chroot %s\n", __func__, moption.base_dir);

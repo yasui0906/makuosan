@@ -693,12 +693,12 @@ void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode)
 
 void mtempname(char *base, char *fn, char *tn)
 {
-  struct stat  st;
-  struct timeb tb;
+  struct stat    st;
+  struct timeval tv;
   char path[PATH_MAX];
   do{
-    ftime(&tb);
-    sprintf(tn, "%s.makuo%03u%03u", fn, getrid() % 1000,  (int)tb.millitm);
+    gettimeofday(&tv, NULL);
+    sprintf(tn, "%s.makuo%03u%03u", fn, getrid() % 1000,  (int)tv.tv_usec);
     sprintf(path, "%s/%s", base, tn);
   }while(lstat(tn, &st) != -1);
 }

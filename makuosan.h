@@ -29,11 +29,11 @@
 #include <syslog.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -252,7 +252,6 @@ extern int opterr;
 extern int optopt;
 extern int loop_flag;
 extern char *tzname[2];
-extern long timezone;
 extern int daylight;
 extern char TZ[256];
 extern struct timeval curtime;
