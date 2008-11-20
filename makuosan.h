@@ -56,7 +56,7 @@
 /*----- timeout -----*/
 #define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
-#define MAKUO_SEND_DELAYSTP 1      /* 送出遅延時間の増分(ms)                       */
+#define MAKUO_SEND_DELAYSTP 0      /* 送出遅延時間の増分(ms)                       */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
 #define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
@@ -70,6 +70,8 @@
 /*----- flags -----*/
 #define MAKUO_FLAG_ACK   1
 #define MAKUO_FLAG_CRYPT 2
+#define MAKUO_FLAG_WAIT  4
+#define MAKUO_FLAG_FMARK 8
 
 /*----- sendstatus -----*/
 #define MAKUO_SENDSTATE_STAT       0  /* 更新確認待 */
@@ -90,7 +92,6 @@
 #define MAKUO_RECVSTATE_CLOSE      5
 #define MAKUO_RECVSTATE_IGNORE     6
 #define MAKUO_RECVSTATE_READONLY   7
-#define MAKUO_RECVSTATE_RETRY      8
 #define MAKUO_RECVSTATE_MD5OK      10
 #define MAKUO_RECVSTATE_MD5NG      11
 #define MAKUO_RECVSTATE_OPENERROR  90
@@ -190,8 +191,12 @@ typedef struct
   uint32_t senddelay;
   uint32_t initstate;
   uint32_t recvcount;
+  uint32_t markdelta;
   uint32_t markcount;
+  uint32_t waitcount;
+  uint32_t waitspan;
   uint32_t marksize;
+  uint32_t seqnonow;
   uint32_t seqnomax;
   mdata mdata;
   mcomm *comm;

@@ -209,6 +209,20 @@ static void mrecv_ack_ping(mdata *data, struct sockaddr_in *addr)
   member_add(&addr->sin_addr, data);
 }
 
+static void mrecv_ack_send_mark(mdata *data, mfile *m, mhost *t)
+{
+  uint32_t *d = (uint32_t *)(data->data);
+  while(d < (uint32_t *)&data->data[data->head.szdata]){
+    if(*d >= m->seqnomax){
+      lprintf(0, "%s: mark seqno error seq=%d max=%d %s from %s\n", __func__,
+         *d, m->seqnomax, m->fn, t->hostname);
+      break;
+    }
+    seq_addmark(m, *d, (*d) + 1);
+    d++;
+  }
+}
+
 static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
 {
   uint8_t *r;
@@ -224,30 +238,21 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
       data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(t->ad), t->hostname, m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_MARK){
-    uint32_t *d = (uint32_t *)(data->data);
-    while(d < (uint32_t *)&data->data[data->head.szdata]){
-      if(*d >= m->seqnomax){
-        lprintf(0, "%s: mark seqno error seq=%d max=%d %s from %s\n", __func__,
-           *d, m->seqnomax, m->fn, t->hostname);
-        break;
-      }
-      seq_addmark(m, *d, (*d) + 1);
-      d++;
+    mrecv_ack_send_mark(data, m, t);
+    if(data->head.flags & MAKUO_FLAG_FMARK){
+      return;
     }
   }
-  if(data->head.nstate == MAKUO_RECVSTATE_RETRY){
-    lprintf(0, "%s: send retry %s from %s\n", __func__, m->fn, t->hostname);
-    m->sendwait   = 0;
-    m->lickflag   = 0;
-    m->senddelay += MAKUO_SEND_DELAYSTP;
-    m->mdata.head.seqno  = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
-  }else{
-    if(r = get_hoststate(t, m)){
-      *r = data->head.nstate;
-    }else{
-      lprintf(0, "%s: hoststate error\n", __func__);
+  if(data->head.nstate == MAKUO_RECVSTATE_OPEN){
+    mrecv_ack_send_mark(data, m, t);
+    if(data->head.flags & MAKUO_FLAG_FMARK){
+      return;
     }
+  }
+  if(r = get_hoststate(t, m)){
+    *r = data->head.nstate;
+  }else{
+    lprintf(0, "%s: hoststate error\n", __func__);
   }
   mrecv_ack_report(m, t, data);
 }
@@ -462,59 +467,6 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
 }
 
-static void mrecv_req_send_data(mfile *m,  mdata *r)
-{
-  if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN)
-    return;
-
-  if(m->lickflag){
-    if(!seq_delmark(m, r->head.seqno)){
-      return;
-    }
-  }else{
-    if(m->mdata.head.seqno > r->head.seqno){
-      seq_delmark(m, r->head.seqno);
-    }else{
-      if(m->mdata.head.seqno < r->head.seqno){
-        seq_addmark(m, m->mdata.head.seqno, r->head.seqno);
-        m->mdata.head.seqno = r->head.seqno;
-      }
-      m->mdata.head.seqno++;
-    }
-  }
-  if(lseek(m->fd, r->head.seqno * MAKUO_BUFFER_SIZE, SEEK_SET) == -1){
-    lprintf(0, "%s: seek error seq=%d size=%d fd=%d err=%d\n", __func__, (int)r->head.seqno, r->head.szdata, m->fd, errno);
-    m->mdata.head.ostate = m->mdata.head.nstate;
-    m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
-  }else{
-    if(write(m->fd, r->data, r->head.szdata) != -1){
-      m->recvcount++;
-    }else{
-      lprintf(0, "%s: write error seqno=%d size=%d fd=%d err=%d\n", __func__, (int)r->head.seqno, r->head.szdata, m->fd, errno);
-      m->mdata.head.ostate = m->mdata.head.nstate;
-      m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
-    }
-  }
-  if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
-    return;
-  }
-
-  /*----- write error notlfy -----*/
-  mfile *a = mfins(0);
-  if(!a){
-    lprintf(0, "%s: out of momory\n", __func__);
-    return;
-  }
-  a->mdata.head.flags |= MAKUO_FLAG_ACK;
-  a->mdata.head.opcode = r->head.opcode;
-  a->mdata.head.reqid  = r->head.reqid;
-  a->mdata.head.seqno  = r->head.seqno;
-  a->mdata.head.ostate = m->mdata.head.ostate;
-  a->mdata.head.nstate = m->mdata.head.nstate;
-  a->mdata.head.szdata = 0;
-  memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
-}
-
 static void mrecv_req_send_mark(mfile *m, mdata *r)
 {
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN)
@@ -534,11 +486,11 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
   a->mdata.head.szdata = 0;
 
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
-  m->lickflag = 1;
   if(m->mdata.head.seqno < m->seqnomax){
     seq_addmark(m, m->mdata.head.seqno, m->seqnomax);
     m->mdata.head.seqno = m->seqnomax;
   }
+  m->lickflag = 1;
   if(m->markcount){
     if(MAKUO_BUFFER_SIZE < m->markcount * sizeof(uint32_t)){
       a->marksize = MAKUO_BUFFER_SIZE / sizeof(uint32_t);
@@ -551,6 +503,130 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
     lprintf(3, "%s: repeat mark=%04d reqest=%03d recv=%06d size=%06d %s\n", __func__,
       m->markcount, a->markcount, m->recvcount, m->seqnomax,  m->fn);
   }
+}
+
+static void mrecv_req_send_data_write_error(mfile *m, mdata *r)
+{
+  mfile *a = mfins(0);
+  if(!a){
+    lprintf(0, "%s: out of momory\n", __func__);
+    return;
+  }
+
+  /*----- write error notlfy -----*/
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = r->head.opcode;
+  a->mdata.head.reqid  = r->head.reqid;
+  a->mdata.head.seqno  = r->head.seqno;
+  a->mdata.head.ostate = m->mdata.head.ostate;
+  a->mdata.head.nstate = m->mdata.head.nstate;
+  a->mdata.head.szdata = 0;
+  memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+}
+
+static void mrecv_req_send_data_write(mfile *m, mdata *r)
+{
+  if(r->head.szdata == 0){
+    return;
+  }
+  if(lseek(m->fd, r->head.seqno * MAKUO_BUFFER_SIZE, SEEK_SET) == -1){
+    lprintf(0, "%s: seek error seq=%d size=%d fd=%d err=%d\n", __func__, (int)r->head.seqno, r->head.szdata, m->fd, errno);
+    m->mdata.head.ostate = m->mdata.head.nstate;
+    m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
+    mrecv_req_send_data_write_error(m, r);
+    return; /* seek error */
+  }
+  if(write(m->fd, r->data, r->head.szdata) != -1){
+    m->recvcount++;
+  }else{
+    lprintf(0, "%s: write error seqno=%d size=%d fd=%d err=%d\n", __func__, (int)r->head.seqno, r->head.szdata, m->fd, errno);
+    m->mdata.head.ostate = m->mdata.head.nstate;
+    m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
+    mrecv_req_send_data_write_error(m, r);
+  }
+}
+
+static void mrecv_req_send_data_retry(mfile *m, mdata *r)
+{
+  mfile *a;
+  uint32_t *markptr = m->mark;
+  uint32_t  markcnt = m->markcount;
+
+  lprintf(3, "%s: markcount=%04u recv=%06u size=%06u %s\n",
+    __func__, m->markcount, m->recvcount, m->seqnomax,  m->fn);
+
+  a = mfins(0);
+  if(!a){
+    lprintf(0, "%s: out of momory\n", __func__);
+    return;
+  }
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = r->head.opcode;
+  a->mdata.head.reqid  = r->head.reqid;
+  a->mdata.head.seqno  = r->head.seqno;
+  a->mdata.head.ostate = m->mdata.head.nstate;
+  a->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+  a->mdata.head.szdata = 0;
+  memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+
+  while(markcnt){
+    a = mfins(0);
+    if(!a){
+      lprintf(0, "%s: out of momory\n", __func__);
+      return;
+    }
+    a->mdata.head.flags |= MAKUO_FLAG_FMARK;
+    a->mdata.head.flags |= MAKUO_FLAG_ACK;
+    a->mdata.head.opcode = r->head.opcode;
+    a->mdata.head.reqid  = r->head.reqid;
+    a->mdata.head.seqno  = r->head.seqno;
+    a->mdata.head.ostate = m->mdata.head.nstate;
+    a->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+    a->mdata.head.szdata = 0;
+    memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+    if(MAKUO_BUFFER_SIZE < (markcnt * sizeof(uint32_t))){
+      a->marksize = MAKUO_BUFFER_SIZE / sizeof(uint32_t);
+    }else{
+      a->marksize = markcnt;
+    }
+    if(a->markcount = a->marksize){
+      a->mark = malloc(a->marksize * sizeof(uint32_t));
+      memcpy(a->mark, markptr, a->marksize * sizeof(uint32_t));
+      markptr += a->marksize;
+      markcnt -= a->marksize;
+    }
+  }
+}
+
+static void mrecv_req_send_data(mfile *m, mdata *r)
+{
+  if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
+    return;
+  }
+  if(r->head.flags & MAKUO_FLAG_WAIT){
+    mrecv_req_send_data_retry(m, r);
+    return;
+  }
+  if(m->lickflag){
+    if(seq_delmark(m, r->head.seqno)){
+      mrecv_req_send_data_write(m, r);
+    }
+    return;
+  }
+  if(m->mdata.head.seqno > r->head.seqno){
+    if(seq_delmark(m, r->head.seqno)){
+      mrecv_req_send_data_write(m, r);
+    }
+    return;
+  }
+  if(m->mdata.head.seqno < r->head.seqno){
+    if(seq_addmark(m, m->mdata.head.seqno, r->head.seqno) == 1){
+      mrecv_req_send_data_retry(m, r);
+    }
+    m->mdata.head.seqno = r->head.seqno;
+  }
+  mrecv_req_send_data_write(m, r);
+  m->mdata.head.seqno++;
 }
 
 static void mrecv_req_send_close(mfile *m, mdata *r)

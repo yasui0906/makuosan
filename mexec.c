@@ -331,6 +331,7 @@ int mexec_send(mcomm *c, int n)
 	m->comm      = c;
   m->dryrun    = (mode == MAKUO_MEXEC_DRY);
   m->initstate = 1;
+  m->seqnonow  = 0;
   m->seqnomax  = m->fs.st_size / MAKUO_BUFFER_SIZE;
   if(m->fs.st_size % MAKUO_BUFFER_SIZE){
     m->seqnomax++; 
@@ -615,15 +616,17 @@ int mexec_status(mcomm *c, int n)
     cprintf(0, c, "basedir  : %s/\n", moption.base_dir);
   }
   count = 0;
-  for(m=mftop[0];m;m=m->next)
+  for(m=mftop[0];m;m=m->next){
     count++;
+  }
   cprintf(0,c,"send file: %d\n", count);
   for(m=mftop[0];m;m=m->next){
-    if(m->lickflag){
-      cprintf(0, c, "  %s %s (%d/%d)\n", SSTATE(m->mdata.head.nstate), m->fn, m->mdata.head.seqno,m->seqnomax); 
-    }else{
-      cprintf(0, c, "  %s %s (%d/%d)\n", SSTATE(m->mdata.head.nstate), m->fn, m->mdata.head.seqno,m->seqnomax); 
+    uint32_t snow = m->seqnonow;
+    uint32_t smax = m->seqnomax;
+    if(snow > smax){
+      snow = smax;
     }
+    cprintf(0, c, "  %s %s (%u:%u/%u)\n", SSTATE(m->mdata.head.nstate), m->fn, m->markcount, snow, smax); 
   }
 
   count = 0;

@@ -39,7 +39,6 @@ char *rstatestrlist[16] = {"RECV_NONE",
                            "RECV_CLOSE",
                            "RECV_IGNORE",
                            "RECV_READONLY",
-                           "RECV_RETRY",
                            "RECV_MD5OK",
                            "RECV_MD5NG",
                            "RECV_OPENERR",
@@ -56,7 +55,6 @@ uint8_t rstatenumlist[16]={MAKUO_RECVSTATE_NONE,
                            MAKUO_RECVSTATE_CLOSE,
                            MAKUO_RECVSTATE_IGNORE,
                            MAKUO_RECVSTATE_READONLY,
-                           MAKUO_RECVSTATE_RETRY,
                            MAKUO_RECVSTATE_MD5OK,
                            MAKUO_RECVSTATE_MD5NG,
                            MAKUO_RECVSTATE_OPENERROR,
@@ -358,15 +356,15 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
     }
   }
   size = m->marksize;
-  while(size < m->markcount + useq - lseq)
+  while(size < m->markcount + useq - lseq){
     size += 1024;
+  }
   if(size != m->marksize){
     n = realloc(m->mark, sizeof(uint32_t) * size);
     if(!n){
       lprintf(0, "%s: out of memory(realloc)\n", __func__);
       return(-1); 
     }
-    a = mfins(0);
     m->mark = n;
     m->marksize = size;
   }
@@ -378,19 +376,13 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
         break;
     if(j == m->markcount){
       m->mark[m->markcount++] = i;
+      m->markdelta++;
     }
   }
-
-  /***** complaint *****/
-  if(a){
-    lprintf(2,"%s: complaint (%d/%d) %s\n", __func__, m->markcount, m->marksize, m->fn);
-    a->mdata.head.flags |= MAKUO_FLAG_ACK;
-    a->mdata.head.opcode = m->mdata.head.opcode;
-    a->mdata.head.reqid  = m->mdata.head.reqid;
-    a->mdata.head.szdata = 0;
-    a->mdata.head.seqno  = m->mdata.head.seqno;
-    a->mdata.head.nstate = MAKUO_RECVSTATE_RETRY;
-    memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
+  lprintf(1,"%s: l=%u u=%u sub=%d\n", __func__, lseq, useq, useq - lseq);
+  if(m->markdelta>64){
+    m->markdelta = 0;
+    return(1);
   }
   return(0);
 }
