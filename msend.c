@@ -113,6 +113,11 @@ static void msend_retry(mfile *m)
         break;
     }
   }
+  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
+    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+      return;
+    }
+  }
   m->retrycnt--;
 }
 
@@ -166,6 +171,11 @@ static void msend_ack_md5(int s, mfile *m)
   msend_shot(s, m);
 }
 
+static void msend_ack_dsync(int s, mfile *m)
+{
+  msend_shot(s, m);
+}
+
 static void msend_ack(int s, mfile *m)
 {
   switch(m->mdata.head.opcode){
@@ -179,6 +189,9 @@ static void msend_ack(int s, mfile *m)
       break;
     case MAKUO_OP_MD5:
       msend_ack_md5(s, m);
+      break;
+    case MAKUO_OP_DSYNC:
+      msend_ack_dsync(s, m);
       break;
 
     /* 機能追加はここ */
@@ -635,6 +648,91 @@ static void msend_req_md5(int s, mfile *m)
   }
 }
 
+static void msend_req_dsync_stat_init(int s, mfile *m)
+{
+  m->sendwait  = 1;
+  m->initstate = 0;
+  msend_packet(s, &(m->mdata), &(m->addr));
+}
+
+static void msend_req_dsync_stat(int s, mfile *m)
+{
+  char path[PATH_MAX];
+
+  if(m->initstate){
+    msend_req_dsync_stat_init(s, m);
+    return;
+  }
+  if(m->sendwait){
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  lprintf(9,"%s: %s\n", __func__, m->fn);
+  /*
+  msend_mfdel(m);
+  m = NULL;
+  */
+}
+
+static void msend_req_dsync_open_init(int s, mfile *m)
+{
+  m->sendwait  = 1;
+  m->initstate = 0;
+  msend_packet(s, &(m->mdata), &(m->addr));
+}
+
+static void msend_req_dsync_open(int s, mfile *m)
+{
+  if(m->initstate){
+    msend_req_dsync_open_init(s, m);
+    return;
+  }
+  if(m->sendwait){
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  lprintf(9,"%s: %s\n", __func__, m->fn);
+  m->initstate = 1;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+}
+
+static void msend_req_dsync_close_init(int s, mfile *m)
+{
+  m->sendwait  = 1;
+  m->initstate = 0;
+  ack_clear(m, MAKUO_RECVSTATE_OPEN);
+}
+
+static void msend_req_dsync_close(int s, mfile *m)
+{
+  if(m->initstate){
+    msend_req_dsync_close_init(s, m);
+    return;
+  }
+  if(m->sendwait){
+    return;
+  }
+  lprintf(9,"%s: %s\n", __func__, m->fn);
+  msend_mfdel(m);
+  m = NULL;
+}
+
+/*----- dsync -----*/
+static void msend_req_dsync(int s, mfile *m)
+{
+  switch(m->mdata.head.nstate){
+    case MAKUO_SENDSTATE_STAT:
+      msend_req_dsync_stat(s, m);
+      break;
+    case MAKUO_SENDSTATE_OPEN:
+      msend_req_dsync_open(s, m);
+      break;
+    case MAKUO_SENDSTATE_CLOSE:
+      msend_req_dsync_close(s, m);
+      break;
+  }
+}
+
 /*----- exit -----*/
 static void msend_req_exit(int s, mfile *m)
 {
@@ -662,6 +760,9 @@ static void msend_req(int s, mfile *m)
       break;
     case MAKUO_OP_MD5:
       msend_req_md5(s, m);
+      break;
+    case MAKUO_OP_DSYNC:
+      msend_req_dsync(s, m);
       break;
     /* 機能追加はここ */
   }

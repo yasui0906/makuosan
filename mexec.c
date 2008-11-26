@@ -9,7 +9,7 @@ char *command_list[]={"quit",     /*  */
                       "exit",     /*  */
                       "bye",      /*  */
                       "send",     /*  */
-                      "syncdir",  /*  */
+                      "dsync",    /*  */
                       "members",  /*  */
                       "status",   /*  */
                       "md5",      /*  */
@@ -237,9 +237,9 @@ int mexec_help(mcomm *c, int n)
   cprintf(0, c, "  exclude del PATTERN\n");
   cprintf(0, c, "  exclude list\n");
   cprintf(0, c, "  exclude clear\n");
-  cprintf(0, c, "  send [-n] [-r] [-t host] [filename]\n");
-  cprintf(0, c, "  check [-r] [-t host] [filename]\n");
-  cprintf(0, c, "  syncdir [-r] [-t host] [dirname]\n");
+  cprintf(0, c, "  send  [-r] [-t host] [-n] [path]\n");
+  cprintf(0, c, "  dsync [-r] [-t host] [-n] [path]\n");
+  cprintf(0, c, "  check [-r] [-t host] [path]\n");
   cprintf(0, c, "  loglevel num (0-9)\n");
   cprintf(0, c, "  members\n");
   cprintf(0, c, "  help\n");
@@ -479,8 +479,89 @@ int mexec_check(mcomm *c, int n)
   return(0);
 }
 
-int mexec_syncdir(mcomm *c, int n)
+int mexec_dsync(mcomm *c, int n)
 {
+  int i;
+  ssize_t size;
+  char *argv[9];
+  char *fn = NULL;
+  mfile *m = NULL;
+  mhost *t = NULL;
+  int  recurs = 0;
+  int  dryrun = 0;
+
+  if(moption.dontsend){
+    cprintf(0, c, "error: this server can't send\n");
+    return(0);
+  }
+  for(i=0;i<c->argc[n];i++)
+    argv[i] = c->parse[n][i];
+  argv[i] = NULL;
+  optind = 0;
+  while((i=getopt(c->argc[n], argv, "t:nr")) != -1){
+    switch(i){
+      case 'n':
+        dryrun = 1;
+        break;
+      case 'r':
+        recurs = 1;
+        break;
+      case 't':
+        for(t=members;t;t=t->next)
+          if(!strcmp(t->hostname, optarg))
+            break;
+        if(!t){
+          cprintf(0, c, "%s is not contained in members\r\n", optarg);
+          return(0);
+        }
+        break;
+      case '?':
+        cprintf(0, c, "invalid option -- %c\r\n", optopt);
+        return(0); 
+    }
+  }
+
+  while(optind < c->argc[n])
+    fn = c->parse[n][optind++];
+
+  /*----- help -----*/
+  if(c->argc[n]<2){
+    cprintf(0, c, "dsync [-r] [-t host] [-n] [path]\r\n");
+    cprintf(0, c, "  -r  # recursive\r\n");
+    cprintf(0, c, "  -t  # target host\r\n");
+    cprintf(0, c, "  -n  # dryrun\r\n");
+    return(0);
+  }
+
+  /*----- start dsync -----*/
+  m = mfadd(0);
+  if(!m){
+	  lprintf(0, "%s: out of memorry\n", __func__);
+    return(0);
+	}
+
+  sprintf(m->fn,".");
+  if(fn){
+    if(*fn != '/'){
+	    strcat(m->fn, "/");
+    }
+	  strcat(m->fn, fn);
+  }
+  strcpy(m->mdata.data, m->fn);
+	m->mdata.head.reqid  = getrid();
+	m->mdata.head.opcode = MAKUO_OP_DSYNC;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+  m->mdata.head.szdata = strlen(m->fn);
+	m->comm      = c;
+  m->dryrun    = dryrun;
+  m->recurs    = recurs;
+  m->initstate = 1;
+
+  /*----- send to address set -----*/
+  if(t){
+    m->sendto = 1;
+    memcpy(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr));
+  }
   return(0);
 }
 
@@ -807,8 +888,8 @@ int mexec(mcomm *c, int n)
     if(!strcmp("check",command_list[r]))
       return(mexec_check(c,n));
 
-    if(!strcmp("syncdir",command_list[r]))
-      return(mexec_syncdir(c,n));
+    if(!strcmp("dsync",command_list[r]))
+      return(mexec_dsync(c,n));
 
     if(!strcmp("members",command_list[r]))
       return(mexec_members(c,n));

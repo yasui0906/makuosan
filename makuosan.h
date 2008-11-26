@@ -62,10 +62,11 @@
 #define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
 
 /*----- operation -----*/
-#define MAKUO_OP_PING 0
-#define MAKUO_OP_EXIT 1
-#define MAKUO_OP_SEND 2
-#define MAKUO_OP_MD5  3
+#define MAKUO_OP_PING  0
+#define MAKUO_OP_EXIT  1
+#define MAKUO_OP_SEND  2
+#define MAKUO_OP_MD5   3
+#define MAKUO_OP_DSYNC 4
 
 /*----- flags -----*/
 #define MAKUO_FLAG_ACK   1
@@ -94,15 +95,17 @@
 #define MAKUO_RECVSTATE_READONLY   7
 #define MAKUO_RECVSTATE_MD5OK      10
 #define MAKUO_RECVSTATE_MD5NG      11
+#define MAKUO_RECVSTATE_DELETEOK   12
+#define MAKUO_RECVSTATE_DELETENG   13
 #define MAKUO_RECVSTATE_OPENERROR  90
 #define MAKUO_RECVSTATE_READERROR  91
 #define MAKUO_RECVSTATE_WRITEERROR 92
 #define MAKUO_RECVSTATE_CLOSEERROR 93
 
 /*----- mexec mode -----*/
-#define MAKUO_MEXEC_SEND 0
-#define MAKUO_MEXEC_DRY  1
-#define MAKUO_MEXEC_MD5  2
+#define MAKUO_MEXEC_SEND  0
+#define MAKUO_MEXEC_DRY   1
+#define MAKUO_MEXEC_MD5   2
 
 /*----- struct -----*/
 typedef struct
@@ -179,12 +182,19 @@ typedef struct
 
 typedef struct
 {
-  int   fd;
-  char  fn[PATH_MAX];
-  char  tn[PATH_MAX];
-  char  ln[PATH_MAX];
+  DIR  *d;
+  void *m;
+} mdelete;
+
+typedef struct
+{
+  int  fd;
+  char fn[PATH_MAX];
+  char tn[PATH_MAX];
+  char ln[PATH_MAX];
   uint32_t sendto;
   uint32_t dryrun;
+  uint32_t recurs;
   uint32_t retrycnt;
   uint32_t sendwait;
   uint32_t lickflag;
@@ -199,6 +209,7 @@ typedef struct
   uint32_t seqnonow;
   uint32_t seqnomax;
   mdata mdata;
+  mdelete del;
   mcomm *comm;
   uint32_t *mark;
   void  *prev;

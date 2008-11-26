@@ -31,6 +31,7 @@ void usage()
   printf("    --status            # show makuosan status\n");
   printf("    --members           # show makuosan members\n");
   printf("    --check             # file check use md5\n");
+  printf("    --delete            # \n");
   printf("    --exclude=PATTERN   # \n"); 
   printf("    --exclude-from=FILE # \n");
   printf("\n");
@@ -424,6 +425,7 @@ int main(int argc, char *argv[])
   /* option */
   int loopflag = 1;
   int loglevel = 0;
+  int delflag  = 0;
   char scfile[256];
   char passwd[256];
   char target[256];
@@ -470,6 +472,10 @@ int main(int argc, char *argv[])
       case 'h':
         usage();
         return(0);
+
+      case 'D':
+        delflag = 1;
+        break;
 
       case 'S':
         strcpy(mcmd, "status");
@@ -547,6 +553,10 @@ int main(int argc, char *argv[])
     }
   }
 
+  if(delflag && strcmp(mcmd,"send")){
+    usage();
+  }
+
   s = connect_socket(target);
   if(s == -1){
     fprintf(stderr, "can't connect %s\n", target);
@@ -581,6 +591,15 @@ int main(int argc, char *argv[])
   }
 
   if(loopflag && (optind < argc)){
+    if(delflag){
+      for(i=optind;i<argc;i++){
+        sprintf(cmd, "dsync%s %s", mopt, argv[i]);
+        if(makuo_exec(s, cmd)){
+          close(s);
+          return(1);
+        }
+      }
+    }
     for(i=optind;i<argc;i++){
       sprintf(cmd, "%s%s %s", mcmd, mopt, argv[i]);
       if(makuo_exec(s, cmd)){
@@ -589,6 +608,17 @@ int main(int argc, char *argv[])
       }
     }
   }else{
+    if(delflag){
+      sprintf(cmd, "dsync%s", mopt);
+      for(i=optind;i<argc;i++){
+        strcat(cmd, " ");
+        strcat(cmd, argv[i]);
+      }
+      if(makuo_exec(s, cmd)){
+        close(s);
+        return(1);
+      }
+    }
     sprintf(cmd, "%s%s", mcmd, mopt);
     for(i=optind;i<argc;i++){
       strcat(cmd, " ");

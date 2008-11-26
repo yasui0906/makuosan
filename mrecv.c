@@ -129,12 +129,14 @@ void mrecv_gc()
 
   /* file timeout */
   while(m){
-    if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
-      if(MAKUO_RECVSTATE_CLOSE != m->mdata.head.nstate){
-        lprintf(0,"%s: mfile object GC state=%s %s\n", __func__, RSTATE(m->mdata.head.nstate), m->fn);
+    if(m->mdata.head.opcode != MAKUO_OP_DSYNC){
+      if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
+        if(MAKUO_RECVSTATE_CLOSE != m->mdata.head.nstate){
+          lprintf(0,"%s: mfile object GC state=%s %s\n", __func__, RSTATE(m->mdata.head.nstate), m->fn);
+        }
+        m = mrecv_mfdel(m);
+        continue;
       }
-      m = mrecv_mfdel(m);
-      continue;
     }
     m = m->next;
   }
@@ -286,6 +288,31 @@ static void mrecv_ack_md5(mdata *data, struct sockaddr_in *addr)
   mrecv_ack_report(m, t, data);
 }
 
+static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
+{
+  uint8_t *s;
+  mhost   *t;
+  mfile   *m;
+  mrecv_ack_search(&t, &m, data, addr);
+  if(!t || !m){
+    return;
+  }
+  mtimeget(&m->lastrecv);
+  s = get_hoststate(t,m);
+  if(!s){
+    lprintf(0, "%s: not allocate state area\n", __func__);
+    return;
+  }
+  if(*s != data->head.nstate){
+    if(data->head.nstate == MAKUO_RECVSTATE_DELETEOK){
+    }
+    if(data->head.nstate == MAKUO_RECVSTATE_DELETENG){
+    }
+  }
+  *s = data->head.nstate;
+  mrecv_ack_report(m, t, data);
+}
+
 static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
 {
   switch(data->head.opcode){
@@ -297,6 +324,9 @@ static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
       break;
     case MAKUO_OP_MD5:
       mrecv_ack_md5(data, addr);
+      break;
+    case MAKUO_OP_DSYNC:
+      mrecv_ack_dsync(data, addr);
       break;
     /* 機能追加はここへ */
   }
@@ -937,6 +967,105 @@ static void mrecv_req_md5(mdata *data, struct sockaddr_in *addr)
   }
 }
 
+static void mrecv_req_dsync_stat(mfile *m, mdata *data, struct sockaddr_in *addr)
+{
+  mfile *a = mfadd(0);
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = data->head.opcode;
+  a->mdata.head.reqid  = data->head.reqid;
+  a->mdata.head.nstate = MAKUO_RECVSTATE_DELETENG;
+  memcpy(&(a->addr), addr, sizeof(a->addr));
+  memcpy(a->fn, data->data, data->head.szdata);
+  a->fn[data->head.szdata] = 0;
+  if(lstat(a->fn, &(a->fs)) == -1){
+    switch(errno){
+      case ENOENT:
+        a->mdata.head.nstate = MAKUO_RECVSTATE_DELETEOK;
+        lprintf(0, "%s: delete %s\n", __func__, m->fn);
+        break;
+      default:
+        lprintf(0, "%s: stat error no=%d fn=%s\n", __func__, errno, m->fn);
+        break;
+    }
+  }
+}
+
+static void mrecv_req_dsync_open(mfile *m, mdata *data, struct sockaddr_in *addr)
+{
+  mfile *a;
+  mfile *d;
+  char path[PATH_MAX];
+
+  lprintf(0,"%s:\n",__func__);
+  if(!m){
+    m = mfadd(1);
+    m->mdata.head.opcode = data->head.opcode;
+    m->mdata.head.reqid  = data->head.reqid;
+    m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+    memcpy(&(m->addr), addr, sizeof(m->addr));
+    if(data->head.szdata){
+      memcpy(m->fn, data->data, data->head.szdata);
+    }
+    m->fn[data->head.szdata] = 0;
+
+    /* 走査 */
+    d = mfins(0);
+    d->del.m = (void *)m;
+    d->mdata.head.opcode = MAKUO_OP_DSYNC;
+    d->mdata.head.reqid  = getrid();
+    d->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
+    memcpy(&(d->addr), addr, sizeof(d->addr));
+    memcpy(&(d->fn), data->data, data->head.szdata);
+    d->fn[data->head.szdata] = 0;
+
+    lprintf(0,"%s: fn=%s\n", __func__, d->fn);
+  }
+  /* 応答 */
+  a = mfins(0);
+  a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.opcode = data->head.opcode;
+  a->mdata.head.reqid  = data->head.reqid;
+  a->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+  memcpy(&(a->addr), addr, sizeof(a->addr));
+
+  sprintf(path, "./", moption.real_dir, m->fn);
+  if(path[strlen(path) - 1] == '/'){
+    path[strlen(path) - 1] = 0;
+  }
+  if(lstat(path, &(m->fs)) == -1){
+    a->mdata.head.nstate = MAKUO_RECVSTATE_OPENERROR;
+    mrecv_mfdel(d);
+  }
+}
+
+static void mrecv_req_dsync_close(mfile *m, mdata *data, struct sockaddr_in *addr)
+{
+
+}
+
+/*
+ *  dsync
+ */
+static void mrecv_req_dsync(mdata *data, struct sockaddr_in *addr)
+{
+  mfile *m = mftop[1];
+  while(m){
+    if(!memcmp(&m->addr, addr, sizeof(m->addr)) && m->mdata.head.reqid == data->head.reqid){
+      mtimeget(&m->lastrecv);
+      break;
+    }
+    m = m->next;
+  }
+  switch(data->head.nstate){
+    case MAKUO_SENDSTATE_STAT:
+      mrecv_req_dsync_stat(m, data, addr);
+      break;
+    case MAKUO_SENDSTATE_OPEN:
+      mrecv_req_dsync_open(m, data, addr);
+      break;
+  }
+}
+
 static void mrecv_req(mdata *data, struct sockaddr_in *addr)
 {
   switch(data->head.opcode){
@@ -951,6 +1080,9 @@ static void mrecv_req(mdata *data, struct sockaddr_in *addr)
       break;
     case MAKUO_OP_MD5:
       mrecv_req_md5(data, addr);
+      break;
+    case MAKUO_OP_DSYNC:
+      mrecv_req_dsync(data, addr);
       break;
     /* 機能追加はここへ */
   }
