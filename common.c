@@ -851,3 +851,40 @@ void restoreguid()
     setegid(getgid());
 }
 
+mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state)
+{
+  mfile *a;
+  if(a = mfins(0)){
+    a->mdata.head.opcode = data->head.opcode;
+    a->mdata.head.reqid  = data->head.reqid;
+    a->mdata.head.seqno  = data->head.seqno;
+    a->mdata.head.nstate = state;
+    memcpy(&(a->addr), addr, sizeof(a->addr));
+  }
+  return(a);
+}
+
+mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
+{
+  mfile *a;
+  if(a = mfins(0)){
+    a->mdata.head.flags |= MAKUO_FLAG_ACK;
+    a->mdata.head.opcode = data->head.opcode;
+    a->mdata.head.reqid  = data->head.reqid;
+    a->mdata.head.seqno  = data->head.seqno;
+    a->mdata.head.nstate = state;
+    memcpy(&(a->addr), addr, sizeof(a->addr));
+  }
+  return(a);
+}
+
+mhost *member_get(struct sockaddr_in *addr)
+{
+  mhost *t;
+  for(t=members;t;t=t->next){
+    if(!memcmp(&(t->ad), &(addr->sin_addr), sizeof(t->ad))){
+      break;
+    }
+  }
+  return(t);
+}

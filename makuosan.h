@@ -67,6 +67,7 @@
 #define MAKUO_OP_SEND  2
 #define MAKUO_OP_MD5   3
 #define MAKUO_OP_DSYNC 4
+#define MAKUO_OP_DEL   5
 
 /*----- flags -----*/
 #define MAKUO_FLAG_ACK   1
@@ -208,6 +209,8 @@ typedef struct
   uint32_t marksize;
   uint32_t seqnonow;
   uint32_t seqnomax;
+  int pid;
+  int pipe;
   mdata mdata;
   mdelete del;
   mcomm *comm;
@@ -286,6 +289,9 @@ void     restoreguid();
 void     mfdel(mfile *m);
 mfile   *mfadd(int n);
 mfile   *mfins(int n);
+mfile   *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state);
+mfile   *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state);
+mhost   *member_get(struct sockaddr_in *addr);
 mhost   *member_add(struct in_addr *addr, mdata *recvdata);
 void     member_del(mhost *h);
 void     mrecv(int s);
