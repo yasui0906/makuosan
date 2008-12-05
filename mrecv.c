@@ -294,6 +294,7 @@ static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
   mhost   *t;
   mfile   *m;
 
+  lprintf(0, "%s:\n", __func__);
   mrecv_ack_search(&t, &m, data, addr);
   if(data->head.nstate == MAKUO_RECVSTATE_CLOSE){
     mkreq(data, addr, MAKUO_SENDSTATE_LAST);
@@ -318,37 +319,38 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
   uint32_t err;
   uint16_t len;
 
+  lprintf(0, "%s: %s\n", __func__, RSTATE(data->head.nstate));
   mrecv_ack_search(&t, &m, data, addr);
   if(!t || !m){
     return;
   }
   mtimeget(&m->lastrecv);
+  s = get_hoststate(t,m);
+  if(!s){
+    lprintf(0, "%s: not allocate state area\n", __func__);
+    return;
+  }
+  *s = data->head.nstate;
 
   if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+    m->initstate = 1;
+    m->sendwait  = 0;
     m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
-    s = get_hoststate(t,m);
-    if(!s){
-      lprintf(0, "%s: not allocate state area\n", __func__);
-      return;
-    }
     *s = data->head.nstate;
     return;
   }
 
   if(m->mdata.head.nstate == MAKUO_SENDSTATE_DATA){
+    m->initstate = 1;
+    m->sendwait  = 0;
     m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     return;
   }
 
   if(m->mdata.head.nstate == MAKUO_SENDSTATE_STAT){
-    if(data->head.nstate != MAKUO_RECVSTATE_DELETEOK){
-      s = get_hoststate(t,m);
-      if(!s){
-        lprintf(0, "%s: not allocate state area\n", __func__);
-        return;
-      }
-      *s = data->head.nstate;
-    }else{
+    m->initstate = 1;
+    m->sendwait  = 0;
+    if(data->head.nstate == MAKUO_RECVSTATE_DELETEOK){
       err = 0;
       len = strlen(m->fn);
       m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
@@ -1202,6 +1204,8 @@ static void mrecv_req_del_stat(mdata *data, struct sockaddr_in *addr)
   char *hn = "unknown host";
   mhost *t = member_get(addr);
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_DELETENG);
+
+  lprintf(9, "%s:\n", __func__);
   if(t){
     hn = t->hostname;
   }
@@ -1210,6 +1214,7 @@ static void mrecv_req_del_stat(mdata *data, struct sockaddr_in *addr)
   data->p += sizeof(uint16_t);
   memcpy(a->fn, data->p, len);
   a->fn[len] = 0;
+  lprintf(9, "%s: fn=%s\n", __func__, a->fn);
   if(lstat(a->fn, &(a->fs)) == -1 && errno == ENOENT){
     a->mdata.head.nstate = MAKUO_RECVSTATE_DELETEOK;
     lprintf(1, "%s: delete %s:%s\n", __func__, hn, a->fn);
@@ -1226,6 +1231,7 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
   mfile *m = mrecv_req_search(data, addr);
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_OPEN);
 
+  lprintf(9, "%s:\n", __func__);
   if(m){
     mtimeget(&(m->lastrecv));
     return;
@@ -1269,6 +1275,7 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_del_close(mdata *data, struct sockaddr_in *addr)
 {
+  lprintf(9, "%s:\n", __func__);
   mfile *m = mrecv_req_search(data, addr);
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
   if(!m){

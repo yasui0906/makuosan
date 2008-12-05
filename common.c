@@ -11,75 +11,79 @@ int loop_flag   = 1;
 struct timeval curtime;
 BF_KEY EncKey;
 
-char *opcodestrlist[7]={"PING ",
-                        "EXIT ",
-                        "SEND ",
-                        "MD5  ",
-                        "DSYNC",
-                        "DEL  ",
-                        "UNKNOWN"};
+char *opcodestrlist[]={"PING ",
+                       "EXIT ",
+                       "SEND ",
+                       "MD5  ",
+                       "DSYNC",
+                       "DEL  ",
+                       "UNKNOWN"};
 
-uint8_t opcodenumlist[7]={MAKUO_OP_PING,
-                          MAKUO_OP_EXIT,
-                          MAKUO_OP_SEND,
-                          MAKUO_OP_MD5,
-                          MAKUO_OP_DSYNC,
-                          MAKUO_OP_DEL,
-                          MAKUO_OPCODE_MAX};
+uint8_t opcodenumlist[]={MAKUO_OP_PING,
+                         MAKUO_OP_EXIT,
+                         MAKUO_OP_SEND,
+                         MAKUO_OP_MD5,
+                         MAKUO_OP_DSYNC,
+                         MAKUO_OP_DEL,
+                         MAKUO_OPCODE_MAX};
 
-char *sstatestrlist[9]={"SEND_STAT",
-                        "SEND_OPEN",
-                        "SEND_DATA",
-                        "SEND_MARK",
-                        "SEND_CLOSE",
-                        "SEND_LAST",
-                        "SEND_ERROR",
-                        "SEND_BREAK",
-                        "SEND_UNKNOWN"};
+char *sstatestrlist[]={"SEND_STAT",
+                       "SEND_OPEN",
+                       "SEND_DATA",
+                       "SEND_MARK",
+                       "SEND_CLOSE",
+                       "SEND_LAST",
+                       "SEND_ERROR",
+                       "SEND_BREAK",
+                       "SEND_UNKNOWN"};
 
-uint8_t sstatenumlist[9]={MAKUO_SENDSTATE_STAT,
-                          MAKUO_SENDSTATE_OPEN,
-                          MAKUO_SENDSTATE_DATA,
-                          MAKUO_SENDSTATE_MARK,
-                          MAKUO_SENDSTATE_CLOSE,
-                          MAKUO_SENDSTATE_LAST,
-                          MAKUO_SENDSTATE_ERROR,
-                          MAKUO_SENDSTATE_BREAK,
-                          MAKUO_STATE_MAX};
+uint8_t sstatenumlist[]={MAKUO_SENDSTATE_STAT,
+                         MAKUO_SENDSTATE_OPEN,
+                         MAKUO_SENDSTATE_DATA,
+                         MAKUO_SENDSTATE_MARK,
+                         MAKUO_SENDSTATE_CLOSE,
+                         MAKUO_SENDSTATE_LAST,
+                         MAKUO_SENDSTATE_ERROR,
+                         MAKUO_SENDSTATE_BREAK,
+                         MAKUO_STATE_MAX};
 
-char *rstatestrlist[16] = {"RECV_NONE",
-                           "RECV_UPDATE",
-                           "RECV_SKIP",
-                           "RECV_OPEN",
-                           "RECV_MARK",
-                           "RECV_CLOSE",
-                           "RECV_IGNORE",
-                           "RECV_READONLY",
-                           "RECV_BREAK",
-                           "RECV_MD5OK",
-                           "RECV_MD5NG",
-                           "RECV_OPENERR",
-                           "RECV_READERR", 
-                           "RECV_WRITEERR", 
-                           "RECV_CLOSEERR", 
-                           "RECV_UNKNOWN"};
+char *rstatestrlist[] = {"RECV_NONE",
+                         "RECV_UPDATE",
+                         "RECV_SKIP",
+                         "RECV_OPEN",
+                         "RECV_MARK",
+                         "RECV_CLOSE",
+                         "RECV_IGNORE",
+                         "RECV_READONLY",
+                         "RECV_BREAK",
+                         "RECV_MD5OK",
+                         "RECV_MD5NG",
+                         "RECV_DELETEOK",
+                         "RECV_DELETENG",
+                         "RECV_OPENERR",
+                         "RECV_READERR", 
+                         "RECV_WRITEERR", 
+                         "RECV_CLOSEERR", 
+                         "RECV_UNKNOWN"};
 
-uint8_t rstatenumlist[16]={MAKUO_RECVSTATE_NONE,
-                           MAKUO_RECVSTATE_UPDATE,
-                           MAKUO_RECVSTATE_SKIP,
-                           MAKUO_RECVSTATE_OPEN,
-                           MAKUO_RECVSTATE_MARK,
-                           MAKUO_RECVSTATE_CLOSE,
-                           MAKUO_RECVSTATE_IGNORE,
-                           MAKUO_RECVSTATE_READONLY,
-                           MAKUO_RECVSTATE_BREAK,
-                           MAKUO_RECVSTATE_MD5OK,
-                           MAKUO_RECVSTATE_MD5NG,
-                           MAKUO_RECVSTATE_OPENERROR,
-                           MAKUO_RECVSTATE_READERROR,
-                           MAKUO_RECVSTATE_WRITEERROR,
-                           MAKUO_RECVSTATE_CLOSEERROR,
-                           MAKUO_STATE_MAX};
+uint8_t rstatenumlist[]={MAKUO_RECVSTATE_NONE,
+                         MAKUO_RECVSTATE_UPDATE,
+                         MAKUO_RECVSTATE_SKIP,
+                         MAKUO_RECVSTATE_OPEN,
+                         MAKUO_RECVSTATE_MARK,
+                         MAKUO_RECVSTATE_CLOSE,
+                         MAKUO_RECVSTATE_IGNORE,
+                         MAKUO_RECVSTATE_READONLY,
+                         MAKUO_RECVSTATE_BREAK,
+                         MAKUO_RECVSTATE_MD5OK,
+                         MAKUO_RECVSTATE_MD5NG,
+                         MAKUO_RECVSTATE_DELETEOK,
+                         MAKUO_RECVSTATE_DELETENG,
+                         MAKUO_RECVSTATE_OPENERROR,
+                         MAKUO_RECVSTATE_READERROR,
+                         MAKUO_RECVSTATE_WRITEERROR,
+                         MAKUO_RECVSTATE_CLOSEERROR,
+                         MAKUO_STATE_MAX};
 
 char *SSTATE(uint8_t n)
 {
@@ -199,11 +203,14 @@ void lprintf(int l, char *fmt, ...)
 {
   va_list arg;
   char msg[2048];
+  struct timeval tv;
+
   if(moption.loglevel >= l){
+    gettimeofday(&tv, NULL);
     va_start(arg, fmt);
     vsprintf(msg, fmt, arg);
     va_end(arg);
-    fprintf(stderr, "%s", msg);
+    fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, msg);
     syslog(LOG_ERR, "%s: %s", moption.user_name, msg);
   }
 }
