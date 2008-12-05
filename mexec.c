@@ -521,8 +521,9 @@ int mexec_dsync(mcomm *c, int n)
     }
   }
 
-  while(optind < c->argc[n])
+  while(optind < c->argc[n]){
     fn = c->parse[n][optind++];
+  }
 
   /*----- help -----*/
   if(c->argc[n]<2){
@@ -540,21 +541,28 @@ int mexec_dsync(mcomm *c, int n)
     return(0);
 	}
 
-  sprintf(m->fn,".");
+  strcpy(m->fn, ".");
   if(fn){
     if(*fn != '/'){
 	    strcat(m->fn, "/");
     }
 	  strcat(m->fn, fn);
   }
+  
   strcpy(m->mdata.data, m->fn);
 	m->mdata.head.reqid  = getrid();
+	m->mdata.head.szdata = strlen(m->fn);
 	m->mdata.head.opcode = MAKUO_OP_DSYNC;
   m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
-  m->mdata.head.szdata = strlen(m->fn);
-	m->comm      = c;
-  m->dryrun    = dryrun;
-  m->recurs    = recurs;
+	m->comm = c;
+  if(dryrun){
+    m->dryrun = 1;
+    m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
+  }
+  if(recurs){
+    m->recurs = 1;
+    m->mdata.head.flags |= MAKUO_FLAG_RECURS;
+  }
   m->initstate = 1;
 
   /*----- send to address set -----*/
@@ -707,7 +715,11 @@ int mexec_status(mcomm *c, int n)
     if(snow > smax){
       snow = smax;
     }
-    cprintf(0, c, "  %s %s (%u:%u/%u)\n", SSTATE(m->mdata.head.nstate), m->fn, m->markcount, snow, smax); 
+    cprintf(0, c, "  %s %s %s (%u:%u/%u)\n", 
+      OPCODE(m->mdata.head.opcode), 
+      SSTATE(m->mdata.head.nstate), 
+      m->fn, 
+      m->markcount, snow, smax); 
   }
 
   count = 0;
@@ -716,8 +728,13 @@ int mexec_status(mcomm *c, int n)
   cprintf(0, c, "recv file: %d\n", count);
   for(m=mftop[1];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
-    cprintf(0, c, "  %s %02d:%02d:%02d %s (%d/%d) mark=%d\n",
-      RSTATE(m->mdata.head.nstate), t->tm_hour, t->tm_min, t->tm_sec, m->fn, m->recvcount, m->seqnomax, m->markcount); 
+    cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d\n",
+      OPCODE(m->mdata.head.opcode), 
+      RSTATE(m->mdata.head.nstate), 
+      t->tm_hour, t->tm_min, t->tm_sec, 
+      m->fn, 
+      m->recvcount, m->seqnomax, 
+      m->markcount); 
   }
   return(0);
 }

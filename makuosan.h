@@ -47,6 +47,7 @@
 #define MAKUO_HOSTNAME_MAX 255
 #define MAKUO_PARALLEL_MAX   8
 #define MAKUO_STATE_MAX    255
+#define MAKUO_OPCODE_MAX   255
 
 /*----- default -----*/
 #define MAKUO_LOCAL_ADDR  "127.0.0.1"
@@ -56,7 +57,6 @@
 /*----- timeout -----*/
 #define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
-#define MAKUO_SEND_DELAYSTP 0      /* 送出遅延時間の増分(ms)                       */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
 #define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
@@ -70,10 +70,12 @@
 #define MAKUO_OP_DEL   5
 
 /*----- flags -----*/
-#define MAKUO_FLAG_ACK   1
-#define MAKUO_FLAG_CRYPT 2
-#define MAKUO_FLAG_WAIT  4
-#define MAKUO_FLAG_FMARK 8
+#define MAKUO_FLAG_ACK    1
+#define MAKUO_FLAG_CRYPT  2
+#define MAKUO_FLAG_WAIT   4
+#define MAKUO_FLAG_FMARK  8
+#define MAKUO_FLAG_DRYRUN 16
+#define MAKUO_FLAG_RECURS 32
 
 /*----- sendstatus -----*/
 #define MAKUO_SENDSTATE_STAT       0  /* 更新確認待 */
@@ -94,6 +96,7 @@
 #define MAKUO_RECVSTATE_CLOSE      5
 #define MAKUO_RECVSTATE_IGNORE     6
 #define MAKUO_RECVSTATE_READONLY   7
+#define MAKUO_RECVSTATE_BREAK      8
 #define MAKUO_RECVSTATE_MD5OK      10
 #define MAKUO_RECVSTATE_MD5NG      11
 #define MAKUO_RECVSTATE_DELETEOK   12
@@ -181,13 +184,7 @@ typedef struct
   excludeitem *exclude;
 } mcomm;
 
-typedef struct
-{
-  DIR  *d;
-  void *m;
-} mdelete;
-
-typedef struct
+typedef struct mfile
 {
   int  fd;
   char fn[PATH_MAX];
@@ -199,7 +196,6 @@ typedef struct
   uint32_t retrycnt;
   uint32_t sendwait;
   uint32_t lickflag;
-  uint32_t senddelay;
   uint32_t initstate;
   uint32_t recvcount;
   uint32_t markdelta;
@@ -212,15 +208,15 @@ typedef struct
   int pid;
   int pipe;
   mdata mdata;
-  mdelete del;
   mcomm *comm;
   uint32_t *mark;
-  void  *prev;
-  void  *next;
   struct stat fs;
   struct sockaddr_in addr;
   struct timeval lastsend;
   struct timeval lastrecv;
+  struct mfile *prev;
+  struct mfile *next;
+  struct mfile *link;
 } mfile;
 
 typedef struct

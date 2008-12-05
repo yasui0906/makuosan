@@ -195,11 +195,6 @@ int ismsend(int s, mfile *m)
       return(0);
     }
   }
-  if(m->senddelay){
-    if(!mtimeout(&(m->lastsend), m->senddelay)){
-      return(1);
-    }
-  }
   r = ack_check(m, MAKUO_RECVSTATE_NONE);
   if(r == -1){
     m->mdata.head.seqno  = 0;

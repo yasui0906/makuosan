@@ -11,6 +11,22 @@ int loop_flag   = 1;
 struct timeval curtime;
 BF_KEY EncKey;
 
+char *opcodestrlist[7]={"PING ",
+                        "EXIT ",
+                        "SEND ",
+                        "MD5  ",
+                        "DSYNC",
+                        "DEL  ",
+                        "UNKNOWN"};
+
+uint8_t opcodenumlist[7]={MAKUO_OP_PING,
+                          MAKUO_OP_EXIT,
+                          MAKUO_OP_SEND,
+                          MAKUO_OP_MD5,
+                          MAKUO_OP_DSYNC,
+                          MAKUO_OP_DEL,
+                          MAKUO_OPCODE_MAX};
+
 char *sstatestrlist[9]={"SEND_STAT",
                         "SEND_OPEN",
                         "SEND_DATA",
@@ -18,7 +34,7 @@ char *sstatestrlist[9]={"SEND_STAT",
                         "SEND_CLOSE",
                         "SEND_LAST",
                         "SEND_ERROR",
-                        "SEND_BREAK"
+                        "SEND_BREAK",
                         "SEND_UNKNOWN"};
 
 uint8_t sstatenumlist[9]={MAKUO_SENDSTATE_STAT,
@@ -39,6 +55,7 @@ char *rstatestrlist[16] = {"RECV_NONE",
                            "RECV_CLOSE",
                            "RECV_IGNORE",
                            "RECV_READONLY",
+                           "RECV_BREAK",
                            "RECV_MD5OK",
                            "RECV_MD5NG",
                            "RECV_OPENERR",
@@ -55,6 +72,7 @@ uint8_t rstatenumlist[16]={MAKUO_RECVSTATE_NONE,
                            MAKUO_RECVSTATE_CLOSE,
                            MAKUO_RECVSTATE_IGNORE,
                            MAKUO_RECVSTATE_READONLY,
+                           MAKUO_RECVSTATE_BREAK,
                            MAKUO_RECVSTATE_MD5OK,
                            MAKUO_RECVSTATE_MD5NG,
                            MAKUO_RECVSTATE_OPENERROR,
@@ -83,6 +101,17 @@ char *RSTATE(uint8_t n)
     }
   }
   return(rstatestrlist[i]);
+}
+
+char *OPCODE(uint8_t n)
+{
+  int i;
+  for(i=0;opcodenumlist[i] != MAKUO_STATE_MAX;i++){
+    if(opcodenumlist[i] == n){
+      break;
+    }
+  }
+  return(opcodestrlist[i]);
 }
 
 int md5sum(int fd, unsigned char *digest)
@@ -241,7 +270,8 @@ mfile *mfnew()
   if(m = (mfile *)malloc(sizeof(mfile))){
     memset(m, 0, sizeof(mfile));
     m->mdata.head.vproto = PROTOCOL_VERSION;
-    m->fd = -1;
+    m->fd   = -1;
+    m->pipe = -1;
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     memcpy(&(m->addr), &(moption.maddr), sizeof(m->addr));
   }
@@ -257,8 +287,8 @@ mfile *mfadd(int n)
     }else{
       mfile *l;
       for(l=mftop[n];l->next;l=l->next);
-      l->next = (void *)m;
-      m->prev = (void *)l;
+      l->next = m;
+      m->prev = l;
       m->next = NULL;
     }
   }
@@ -704,7 +734,6 @@ int mremove(char *base, char *name)
     strcpy(path,name);
   }else{
     sprintf(path, "%s/%s", base, name);
-    lprintf(0, "%s: %s\n", __func__, path);
   }
   if(is_dir(path)){
     if(d = opendir(path)){

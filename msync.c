@@ -608,6 +608,15 @@ int main(int argc, char *argv[])
       }
     }
   }else{
+    sprintf(cmd, "%s%s", mcmd, mopt);
+    for(i=optind;i<argc;i++){
+      strcat(cmd, " ");
+      strcat(cmd, argv[i]);
+    }
+    if(makuo_exec(s, cmd)){
+      close(s);
+      return(1);
+    }
     if(delflag){
       sprintf(cmd, "dsync%s", mopt);
       for(i=optind;i<argc;i++){
@@ -618,15 +627,6 @@ int main(int argc, char *argv[])
         close(s);
         return(1);
       }
-    }
-    sprintf(cmd, "%s%s", mcmd, mopt);
-    for(i=optind;i<argc;i++){
-      strcat(cmd, " ");
-      strcat(cmd, argv[i]);
-    }
-    if(makuo_exec(s, cmd)){
-      close(s);
-      return(1);
     }
   }
   return(makuo_quit(s));
