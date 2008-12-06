@@ -55,7 +55,7 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  5000    /* 再送間隔(ms)                                 */
+#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */

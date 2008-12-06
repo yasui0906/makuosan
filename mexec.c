@@ -40,7 +40,9 @@ int mexec_scan_cmd(int fd, char *buff)
     if(FD_ISSET(fd,&fds)){
       r = write(fd, cmd, size);
       if(r == -1){
-        lprintf(0, "%s: commend write error! %s", __func__, buff);
+        lprintf(0, "%s: commend write error! %s", 
+          __func__, 
+          buff);
         return(-1);
       }
       size -= r;
@@ -316,9 +318,13 @@ int mexec_send(mcomm *c, int n)
 
 	if(lstat(fn, &m->fs) == -1){
 	  cprintf(0, c, "error: file not found %s\n", fn);
-		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n", __func__, c->argc[n], c->cmdline[n]);
-    for(i=0;i<c->argc[n];i++)
+		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n",
+      __func__, 
+      c->argc[n], 
+      c->cmdline[n]);
+    for(i=0;i<c->argc[n];i++){
 		  lprintf(1, "%s: read error argv[%d]=%s\n", __func__, i, c->parse[n][i]);
+    }
 		lprintf(0, "%s: read error file=%s\n", __func__, fn);
 		mfdel(m);
     return(0);
@@ -698,34 +704,42 @@ int mexec_status(mcomm *c, int n)
   mfile  *m;
   struct tm *t;
 
-  cprintf(0,c,"version  : %s\n", PACKAGE_VERSION);
+  cprintf(0,c,"version: %s\n", PACKAGE_VERSION);
   if(moption.chroot){
-    cprintf(0, c, "chroot   : %s/\n", moption.real_dir);
+    cprintf(0, c, "chroot : %s/\n", moption.real_dir);
   }else{
-    cprintf(0, c, "basedir  : %s/\n", moption.base_dir);
+    cprintf(0, c, "basedir: %s/\n", moption.base_dir);
   }
   count = 0;
   for(m=mftop[0];m;m=m->next){
     count++;
   }
-  cprintf(0,c,"send file: %d\n", count);
+  cprintf(0,c,"send op: %d\n", count);
   for(m=mftop[0];m;m=m->next){
     uint32_t snow = m->seqnonow;
     uint32_t smax = m->seqnomax;
     if(snow > smax){
       snow = smax;
     }
-    cprintf(0, c, "  %s %s %s (%u:%u/%u)\n", 
-      OPCODE(m->mdata.head.opcode), 
-      SSTATE(m->mdata.head.nstate), 
-      m->fn, 
-      m->markcount, snow, smax); 
+    if(m->mdata.head.flags & MAKUO_FLAG_ACK){
+      cprintf(0, c, "  (ack) %s %s %s (%u:%u/%u)\n", 
+        OPCODE(m->mdata.head.opcode), 
+        RSTATE(m->mdata.head.nstate), 
+        m->fn, 
+        m->markcount, snow, smax); 
+    }else{
+      cprintf(0, c, "  (req) %s %s %s (%u:%u/%u)\n", 
+        OPCODE(m->mdata.head.opcode), 
+        SSTATE(m->mdata.head.nstate), 
+        m->fn, 
+        m->markcount, snow, smax); 
+    }
   }
 
   count = 0;
   for(m=mftop[1];m;m=m->next)
     count++;
-  cprintf(0, c, "recv file: %d\n", count);
+  cprintf(0, c, "recv op: %d\n", count);
   for(m=mftop[1];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
     cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d\n",

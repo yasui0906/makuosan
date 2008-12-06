@@ -104,8 +104,18 @@ static void msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return;
   }
-  lprintf(2, "%s: send retry count=%02d rid=%06d state=%s %s\n", __func__,
-    m->retrycnt, m->mdata.head.reqid, SSTATE(m->mdata.head.nstate), m->fn);
+  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
+    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+      return;
+    }
+  }
+  lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
+    __func__,
+    m->retrycnt, 
+    m->mdata.head.reqid, 
+    OPCODE(m->mdata.head.opcode), 
+    SSTATE(m->mdata.head.nstate), 
+    m->fn);
   for(t=members;t;t=t->next){
     r = get_hoststate(t, m);
     if(!r){
@@ -115,17 +125,20 @@ static void msend_retry(mfile *m)
     switch(moption.loglevel){
       case 3:
         if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s:   %s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
+          lprintf(0, "%s:   %s %s(%s)\n", 
+            __func__, 
+           RSTATE(*r), 
+           inet_ntoa(t->ad), 
+           t->hostname);
         }
         break;
       default:
-        lprintf(4, "%s:   %s %s(%s)\n", __func__, RSTATE(*r), inet_ntoa(t->ad), t->hostname);
+        lprintf(4, "%s:   %s %s(%s)\n", 
+          __func__, 
+          RSTATE(*r), 
+          inet_ntoa(t->ad), 
+          t->hostname);
         break;
-    }
-  }
-  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      return;
     }
   }
   m->retrycnt--;
@@ -188,6 +201,7 @@ static void msend_ack_dsync(int s, mfile *m)
 
 static void msend_ack_del(int s, mfile *m)
 {
+  lprintf(9, "%s:\n", __func__);
   msend_shot(s, m);
 }
 
@@ -769,11 +783,13 @@ static void msend_req_del_mark(int s, mfile *m)
   mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
 }
 
-static void msend_req_del_init(int s, mfile *m)
+static void msend_req_del_stat(int s, mfile *m)
 {
   int r;
+  mfile *d;
   uint8_t stat;
   uint16_t len;
+  uint32_t mod;
 
   lprintf(9, "%s:\n", __func__);
   r = read(m->pipe, &stat, sizeof(stat));
@@ -791,17 +807,25 @@ static void msend_req_del_init(int s, mfile *m)
     return;
   }
 
+  d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
+  read(m->pipe, &mod, sizeof(mod));
   read(m->pipe, &len, sizeof(len));
-  read(m->pipe, m->fn, len);
-  m->fn[len] = 0;
-  lprintf(9, "%s: fn=%s\n", __func__, m->fn);
-
-  m->mdata.p = m->mdata.data;
-  *(uint16_t *)(m->mdata.p) = htons(len);
-  m->mdata.p += sizeof(uint16_t);
-  memcpy(m->mdata.p, m->fn, len);
-  m->mdata.head.szdata = sizeof(len) + len; 
-  m->mdata.head.reqid  = getrid();
+  read(m->pipe, d->fn, len);
+  d->fn[len] = 0;
+  d->mdata.p = d->mdata.data;
+  *(uint32_t *)(d->mdata.p) = htonl(mod);
+  d->mdata.p += sizeof(mod);
+  *(uint16_t *)(d->mdata.p) = htons(len);
+  d->mdata.p += sizeof(len);
+  memcpy(d->mdata.p, d->fn, len);
+  d->mdata.head.flags  = m->mdata.head.flags;
+  d->mdata.head.szdata = sizeof(mod) + sizeof(len) + len;
+  d->mdata.head.reqid  = getrid();
+  d->initstate = 1;
+  d->sendwait  = 0;
+  d->dryrun = m->dryrun;
+  d->recurs = m->recurs;
+  lprintf(9, "%s: fn=%s rid=%d\n", __func__, d->fn, d->mdata.head.reqid);
 }
 
 /*----- del -----*/
@@ -815,13 +839,14 @@ static void msend_req_del(int s, mfile *m)
     msend_mfdel(m);
     return;
   }
+  if(m->mdata.head.nstate == MAKUO_SENDSTATE_STAT){
+    msend_req_del_stat(s, m);
+    return;
+  }
   if(m->initstate){
     m->initstate = 0;
     m->sendwait  = 1;
     ack_clear(m, -1);
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_STAT){
-      msend_req_del_init(s, m);
-    }
     if(m->mdata.head.nstate == MAKUO_SENDSTATE_MARK){
       msend_req_del_mark(s, m);
       return;
