@@ -207,14 +207,11 @@ void lprintf(int l, char *fmt, ...)
 {
   va_list arg;
   char msg[2048];
-  struct timeval tv;
-
   if(moption.loglevel >= l){
-    gettimeofday(&tv, NULL);
     va_start(arg, fmt);
     vsprintf(msg, fmt, arg);
     va_end(arg);
-    fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, msg);
+    fprintf(stderr, "%s", msg);
     syslog(LOG_ERR, "%s: %s", moption.user_name, msg);
   }
 }
@@ -429,8 +426,7 @@ int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
       m->markdelta++;
     }
   }
-  lprintf(1,"%s: l=%u u=%u sub=%d\n", __func__, lseq, useq, useq - lseq);
-  if(m->markdelta>64){
+  if(m->markdelta>32){
     m->markdelta = 0;
     return(1);
   }

@@ -231,11 +231,6 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
   if(mrecv_ack_search(&t, &m, data, addr)){
     return;
   }
-  if(data->head.nstate == MAKUO_RECVSTATE_IGNORE){
-    cprintf(4, m->comm, "%s: file update ignore %s\n", t->hostname, m->fn);
-    lprintf(0,          "%s: file update ignore rid=%06d state=%s %s(%s) %s\n", __func__, 
-      data->head.reqid, RSTATE(data->head.nstate), inet_ntoa(t->ad), t->hostname, m->fn);
-  }
   if(data->head.nstate == MAKUO_RECVSTATE_MARK){
     mrecv_ack_send_mark(data, m, t);
     if(data->head.flags & MAKUO_FLAG_FMARK){
@@ -436,6 +431,7 @@ static void mrecv_req_exit(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_send_break(mfile *m, mdata *r)
 {
+  mkack(r, &(m->addr), MAKUO_RECVSTATE_IGNORE);
   mrecv_mfdel(m);
 }
 
@@ -790,6 +786,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
 
 static void mrecv_req_send_last(mfile *m, mdata *r)
 {
+  mkack(r, &(m->addr), MAKUO_RECVSTATE_IGNORE);
   mrecv_mfdel(m);
 }
 
@@ -898,13 +895,8 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
 {
-  mfile *a; 
-  mfile *m; 
-  for(m=mftop[1];m;m=m->next){
-    if(!memcmp(&m->addr, addr, sizeof(m->addr)) && m->mdata.head.reqid == data->head.reqid){
-      break;
-    }
-  }
+  mfile *m = mrecv_req_search(data, addr); 
+
   if(!m){
     m = mrecv_req_send_create(data, addr);
   }
@@ -913,17 +905,7 @@ static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
     mrecv_req_send_next(m, data);
   }else{
     if(data->head.nstate != MAKUO_SENDSTATE_DATA){
-      a = mfins(0);
-      if(!a){
-        lprintf(0,"%s: out of memory\n", __func__);
-      }else{
-        a->mdata.head.flags |= MAKUO_FLAG_ACK;
-        a->mdata.head.opcode = data->head.opcode;
-        a->mdata.head.reqid  = data->head.reqid;
-        a->mdata.head.seqno  = data->head.seqno;
-        a->mdata.head.nstate = MAKUO_RECVSTATE_IGNORE;
-        memcpy(&(a->addr), addr, sizeof(a->addr));
-      }
+      mkack(data, addr, MAKUO_RECVSTATE_IGNORE);
     }
   }
 }

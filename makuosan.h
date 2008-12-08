@@ -200,8 +200,6 @@ typedef struct mfile
   uint32_t recvcount;
   uint32_t markdelta;
   uint32_t markcount;
-  uint32_t waitcount;
-  uint32_t waitspan;
   uint32_t marksize;
   uint32_t seqnonow;
   uint32_t seqnomax;
