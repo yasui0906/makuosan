@@ -305,18 +305,53 @@ static void msend_req_send_stat(int s, mfile *m)
   lprintf(9,"%s: STAT %s\n", __func__, m->fn);
   if(m->dryrun){
     if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
-      cprintf(5, m->comm, "(%s)\r\n", m->fn);
-    }else{
-      cprintf(0, m->comm, "[%s]\r\n", m->fn);
       if(!m->sendto){
         for(t=members;t;t=t->next){
-          r = get_hoststate(t, m);
+          if(r = get_hoststate(t, m)){
+            if(*r == MAKUO_RECVSTATE_UPDATE)
+              cprintf(3, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
+            if(*r == MAKUO_RECVSTATE_SKIP)
+              cprintf(3, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
+            if(*r == MAKUO_RECVSTATE_READONLY)
+              cprintf(3, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+          }
+        }
+      }else{
+        t = member_get(&(m->addr.sin_addr));
+        if(r = get_hoststate(t, m)){
           if(*r == MAKUO_RECVSTATE_UPDATE)
-            cprintf(1, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
+            cprintf(3, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
           if(*r == MAKUO_RECVSTATE_SKIP)
-            cprintf(2, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
+            cprintf(3, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
           if(*r == MAKUO_RECVSTATE_READONLY)
-            cprintf(2, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+            cprintf(3, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+        }
+      }
+    }else{
+      if(m->comm){
+        if(m->comm->loglevel == 0){
+          cprintf(0, m->comm, "[%s]\r\n", m->fn);
+        }else{
+          if(!m->sendto){
+            for(t=members;t;t=t->next){
+              r = get_hoststate(t, m);
+              if(*r == MAKUO_RECVSTATE_UPDATE)
+                cprintf(1, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
+              if(*r == MAKUO_RECVSTATE_SKIP)
+                cprintf(2, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
+              if(*r == MAKUO_RECVSTATE_READONLY)
+                cprintf(2, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+            }
+          }else{
+            t = member_get(&(m->addr.sin_addr));
+            r = get_hoststate(t, m);
+            if(*r == MAKUO_RECVSTATE_UPDATE)
+              cprintf(1, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
+            if(*r == MAKUO_RECVSTATE_SKIP)
+              cprintf(2, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
+            if(*r == MAKUO_RECVSTATE_READONLY)
+              cprintf(2, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+          }
         }
       }
     }
@@ -325,21 +360,58 @@ static void msend_req_send_stat(int s, mfile *m)
     m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
   }else{
     if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
-      cprintf(5, m->comm, "(%s)\r\n", m->fn);
+      if(!m->sendto){
+        for(t=members;t;t=t->next){
+          if(r = get_hoststate(t, m)){
+            if(*r == MAKUO_RECVSTATE_UPDATE)
+              cprintf(3, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
+            if(*r == MAKUO_RECVSTATE_SKIP)
+              cprintf(3, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
+            if(*r == MAKUO_RECVSTATE_READONLY)
+              cprintf(3, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+          }
+        }
+      }else{
+        t = member_get(&(m->addr.sin_addr));
+        if(r = get_hoststate(t, m)){
+          if(*r == MAKUO_RECVSTATE_UPDATE)
+            cprintf(3, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
+          if(*r == MAKUO_RECVSTATE_SKIP)
+            cprintf(3, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
+          if(*r == MAKUO_RECVSTATE_READONLY)
+            cprintf(3, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
+        }
+      }
       m->initstate = 1;
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     }else{
       lprintf(1, "%s: update %s\n", __func__, m->fn);
-      cprintf(1, m->comm, "[%s]\r\n", m->fn);
-      if(!m->sendto){
-        for(t=members;t;t=t->next){
-          r = get_hoststate(t, m);
-          if(*r == MAKUO_RECVSTATE_UPDATE)
-            cprintf(2, m->comm, "update %s:%s\r\n", t->hostname, m->fn);
-          if(*r == MAKUO_RECVSTATE_SKIP)
-            cprintf(3, m->comm, "skip   %s:%s\r\n", t->hostname, m->fn);
-          if(*r == MAKUO_RECVSTATE_READONLY)
-            cprintf(3, m->comm, "skipro %s:%s\r\n", t->hostname, m->fn);
+      if(m->comm){
+        if(m->comm->loglevel == 0){
+          cprintf(0, m->comm, "[%s]\r\n", m->fn);
+        }else{
+          if(!m->sendto){
+            for(t=members;t;t=t->next){
+              if(r = get_hoststate(t, m)){
+                if(*r == MAKUO_RECVSTATE_UPDATE)
+                  cprintf(1, m->comm, "update %s:%s\r\n", t->hostname, m->fn);
+                if(*r == MAKUO_RECVSTATE_SKIP)
+                  cprintf(2, m->comm, "skip   %s:%s\r\n", t->hostname, m->fn);
+                if(*r == MAKUO_RECVSTATE_READONLY)
+                  cprintf(2, m->comm, "skipro %s:%s\r\n", t->hostname, m->fn);
+              }
+            }
+          }else{
+            t = member_get(&(m->addr.sin_addr));
+            if(r = get_hoststate(t, m)){
+              if(*r == MAKUO_RECVSTATE_UPDATE)
+                cprintf(1, m->comm, "update %s:%s\r\n", t->hostname, m->fn);
+              if(*r == MAKUO_RECVSTATE_SKIP)
+                cprintf(2, m->comm, "skip   %s:%s\r\n", t->hostname, m->fn);
+              if(*r == MAKUO_RECVSTATE_READONLY)
+                cprintf(2, m->comm, "skipro %s:%s\r\n", t->hostname, m->fn);
+            }
+          }
         }
       }
       m->initstate = 1;
