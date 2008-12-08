@@ -104,11 +104,6 @@ static void msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return;
   }
-  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      return;
-    }
-  }
   lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
     __func__,
     m->retrycnt, 
@@ -119,7 +114,9 @@ static void msend_retry(mfile *m)
   for(t=members;t;t=t->next){
     r = get_hoststate(t, m);
     if(!r){
-      lprintf(0, "%s:   can't alloc state area\n", __func__);
+      lprintf(0, "%s: can't alloc state area %s\n",
+        __func__, 
+        t->hostname);
       continue;
     }
     switch(moption.loglevel){
@@ -139,6 +136,11 @@ static void msend_retry(mfile *m)
           inet_ntoa(t->ad), 
           t->hostname);
         break;
+    }
+  }
+  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
+    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+      return;
     }
   }
   m->retrycnt--;
@@ -310,11 +312,11 @@ static void msend_req_send_stat(int s, mfile *m)
         for(t=members;t;t=t->next){
           r = get_hoststate(t, m);
           if(*r == MAKUO_RECVSTATE_UPDATE)
-            cprintf(1, m->comm, "%s: update\r\n", t->hostname);
+            cprintf(1, m->comm, "(dryrun) update %s:%s\r\n", t->hostname, m->fn);
           if(*r == MAKUO_RECVSTATE_SKIP)
-            cprintf(2, m->comm, "%s: skip\r\n", t->hostname);
+            cprintf(2, m->comm, "(dryrun) skip   %s:%s\r\n", t->hostname, m->fn);
           if(*r == MAKUO_RECVSTATE_READONLY)
-            cprintf(2, m->comm, "%s: skip(read only)\r\n", t->hostname);
+            cprintf(2, m->comm, "(dryrun) skipro %s:%s\r\n", t->hostname, m->fn);
         }
       }
     }
@@ -333,11 +335,11 @@ static void msend_req_send_stat(int s, mfile *m)
         for(t=members;t;t=t->next){
           r = get_hoststate(t, m);
           if(*r == MAKUO_RECVSTATE_UPDATE)
-            cprintf(2, m->comm, "%s: update\r\n", t->hostname);
+            cprintf(2, m->comm, "update %s:%s\r\n", t->hostname, m->fn);
           if(*r == MAKUO_RECVSTATE_SKIP)
-            cprintf(3, m->comm, "%s: skip\r\n", t->hostname);
+            cprintf(3, m->comm, "skip   %s:%s\r\n", t->hostname, m->fn);
           if(*r == MAKUO_RECVSTATE_READONLY)
-            cprintf(3, m->comm, "%s: skip(read only)\r\n", t->hostname);
+            cprintf(3, m->comm, "skipro %s:%s\r\n", t->hostname, m->fn);
         }
       }
       m->initstate = 1;
@@ -780,7 +782,11 @@ static void msend_req_del_mark(int s, mfile *m)
 {
   lprintf(9, "%s:\n", __func__);
   mfile *d = m->link; /* dsync object */
-  mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
+  if(member_get(&(d->addr.sin_addr))){
+    mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
+  }else{
+    d->lastrecv.tv_sec = 1;
+  }
 }
 
 static void msend_req_del_stat(int s, mfile *m)
@@ -791,14 +797,13 @@ static void msend_req_del_stat(int s, mfile *m)
   uint16_t len;
   uint32_t mod;
 
-  lprintf(9, "%s:\n", __func__);
-  r = read(m->pipe, &stat, sizeof(stat));
-  if(r <= 0){
-    /* eof */
-    if(waitpid(m->pid, NULL, WNOHANG) == m->pid){
-      close(m->pipe);
-      m->pipe = -1;
-      m->pid  =  0;
+  if(m->pid == 0){
+    for(d=mftop[0];d;d=d->next){
+      if((d->mdata.head.opcode == MAKUO_OP_DEL) &&
+         (d->mdata.head.nstate != MAKUO_SENDSTATE_STAT) &&
+         (d->mdata.head.seqno  == m->mdata.head.seqno)){
+        return;
+      }
     }
     m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
     m->initstate = 1;
@@ -807,11 +812,28 @@ static void msend_req_del_stat(int s, mfile *m)
     return;
   }
 
+  if(m->pipe == -1){
+    if(waitpid(m->pid, NULL, WNOHANG) == m->pid){
+      m->pid  =  0;
+    }
+    return;
+  }
+
+  lprintf(9, "%s:\n", __func__);
+  r = read(m->pipe, &stat, sizeof(stat));
+  if(r <= 0){
+    close(m->pipe);
+    m->pipe = -1;
+    return;
+  }
+
   d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
   read(m->pipe, &mod, sizeof(mod));
   read(m->pipe, &len, sizeof(len));
   read(m->pipe, d->fn, len);
-  d->fn[len] = 0;
+  d->fn[len]    = 0;
+  d->fs.st_mode = mod;
+
   d->mdata.p = d->mdata.data;
   *(uint32_t *)(d->mdata.p) = htonl(mod);
   d->mdata.p += sizeof(mod);
@@ -823,15 +845,19 @@ static void msend_req_del_stat(int s, mfile *m)
   d->mdata.head.reqid  = getrid();
   d->initstate = 1;
   d->sendwait  = 0;
+  d->sendto = 1;
   d->dryrun = m->dryrun;
   d->recurs = m->recurs;
-  lprintf(9, "%s: fn=%s rid=%d\n", __func__, d->fn, d->mdata.head.reqid);
+  lprintf(9, "%s: fn=%s rid=%d flags=%d\n", __func__, d->fn, d->mdata.head.reqid, d->mdata.head.flags);
 }
 
 /*----- del -----*/
 static void msend_req_del(int s, mfile *m)
 {
   if(m->mdata.head.nstate == MAKUO_SENDSTATE_BREAK){
+    if(m->link){
+      m->link->lastrecv.tv_sec = 1;
+    }
     msend_mfdel(m);
     return;
   }
@@ -851,7 +877,6 @@ static void msend_req_del(int s, mfile *m)
       msend_req_del_mark(s, m);
       return;
     }
-    lprintf(9, "%s: SEND_PACKET %s\n", __func__, SSTATE(m->mdata.head.nstate));
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }

@@ -591,6 +591,13 @@ int main(int argc, char *argv[])
   }
 
   if(loopflag && (optind < argc)){
+    for(i=optind;i<argc;i++){
+      sprintf(cmd, "%s%s %s", mcmd, mopt, argv[i]);
+      if(makuo_exec(s, cmd)){
+        close(s);
+        return(1);
+      }
+    }
     if(delflag){
       for(i=optind;i<argc;i++){
         sprintf(cmd, "dsync%s %s", mopt, argv[i]);
@@ -598,13 +605,6 @@ int main(int argc, char *argv[])
           close(s);
           return(1);
         }
-      }
-    }
-    for(i=optind;i<argc;i++){
-      sprintf(cmd, "%s%s %s", mcmd, mopt, argv[i]);
-      if(makuo_exec(s, cmd)){
-        close(s);
-        return(1);
       }
     }
   }else{

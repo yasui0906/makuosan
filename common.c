@@ -143,6 +143,10 @@ int mtimeout(struct timeval *tf, uint32_t msec)
 {
   struct timeval tv;
   struct timeval tr;
+  
+  if((tf->tv_sec == 0) && (tf->tv_usec == 0)){
+    return(0);
+  }
   tv.tv_sec  = msec / 1000;
   tv.tv_usec = (msec % 1000) * 1000;
   timeradd(tf, &tv, &tr);
@@ -315,16 +319,26 @@ mfile *mfins(int n)
   return(m);
 }
 
+mhost *member_get(struct in_addr *addr)
+{
+  mhost *t;
+  for(t=members;t;t=t->next){
+    if(!memcmp(&t->ad, addr, sizeof(t->ad))){
+      break;
+    }
+  }
+  return(t); 
+}
+
 mhost *member_add(struct in_addr *addr, mdata *data)
 {
-  int f = 1;
+  int f = 0;
   int l = 0;
-  mhost *t = NULL;
   mping *p = NULL;
-  for(t=members;t;t=t->next)
-    if(!(f=memcmp(&t->ad, addr, sizeof(t->ad))))
-      break;
+  mhost *t = member_get(addr);
+
   if(!t){
+    f = 1;
     t = malloc(sizeof(mhost));
     if(!t){
       lprintf(0, "%s: out of memory\n", __func__);
@@ -361,7 +375,6 @@ mhost *member_add(struct in_addr *addr, mdata *data)
 
 void member_del(mhost *t)
 {
-  mfile *m;
   mhost *p;
   mhost *n;
   if(!t)
@@ -500,6 +513,15 @@ uint8_t *get_hoststate(mhost *t, mfile *m)
     return(&(t->state[r]));
   }
   return(NULL);
+}
+
+uint8_t *set_hoststate(mhost *t, mfile *m, uint8_t state)
+{
+  uint8_t *s;
+  if(s = get_hoststate(t,m)){
+    *s = state;
+  }
+  return(s);
 }
 
 int ack_clear(mfile *m, int state)
@@ -914,13 +936,3 @@ mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
   return(a);
 }
 
-mhost *member_get(struct sockaddr_in *addr)
-{
-  mhost *t;
-  for(t=members;t;t=t->next){
-    if(!memcmp(&(t->ad), &(addr->sin_addr), sizeof(t->ad))){
-      break;
-    }
-  }
-  return(t);
-}
