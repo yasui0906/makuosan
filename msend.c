@@ -4,9 +4,6 @@
  */
 #include "makuosan.h"
 
-static void msend_ack(int s, mfile *m);
-static void msend_req(int s, mfile *m);
-
 /******************************************************************
 *
 * send common functions (private)
@@ -61,6 +58,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 {
   int r;
   int szdata;
+  char *state;
   mdata senddata;
 
   memcpy(&senddata, data, sizeof(senddata));
@@ -70,39 +68,60 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   senddata.head.flags  = htons(senddata.head.flags);
   senddata.head.reqid  = htonl(senddata.head.reqid);
   senddata.head.seqno  = htonl(senddata.head.seqno);
+  szdata += sizeof(mhead);
  
   while(1){ 
-    r = sendto(s, &senddata, sizeof(mhead) + szdata, 0, (struct sockaddr*)addr, sizeof(struct sockaddr_in));
-    if(r == sizeof(mhead) + szdata){
-      break;
-    }else{
-      if(r != -1){
-        lprintf(0,"%s: size error sock=%d op=%d rid=%d state=%s size=%d send=%d seqno=%d\n", __func__,
-          s, data->head.opcode, data->head.reqid, SSTATE(data->head.nstate), sizeof(mhead) + szdata, r, data->head.seqno);
-        return(0);
+    r = sendto(s, &senddata, szdata, 0, (struct sockaddr*)addr, sizeof(struct sockaddr_in));
+    if(r == szdata){
+      return(1);
+    }
+    if(r == -1){
+      if(errno == EINTR){
+        continue;
       }else{
-        if(errno == EINTR){
-          continue;
-        }else{
-          lprintf(0,"%s: send error (%s) sock=%d op=%d rid=%d state=%s size=%d seqno=%d\n", __func__,
-            strerror(errno), s, data->head.opcode, data->head.reqid, SSTATE(data->head.nstate), sizeof(mhead) + szdata, data->head.seqno);
-          return(-1);
-        }
+        break;
       }
     }
   }
-  return(1);
+  if(data->head.flags & MAKUO_FLAG_ACK){
+    state = RSTATE(data->head.nstate);
+  }else{
+    state = SSTATE(data->head.nstate);
+  }
+  if(r != -1){
+    lprintf(0, "%s: send size error %s %s rid=%d datasize=%d sendsize=%d seqno=%d\n",
+      __func__,
+      OPCODE(data->head.opcode), 
+      state,
+      data->head.reqid,
+      szdata, 
+      r, 
+      data->head.seqno);
+    return(0);
+  }
+  lprintf(0,"%s: send error (%s) %s %s rid=%d size=%d seqno=%d\n",
+    __func__,
+    strerror(errno), 
+    OPCODE(data->head.opcode), 
+    state,
+    data->head.reqid, 
+    szdata, 
+    data->head.seqno);
+  return(-1);
 }
 
 /* retry */
-static void msend_retry(mfile *m)
+static int msend_retry(mfile *m)
 {
   uint8_t *r;
   mhost   *t;
 
+  if(!m){
+    return(-1);
+  }
   if(!m->sendwait){
     m->retrycnt = MAKUO_SEND_RETRYCNT;
-    return;
+    return(0);
   }
   lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
     __func__,
@@ -140,10 +159,11 @@ static void msend_retry(mfile *m)
   }
   if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
     if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      return;
+      return(0);
     }
   }
   m->retrycnt--;
+  return(0);
 }
 
 /* send & free */
@@ -151,25 +171,6 @@ static void msend_shot(int s, mfile *m)
 {
   msend_packet(s, &(m->mdata), &(m->addr));
   msend_mfdel(m);
-}
-
-/******************************************************************
-*
-* send common functions (public)
-*
-*******************************************************************/
-void msend(int s, mfile *m)
-{
-  if(!m){
-    return;
-  }
-  msend_retry(m);
-  mtimeget(&m->lastsend);
-  if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-    msend_ack(s, m); /* source node task */
-  }else{
-    msend_req(s, m); /* destination node task */
-  }
 }
 
 /******************************************************************
@@ -995,3 +996,20 @@ static void msend_req(int s, mfile *m)
   }
 }
 
+/******************************************************************
+*
+* send common functions (public)
+*
+*******************************************************************/
+void msend(int s, mfile *m)
+{
+  if(msend_retry(m)){
+    return;
+  }
+  mtimeget(&m->lastsend);
+  if(m->mdata.head.flags & MAKUO_FLAG_ACK){
+    msend_ack(s, m); /* source node task */
+  }else{
+    msend_req(s, m); /* destination node task */
+  }
+}

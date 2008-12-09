@@ -1274,7 +1274,6 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
   }
   if(lstat(a->fn, &(a->fs)) == -1 && errno == ENOENT){
     a->mdata.head.nstate = MAKUO_RECVSTATE_DELETEOK;
-    lprintf(1, "%s: delete %s:%s\n", __func__, hn, a->fn);
   }
 }
 
@@ -1342,13 +1341,13 @@ static void mrecv_req_del_close(mdata *data, struct sockaddr_in *addr)
 static void mrecv_req_del(mdata *data, struct sockaddr_in *addr)
 {
   switch(data->head.nstate){
-    case MAKUO_SENDSTATE_OPEN:  /* 確認 */
+    case MAKUO_SENDSTATE_OPEN: 
       mrecv_req_del_open(data, addr);
       break;
-    case MAKUO_SENDSTATE_DATA:  /* 通知 */
+    case MAKUO_SENDSTATE_DATA: 
       mrecv_req_del_data(data, addr);
       break;
-    case MAKUO_SENDSTATE_CLOSE: /* 開放 */
+    case MAKUO_SENDSTATE_CLOSE: 
       mrecv_req_del_close(data, addr);
       break;
   }
