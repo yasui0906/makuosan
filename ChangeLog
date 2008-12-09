@@ -2,6 +2,7 @@
  - large file transfer Tuning
  - remote file delete function for makuosan
  - add --delete option for msync
+ - add --sync option for msync
 
 1.0.1:
  - add spec file   (support/makuosan.spec)

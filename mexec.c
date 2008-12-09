@@ -9,6 +9,7 @@ char *command_list[]={"quit",     /*  */
                       "exit",     /*  */
                       "bye",      /*  */
                       "send",     /*  */
+                      "sync",     /*  */
                       "dsync",    /*  */
                       "members",  /*  */
                       "status",   /*  */
@@ -240,6 +241,7 @@ int mexec_help(mcomm *c, int n)
   cprintf(0, c, "  exclude list\n");
   cprintf(0, c, "  exclude clear\n");
   cprintf(0, c, "  send  [-r] [-t host] [-n] [path]\n");
+  cprintf(0, c, "  sync  [-r] [-t host] [-n] [path]\n");
   cprintf(0, c, "  dsync [-r] [-t host] [-n] [path]\n");
   cprintf(0, c, "  check [-r] [-t host] [path]\n");
   cprintf(0, c, "  loglevel num (0-9)\n");
@@ -248,7 +250,7 @@ int mexec_help(mcomm *c, int n)
   return(0);
 }
 
-int mexec_send(mcomm *c, int n)
+int mexec_send(mcomm *c, int n, int sync)
 {
   int i;
   ssize_t size;
@@ -303,10 +305,17 @@ int mexec_send(mcomm *c, int n)
   }
   /*----- help -----*/
   if(!fn){
-    cprintf(0, c, "send [-n] [-r] [-t host] [path]\r\n");
-    cprintf(0, c, "  -n  # dryrun\r\n");
-    cprintf(0, c, "  -r  # recursive\r\n");
-    cprintf(0, c, "  -t  # target host\r\n");
+    if(sync){
+      cprintf(0, c, "sync [-n] [-r] [-t host] [path]\r\n");
+      cprintf(0, c, "  -n  # dryrun\r\n");
+      cprintf(0, c, "  -r  # recursive\r\n");
+      cprintf(0, c, "  -t  # target host\r\n");
+    }else{
+      cprintf(0, c, "send [-n] [-r] [-t host] [path]\r\n");
+      cprintf(0, c, "  -n  # dryrun\r\n");
+      cprintf(0, c, "  -r  # recursive\r\n");
+      cprintf(0, c, "  -t  # target host\r\n");
+    }
     return(0);
   }
   /*----- send file -----*/
@@ -316,20 +325,12 @@ int mexec_send(mcomm *c, int n)
     return(0);
 	}
 
-	if(lstat(fn, &m->fs) == -1){
-	  cprintf(0, c, "error: file not found %s\n", fn);
-		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n",
-      __func__, 
-      c->argc[n], 
-      c->cmdline[n]);
-    for(i=0;i<c->argc[n];i++){
-		  lprintf(1, "%s: read error argv[%d]=%s\n", __func__, i, c->parse[n][i]);
-    }
-		lprintf(0, "%s: read error file=%s\n", __func__, fn);
-		mfdel(m);
-    return(0);
-	}
-  
+  /*----- send to address set -----*/
+  if(h){
+    m->sendto = 1;
+    memcpy(&(m->addr.sin_addr), &(h->ad), sizeof(m->addr.sin_addr));
+  }
+
 	strcpy(m->fn, fn);
 	m->mdata.head.reqid  = getrid();
 	m->mdata.head.opcode = MAKUO_OP_SEND;
@@ -337,7 +338,35 @@ int mexec_send(mcomm *c, int n)
 	m->comm      = c;
   m->dryrun    = (mode == MAKUO_MEXEC_DRY);
   m->initstate = 1;
-  m->seqnonow  = 0;
+  if(m->dryrun){
+    m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
+  }
+
+	if(lstat(fn, &m->fs) == -1){
+    if(errno == ENOENT){
+      if(sync){
+        m->mdata.head.flags |= MAKUO_FLAG_SYNC;
+        return(0);
+      }      
+    }
+	  cprintf(0, c, "error: file not found %s\n", fn);
+		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n",
+      __func__, 
+      c->argc[n], 
+      c->cmdline[n]);
+    for(i=0;i<c->argc[n];i++){
+		  lprintf(1, "%s: read error argv[%d]=%s\n",
+        __func__, 
+        i, 
+        c->parse[n][i]);
+    }
+		lprintf(0, "%s: read error file=%s\n", 
+      __func__, 
+      fn);
+		mfdel(m);
+    return(0);
+	}
+  
   m->seqnomax  = m->fs.st_size / MAKUO_BUFFER_SIZE;
   if(m->fs.st_size % MAKUO_BUFFER_SIZE){
     m->seqnomax++; 
@@ -356,12 +385,6 @@ int mexec_send(mcomm *c, int n)
 		lprintf(0, "%s: owner unmatch %s (%d != %d)\n", __func__, fn, moption.uid, m->fs.st_uid);
 		mfdel(m);
     return(0);
-  }
-
-  /*----- send to address set -----*/
-  if(h){
-    m->sendto = 1;
-    memcpy(&(m->addr.sin_addr), &(h->ad), sizeof(m->addr.sin_addr));
   }
 
   /*----- readlink -----*/
@@ -911,7 +934,10 @@ int mexec(mcomm *c, int n)
       return(mexec_quit(c,n));
 
     if(!strcmp("send",command_list[r]))
-      return(mexec_send(c,n));
+      return(mexec_send(c,n,0));
+
+    if(!strcmp("sync",command_list[r]))
+      return(mexec_send(c,n,1));
 
     if(!strcmp("md5",command_list[r]))
       return(mexec_check(c,n));

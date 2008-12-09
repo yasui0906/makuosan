@@ -32,6 +32,7 @@ void usage()
   printf("    --members           # show makuosan members\n");
   printf("    --check             # file check use md5\n");
   printf("    --delete            # \n");
+  printf("    --sync              # \n");
   printf("    --exclude=PATTERN   # \n"); 
   printf("    --exclude-from=FILE # \n");
   printf("\n");
@@ -431,7 +432,7 @@ int main(int argc, char *argv[])
   char target[256];
 
   /* long option */
-  struct option longopt[7];
+  struct option longopt[8];
   memset(longopt, 0, sizeof(longopt));
   longopt[0].name    = "help";
   longopt[0].has_arg = 0;
@@ -461,6 +462,10 @@ int main(int argc, char *argv[])
   longopt[6].has_arg = 0;
   longopt[6].flag    = NULL;
   longopt[6].val     = 'D';
+  longopt[7].name    = "sync";
+  longopt[7].has_arg = 0;
+  longopt[7].flag    = NULL;
+  longopt[7].val     = 'd';
 
   /* default */
   scfile[0] = 0;
@@ -475,6 +480,10 @@ int main(int argc, char *argv[])
 
       case 'D':
         delflag = 1;
+        break;
+
+      case 'd':
+        strcpy(mcmd, "sync");
         break;
 
       case 'S':

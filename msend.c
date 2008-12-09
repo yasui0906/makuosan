@@ -319,6 +319,48 @@ static void msend_req_send_stat(int s, mfile *m)
     return;
   }
   lprintf(9,"%s: STAT %s\n", __func__, m->fn);
+  if(m->mdata.head.flags & MAKUO_FLAG_SYNC){
+    if(m->dryrun){
+      if(!m->sendto){
+        for(t=members;t;t=t->next){
+          if(r = get_hoststate(t, m)){
+            if(*r == MAKUO_RECVSTATE_DELETEOK){
+              cprintf(0, m->comm, "(dryrun) delete %s:%s\r\n", t->hostname, m->fn);
+            }
+          }
+        }
+      }else{
+        t = member_get(&(m->addr.sin_addr));
+        if(r = get_hoststate(t, m)){
+          if(*r == MAKUO_RECVSTATE_DELETEOK){
+            cprintf(0, m->comm, "(dryrun) delete %s:%s\r\n", t->hostname, m->fn);
+          }
+        }
+      }
+    }else{
+      if(!m->sendto){
+        for(t=members;t;t=t->next){
+          if(r = get_hoststate(t, m)){
+            if(*r == MAKUO_RECVSTATE_DELETEOK){
+              cprintf(1, m->comm, "delete %s:%s\r\n", t->hostname, m->fn);
+            }
+          }
+        }
+      }else{
+        t = member_get(&(m->addr.sin_addr));
+        if(r = get_hoststate(t, m)){
+          if(*r == MAKUO_RECVSTATE_DELETEOK){
+            cprintf(1, m->comm, "delete %s:%s\r\n", t->hostname, m->fn);
+          }
+        }
+      }
+    }
+    m->initstate = 1;
+    m->mdata.head.ostate = m->mdata.head.nstate;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
+    return;
+  }
+
   if(m->dryrun){
     if(ack_check(m, MAKUO_RECVSTATE_UPDATE) != 1){
       if(!m->sendto){
@@ -635,7 +677,7 @@ static void msend_req_send_last_init(int s, mfile *m)
 {
   m->sendwait  = 1;
   m->initstate = 0;
-  ack_clear(m, MAKUO_RECVSTATE_CLOSE);
+  ack_clear(m, -1);
   msend_packet(s, &(m->mdata), &(m->addr));
 }
 

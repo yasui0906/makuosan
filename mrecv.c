@@ -443,13 +443,28 @@ static void mrecv_req_send_stat(mfile *m, mdata *r)
   if(moption.dontrecv){
     m->mdata.head.nstate = MAKUO_RECVSTATE_READONLY;
   }else{
-    if(S_ISLNK(m->fs.st_mode)){
-      m->mdata.head.nstate = linkcmp(m);
+    if(r->head.flags & MAKUO_FLAG_SYNC){
+      if(m->mdata.head.nstate == MAKUO_RECVSTATE_NONE){
+        m->mdata.head.nstate = MAKUO_RECVSTATE_DELETEOK;
+        if(r->head.flags & MAKUO_FLAG_DRYRUN){
+          if(lstat(m->fn, &fs) == -1 && errno == ENOENT){
+            m->mdata.head.nstate = MAKUO_RECVSTATE_DELETENG;
+          }
+        }else{
+          if(mremove(NULL, m->fn) == -1){
+            m->mdata.head.nstate = MAKUO_RECVSTATE_DELETENG;
+          }
+        }
+      }
     }else{
-      if(lstat(m->fn, &fs) == -1){
-        m->mdata.head.nstate = MAKUO_RECVSTATE_UPDATE;
+      if(S_ISLNK(m->fs.st_mode)){
+        m->mdata.head.nstate = linkcmp(m);
       }else{
-        m->mdata.head.nstate = statcmp(&(m->fs), &fs);
+        if(lstat(m->fn, &fs) == -1){
+          m->mdata.head.nstate = MAKUO_RECVSTATE_UPDATE;
+        }else{
+          m->mdata.head.nstate = statcmp(&(m->fs), &fs);
+        }
       }
     }
   }
