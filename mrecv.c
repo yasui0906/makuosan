@@ -296,7 +296,7 @@ static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
   if(!m){
     return;
   }
-  if(!set_hoststate(t,m,data->head.nstate)){
+  if(!set_hoststate(t, m, data->head.nstate)){
     lprintf(0, "%s: not allocate state area\n", __func__);
     return;
   }
@@ -310,28 +310,13 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
   uint16_t len;
 
   lprintf(9, "%s: rid=%d %s\n", __func__, data->head.reqid, RSTATE(data->head.nstate));
-
   if(mrecv_ack_search(&t, &m, data, addr)){
     return;
   }
-
   if(!set_hoststate(t, m, data->head.nstate)){
     lprintf(0, "%s: not allocate state area\n", __func__);
     return;
   }
-
-  if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-    mrecv_mfdel(m);
-    return;
-  }
-
-  if(m->mdata.head.nstate == MAKUO_SENDSTATE_DATA){
-    m->initstate = 1;
-    m->sendwait  = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-    return;
-  }
-
   if(m->mdata.head.nstate == MAKUO_SENDSTATE_OPEN){
     m->initstate = 1;
     m->sendwait  = 0;

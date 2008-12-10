@@ -87,7 +87,6 @@
 #define MAKUO_SENDSTATE_LAST       5  /* 送信完了   */
 #define MAKUO_SENDSTATE_ERROR      6  /* エラー発生 */
 #define MAKUO_SENDSTATE_BREAK      7  /* 送信中断   */
-#define MAKUO_SENDSTATE_DELETE     8  /* 削除要求   */
 
 /*----- recvstatus -----*/
 #define MAKUO_RECVSTATE_NONE       0
@@ -276,6 +275,7 @@ extern BF_KEY EncKey;
 /*----- function -----*/
 char    *SSTATE(uint8_t n);
 char    *RSTATE(uint8_t n);
+char    *OPCODE(uint8_t n);
 void     lprintf(int l, char *fmt, ...);
 void     cprintf(int l, mcomm *c, char *fmt, ...);
 void     fdprintf(int s, char *fmt, ...);

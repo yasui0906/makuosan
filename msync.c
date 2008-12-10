@@ -606,9 +606,7 @@ int main(int argc, char *argv[])
         close(s);
         return(1);
       }
-    }
-    if(delflag){
-      for(i=optind;i<argc;i++){
+      if(delflag){
         sprintf(cmd, "dsync%s %s", mopt, argv[i]);
         if(makuo_exec(s, cmd)){
           close(s);

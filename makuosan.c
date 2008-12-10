@@ -253,7 +253,8 @@ int mloop()
       mfile *m = mftop[0];
       while(m){
         n = m->next;
-        para += ismsend(moption.mcsocket, m);
+        ismsend(moption.mcsocket, m);
+        para++;
         m = n;
         if(para == moption.parallel){
           break;

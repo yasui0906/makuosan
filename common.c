@@ -233,6 +233,19 @@ void cprintf(int l, mcomm *c, char *fmt, ...)
   }
 }
 
+void mprintf(char *func, mfile *m)
+{
+  char *st;
+  char *op;
+  if(m->mdata.head.flags & MAKUO_FLAG_ACK){
+    st = RSTATE(m->mdata.head.nstate);
+  }else{
+    st = SSTATE(m->mdata.head.nstate);
+  }
+  op = OPCODE(m->mdata.head.opcode);
+  lprintf(9, "%s: rid=%d init=%d wait=%d %s %s %s %s\n", func, m->mdata.head.reqid, m->initstate, m->sendwait, inet_ntoa(m->addr.sin_addr), op, st, m->fn);
+}
+
 int getrid()
 {
   static int rid=0;
@@ -565,14 +578,26 @@ int ack_check(mfile *m, int state)
   mhost   *t;
   for(t=members;t;t=t->next){
     if(!m->sendto){
-      if(s=get_hoststate(t,m)){
+      s = get_hoststate(t,m);
+      if(!s){
+        lprintf(0,"%s: can't get state area host=%s fn=%s\n", 
+          __func__,
+          t->hostname, 
+          m->fn);
+      }else{
         if(*s == state){
           return(1);
         }
       }
     }else{
       if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
-        if(s=get_hoststate(t,m)){
+        s = get_hoststate(t,m);
+        if(!s){
+          lprintf(0,"%s: can't get state area host=%s fn=%s\n", 
+            __func__,
+            t->hostname, 
+            m->fn);
+        }else{
           if(*s == state){
             return(1);
           }else{

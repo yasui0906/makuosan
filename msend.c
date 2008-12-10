@@ -774,7 +774,6 @@ static void msend_req_md5_close(int s, mfile *m)
   }
   lprintf(9,"%s: %s\n", __func__, m->fn);
   msend_mfdel(m);
-  m = NULL;
 }
 
 /*----- md5 -----*/
@@ -790,19 +789,13 @@ static void msend_req_md5(int s, mfile *m)
   }
 }
 
-static void msend_req_dsync_open_init(int s, mfile *m)
-{
-  lprintf(9, "%s:\n", __func__);
-  m->sendwait  = 1;
-  m->initstate = 0;
-  msend_packet(s, &(m->mdata), &(m->addr));
-}
-
 static void msend_req_dsync_open(int s, mfile *m)
 {
-  lprintf(9, "%s:\n", __func__);
+  lprintf(9, "%s: init=%d wait=%d\n", __func__, m->initstate, m->sendwait);
   if(m->initstate){
-    msend_req_dsync_open_init(s, m);
+    m->sendwait  = 1;
+    m->initstate = 0;
+    msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
   if(m->sendwait){
@@ -813,49 +806,35 @@ static void msend_req_dsync_open(int s, mfile *m)
   m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
 }
 
-static void msend_req_dsync_close_init(int s, mfile *m)
-{
-  lprintf(9, "%s:\n", __func__);
-  m->sendwait  = 1;
-  m->initstate = 0;
-  ack_clear(m, MAKUO_RECVSTATE_OPEN);
-}
-
 static void msend_req_dsync_close(int s, mfile *m)
 {
-  lprintf(9, "%s:\n", __func__);
+  lprintf(9, "%s: init=%d wait=%d\n", __func__, m->initstate, m->sendwait);
   if(m->initstate){
-    msend_req_dsync_close_init(s, m);
+    m->sendwait  = 1;
+    m->initstate = 0;
+    ack_clear(m, MAKUO_RECVSTATE_OPEN);
     return;
   }
   if(m->sendwait){
     return;
   }
-  lprintf(9,"%s: %s\n", __func__, m->fn);
   msend_mfdel(m);
-}
-
-static void msend_req_dsync_break_init(int s, mfile *m)
-{
-  lprintf(9, "%s:\n", __func__);
-  m->sendwait  = 1;
-  m->initstate = 0;
-  ack_clear(m, -1);
-  msend_packet(s, &(m->mdata), &(m->addr));
 }
 
 static void msend_req_dsync_break(int s, mfile *m)
 {
-  lprintf(9, "%s:\n", __func__);
+  lprintf(9, "%s: init=%d wait=%d\n", __func__, m->initstate, m->sendwait);
   if(m->initstate){
-    msend_req_dsync_break_init(s, m);
+    m->sendwait  = 1;
+    m->initstate = 0;
+    ack_clear(m, -1);
+    msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  lprintf(9,"%s: m=%p\n", __func__, m);
   msend_mfdel(m);
 }
 
@@ -957,47 +936,99 @@ static void msend_req_del_stat(int s, mfile *m)
   d->sendto = 1;
   d->dryrun = m->dryrun;
   d->recurs = m->recurs;
-  lprintf(9, "%s: fn=%s rid=%d flags=%d\n", __func__, d->fn, d->mdata.head.reqid, d->mdata.head.flags);
+}
+
+static void msend_req_del_last(int s, mfile *m)
+{
+  msend_mfdel(m);
+}
+static void msend_req_del_break(int s, mfile *m)
+{
+  if(m->link){
+    m->link->lastrecv.tv_sec = 1;
+  }
+  msend_mfdel(m);
+}
+
+static void msend_req_del_open(int s, mfile *m)
+{
+  mprintf(__func__, m);
+  if(m->initstate){
+    m->initstate = 0;
+    m->sendwait  = 1;
+    ack_clear(m, -1);
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  if(m->sendwait){
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  m->initstate = 1;
+}
+
+static void msend_req_del_data(int s, mfile *m)
+{
+  mprintf(__func__, m);
+  if(m->initstate){
+    m->initstate = 0;
+    m->sendwait  = 1;
+    ack_clear(m, -1);
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  if(m->sendwait){
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  m->initstate = 1;
+  m->sendwait  = 0;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+}
+
+static void msend_req_del_close(int s, mfile *m)
+{
+  mprintf(__func__, m);
+  if(m->initstate){
+    m->initstate = 0;
+    m->sendwait  = 1;
+    ack_clear(m, -1);
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  if(m->sendwait){
+    msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  msend_mfdel(m);
 }
 
 /*----- del -----*/
 static void msend_req_del(int s, mfile *m)
 {
-  if(m->mdata.head.nstate == MAKUO_SENDSTATE_BREAK){
-    if(m->link){
-      m->link->lastrecv.tv_sec = 1;
-    }
-    msend_mfdel(m);
-    return;
-  }
-  if(m->mdata.head.nstate == MAKUO_SENDSTATE_LAST){
-    msend_mfdel(m);
-    return;
-  }
-  if(m->mdata.head.nstate == MAKUO_SENDSTATE_STAT){
-    msend_req_del_stat(s, m);
-    return;
-  }
-  if(m->initstate){
-    m->initstate = 0;
-    m->sendwait  = 1;
-    ack_clear(m, -1);
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_MARK){
+  switch(m->mdata.head.nstate){
+    case MAKUO_SENDSTATE_STAT:
+      msend_req_del_stat(s, m);
+      break;
+    case MAKUO_SENDSTATE_MARK:
       msend_req_del_mark(s, m);
-      return;
-    }
-    msend_packet(s, &(m->mdata), &(m->addr));
-    return;
+      break;
+    case MAKUO_SENDSTATE_LAST:
+      msend_req_del_last(s, m);
+      break;
+    case MAKUO_SENDSTATE_BREAK:
+      msend_req_del_break(s, m);
+      break;
+    case MAKUO_SENDSTATE_OPEN:
+      msend_req_del_open(s, m);
+      break;
+    case MAKUO_SENDSTATE_DATA:
+      msend_req_del_data(s, m);
+      break;
+    case MAKUO_SENDSTATE_CLOSE:
+      msend_req_del_close(s, m);
+      break;
   }
-  if(m->sendwait){
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_MARK){
-      msend_req_del_mark(s, m);
-    }else{
-      msend_packet(s, &(m->mdata), &(m->addr));
-    }
-    return;
-  }
-  m->initstate = 1;
 }
 
 /*----- exit -----*/
@@ -1055,3 +1086,4 @@ void msend(int s, mfile *m)
     msend_req(s, m); /* destination node task */
   }
 }
+
