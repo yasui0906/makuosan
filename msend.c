@@ -68,6 +68,8 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   senddata.head.flags  = htons(senddata.head.flags);
   senddata.head.reqid  = htonl(senddata.head.reqid);
   senddata.head.seqno  = htonl(senddata.head.seqno);
+  senddata.head.maddr  = htonl(senddata.head.maddr);
+  senddata.head.mport  = htons(senddata.head.mport);
   szdata += sizeof(mhead);
  
   while(1){ 
@@ -952,7 +954,6 @@ static void msend_req_del_break(int s, mfile *m)
 
 static void msend_req_del_open(int s, mfile *m)
 {
-  mprintf(__func__, m);
   if(m->initstate){
     m->initstate = 0;
     m->sendwait  = 1;
@@ -969,7 +970,6 @@ static void msend_req_del_open(int s, mfile *m)
 
 static void msend_req_del_data(int s, mfile *m)
 {
-  mprintf(__func__, m);
   if(m->initstate){
     m->initstate = 0;
     m->sendwait  = 1;
@@ -988,7 +988,6 @@ static void msend_req_del_data(int s, mfile *m)
 
 static void msend_req_del_close(int s, mfile *m)
 {
-  mprintf(__func__, m);
   if(m->initstate){
     m->initstate = 0;
     m->sendwait  = 1;

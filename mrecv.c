@@ -93,13 +93,17 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
   data->head.flags  = ntohs(data->head.flags);
   data->head.reqid  = ntohl(data->head.reqid);
   data->head.seqno  = ntohl(data->head.seqno);
-
-  if(data->head.vproto != PROTOCOL_VERSION){
-    lprintf(0, "%s: protocol version error(%d != %d) from %s\n", __func__,
-       data->head.vproto, PROTOCOL_VERSION, inet_ntoa(addr->sin_addr));
+  data->head.maddr  = ntohl(data->head.maddr);
+  data->head.mport  = ntohs(data->head.mport);
+  if(data->head.maddr != moption.maddr.sin_addr.s_addr){
     return(-1);
   }
-
+  if(data->head.mport != moption.maddr.sin_port){
+    return(-1);
+  }
+  if(data->head.vproto != PROTOCOL_VERSION){
+    return(-1);
+  }
   return(mrecv_decrypt(data, addr));
 }
 

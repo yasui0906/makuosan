@@ -123,6 +123,8 @@ typedef struct
   uint16_t flags;
   uint32_t reqid;
   uint32_t seqno;
+  uint32_t maddr;
+  uint16_t mport;
   uint8_t  hash[16];
 }__attribute__((packed)) mhead;
 
@@ -276,6 +278,7 @@ extern BF_KEY EncKey;
 char    *SSTATE(uint8_t n);
 char    *RSTATE(uint8_t n);
 char    *OPCODE(uint8_t n);
+void     mprintf(char *func, mfile *m);
 void     lprintf(int l, char *fmt, ...);
 void     cprintf(int l, mcomm *c, char *fmt, ...);
 void     fdprintf(int s, char *fmt, ...);

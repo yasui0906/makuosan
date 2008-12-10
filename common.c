@@ -290,6 +290,8 @@ mfile *mfnew()
   mfile *m;
   if(m = (mfile *)malloc(sizeof(mfile))){
     memset(m, 0, sizeof(mfile));
+    m->mdata.head.maddr  = moption.maddr.sin_addr.s_addr;
+    m->mdata.head.mport  = moption.maddr.sin_port;
     m->mdata.head.vproto = PROTOCOL_VERSION;
     m->fd   = -1;
     m->pipe = -1;
