@@ -184,6 +184,31 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
   return(0);
 }
 
+int mfdirchk(mfile *d){
+  int len = strlen(d->fn);
+  mfile *m;
+  if(!len){
+    return(1);
+  }
+  if(d->fn[len - 1] == '/'){
+    len--;
+  }
+  for(m=mftop[0];m;m=m->next){
+    if(m == d){
+      continue;
+    }
+    if(strlen(m->fn) < len){
+      continue;
+    }
+    if(!memcmp(d->fn, m->fn, len)){
+      if(m->fn[len] == '/'){
+        return(0);
+      }
+    }
+  }
+  return(1);
+}
+
 int ismsend(int s, mfile *m)
 {
   int r;
@@ -191,7 +216,7 @@ int ismsend(int s, mfile *m)
     return(0);
   }
   if(!S_ISLNK(m->fs.st_mode) && S_ISDIR(m->fs.st_mode)){
-    if(m != mftop[0]){
+    if(!mfdirchk(m)){
       return(0);
     }
   }
@@ -253,8 +278,7 @@ int mloop()
       mfile *m = mftop[0];
       while(m){
         n = m->next;
-        ismsend(moption.mcsocket, m);
-        para++;
+        para += ismsend(moption.mcsocket, m);
         m = n;
         if(para == moption.parallel){
           break;

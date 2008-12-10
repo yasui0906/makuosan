@@ -293,8 +293,13 @@ static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
     return;
   }
   for(m=mftop[0];m;m=m->next){
-    if(m->comm && (m->mdata.head.reqid == data->head.reqid)){
-      break;
+    if(m->mdata.head.reqid == data->head.reqid){
+      if(m->comm){
+        break;
+      }
+      if(m->mdata.head.nstate == MAKUO_SENDSTATE_BREAK){
+        break;
+      }
     }
   }
   if(!m){
