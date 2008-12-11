@@ -76,7 +76,10 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
     if(recvsize != -1){
       break;
     }else{
-      if(errno == EAGAIN || errno == EINTR){
+      if(errno == EAGAIN){
+        return(-1);
+      }
+      if(errno == EINTR){
         continue;
       }else{
         lprintf(0, "%s: recv error from %s\n", __func__, inet_ntoa(addr->sin_addr));
@@ -112,18 +115,19 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
 * Receive common functions (public)
 *
 *******************************************************************/
-void mrecv(int s)
+int mrecv(int s)
 {
   mdata  data;
   struct sockaddr_in addr;
   if(mrecv_packet(s, &data, &addr) == -1){
-    return;
+    return(0);
   }
   if(data.head.flags & MAKUO_FLAG_ACK){
     mrecv_ack(&data, &addr);
   }else{
     mrecv_req(&data, &addr);
   }
+  return(1);
 }
 
 void mrecv_gc()
@@ -1201,7 +1205,7 @@ static void mrecv_req_dsync_break(mfile *m, mdata *data, struct sockaddr_in *add
  */
 static void mrecv_req_dsync(mdata *data, struct sockaddr_in *addr)
 {
-  lprintf(9, "%s:\n", __func__);
+  lprintf(9, "%s: rid=%06d %s %s\n", __func__, data->head.reqid, OPCODE(data->head.opcode), SSTATE(data->head.nstate));
   mfile *m = mrecv_req_search(data, addr);
   switch(data->head.nstate){
     case MAKUO_SENDSTATE_OPEN:

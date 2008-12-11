@@ -339,6 +339,10 @@ static void minit_socket()
     lprintf(0, "%s: can't create multicast socket\n", __func__);
     exit(1);
   }
+  if(fcntl(s, F_SETFL , O_NONBLOCK)){
+    lprintf(0, "%s: fcntl error\n", __func__);
+    exit(1);
+  }
   if(bind(s, (struct sockaddr*)&addr, sizeof(addr)) == -1){
     lprintf(0, "%s: bind error\n", __func__);
     exit(1);

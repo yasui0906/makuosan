@@ -257,8 +257,9 @@ int mexec_send(mcomm *c, int n, int sync)
   char *argv[9];
   char *fn = NULL;
   mfile *m = NULL;
-  mhost *h = NULL;
-  int recursive = 0;
+  mhost *t = NULL;
+  int dryrun = 0;
+  int recurs = 0;
   int mode = MAKUO_MEXEC_SEND;
 
   if(moption.dontsend){
@@ -272,16 +273,17 @@ int mexec_send(mcomm *c, int n, int sync)
   while((i=getopt(c->argc[n], argv, "t:nr")) != -1){
     switch(i){
       case 'n':
+        dryrun = 1;
         mode = MAKUO_MEXEC_DRY;
         break;
       case 'r':
-        recursive = 1;
+        recurs = 1;
         break;
       case 't':
-        for(h=members;h;h=h->next)
-          if(!strcmp(h->hostname, optarg))
+        for(t=members;t;t=t->next)
+          if(!strcmp(t->hostname, optarg))
             break;
-        if(!h){
+        if(!t){
           cprintf(0, c, "%s is not contained in members\r\n", optarg);
           return(0);
         }
@@ -296,12 +298,12 @@ int mexec_send(mcomm *c, int n, int sync)
     fn = c->parse[n][optind++];
 
   /*----- directory scan -----*/
-  if(recursive){
+  if(recurs){
     if(c->cpid){
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    return(mexec_scan(c, fn, h, mode));
+    return(mexec_scan(c, fn, t, mode));
   }
   /*----- help -----*/
   if(!fn){
@@ -326,9 +328,9 @@ int mexec_send(mcomm *c, int n, int sync)
 	}
 
   /*----- send to address set -----*/
-  if(h){
+  if(t){
     m->sendto = 1;
-    memcpy(&(m->addr.sin_addr), &(h->ad), sizeof(m->addr.sin_addr));
+    memcpy(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr));
   }
 
 	strcpy(m->fn, fn);
@@ -336,7 +338,8 @@ int mexec_send(mcomm *c, int n, int sync)
 	m->mdata.head.opcode = MAKUO_OP_SEND;
   m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
 	m->comm      = c;
-  m->dryrun    = (mode == MAKUO_MEXEC_DRY);
+  m->dryrun    = dryrun;
+  m->recurs    = recurs;
   m->initstate = 1;
   if(m->dryrun){
     m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
@@ -396,8 +399,10 @@ int mexec_send(mcomm *c, int n, int sync)
 		  cprintf(0, c, "error: readlink error %s\n", fn);
 		  lprintf(0, "%s: readlink error %s\n", __func__, fn);
 		  mfdel(m);
+      return(0);
     }
-  }  
+  } 
+ 
   return(0);
 }
 
@@ -879,7 +884,8 @@ int mexec(mcomm *c, int n)
   if(n == 1){
     for(m=mftop[0];m;m=m->next){
       if(m->comm == c){
-        if(count++ == MAKUO_PARALLEL_MAX){
+        count++;
+        if(count == MAKUO_PARALLEL_MAX){
           return(-1);
         }
       }

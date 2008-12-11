@@ -206,12 +206,18 @@ void fdprintf(int s, char *fmt, ...)
 void lprintf(int l, char *fmt, ...)
 {
   va_list arg;
+  struct timeval tv;
   char msg[2048];
   if(moption.loglevel >= l){
     va_start(arg, fmt);
     vsprintf(msg, fmt, arg);
     va_end(arg);
+#ifdef MAKUO_DEBUG
+    gettimeofday(&tv, NULL);
+    fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, msg);
+#else
     fprintf(stderr, "%s", msg);
+#endif
     syslog(LOG_ERR, "%s: %s", moption.user_name, msg);
   }
 }
@@ -233,7 +239,7 @@ void cprintf(int l, mcomm *c, char *fmt, ...)
   }
 }
 
-void mprintf(char *func, mfile *m)
+void mprintf(const char *func, mfile *m)
 {
   char *st;
   char *op;

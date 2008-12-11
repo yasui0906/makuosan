@@ -131,17 +131,10 @@ int mcomm_accept(mcomm *c, fd_set *fds, int s)
   return(0);
 }
 
-int mcomm_read(mcomm *c, fd_set *fds){
+void mcomm_check(mcomm *c){
   int i, j;
   mfile *m;
   for(i=0;i<MAX_COMM;i++){
-    for(j=0;j<2;j++){
-      if(c[i].fd[j] != -1){
-        if(FD_ISSET(c[i].fd[j], fds) || c[i].check[j]){
-          mexec(&c[i], j);
-        }
-      }
-    }
     if(c[i].fd[1] == -1){
       for(m=mftop[0];m;m=m->next){
         if(m->comm == &c[i]){
@@ -151,6 +144,20 @@ int mcomm_read(mcomm *c, fd_set *fds){
       if(!m){
         if(c[i].working && !c[i].cpid){
           workend(&c[i]);
+        }
+      }
+    }
+  }
+}
+
+int mcomm_read(mcomm *c, fd_set *fds){
+  int i, j;
+  mfile *m;
+  for(i=0;i<MAX_COMM;i++){
+    for(j=0;j<2;j++){
+      if(c[i].fd[j] != -1){
+        if(FD_ISSET(c[i].fd[j], fds) || c[i].check[j]){
+          mexec(&c[i], j);
         }
       }
     }
@@ -185,8 +192,8 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
 }
 
 int mfdirchk(mfile *d){
-  int len = strlen(d->fn);
   mfile *m;
+  int len = strlen(d->fn);
   if(!len){
     return(1);
   }
@@ -243,6 +250,9 @@ int ismsend(int s, mfile *m)
 /***** main loop *****/
 int mloop()
 {
+  int para;
+  mfile *n;
+  mfile *m;
   fd_set rfds;
   fd_set wfds;
   struct timeval *lastpong;
@@ -251,46 +261,41 @@ int mloop()
   gettimeofday(&curtime,NULL);
   lastpong = pingpong(0);
   while(loop_flag){
-    tv.tv_sec  = 1;
-    tv.tv_usec = 0;
-    FD_ZERO(&rfds);
-    FD_ZERO(&wfds);
-
     gettimeofday(&curtime,NULL);
     if(mtimeout(lastpong, MAKUO_PONG_INTERVAL))
       lastpong = pingpong(1);
-
-    mcomm_fdset(moption.comm, &rfds);
-    FD_SET(moption.mcsocket,  &rfds);
-    if(mftop[0]){
-      tv.tv_sec  = 0;
-      tv.tv_usec = 10000;
-      FD_SET(moption.mcsocket, &wfds);
-    }
-
-    if(select(1024, &rfds, &wfds, NULL, &tv) < 0)
-      continue;
-
-    gettimeofday(&curtime,NULL);
-    if(FD_ISSET(moption.mcsocket,&wfds)){
-      int para = 0;
-      mfile *n = NULL;
-      mfile *m = mftop[0];
-      while(m){
-        n = m->next;
-        para += ismsend(moption.mcsocket, m);
-        m = n;
-        if(para == moption.parallel){
-          break;
-        }
+    m = mftop[0];
+    while(mrecv(moption.mcsocket)){
+      if(m != mftop[0]){
+        break;
       }
     }
-    if(FD_ISSET(moption.mcsocket,&rfds))
-      mrecv(moption.mcsocket);
-
-    mrecv_gc();
+    para = 0;
+    n = NULL;
+    m = mftop[0];
+    while(m){
+      n = m->next;
+      para += ismsend(moption.mcsocket, m);
+      m = n;
+      if(para == moption.parallel){
+        break;
+      }
+    }
+    mcomm_check(moption.comm);
+    FD_ZERO(&rfds);
+    FD_ZERO(&wfds);
+    FD_SET(moption.mcsocket,  &rfds);
+    mcomm_fdset(moption.comm, &rfds);
+    if(mftop[0]){
+      FD_SET(moption.mcsocket, &wfds);
+    }
+    tv.tv_sec  = 1;
+    tv.tv_usec = 0;
+    if(select(1024, &rfds, &wfds, NULL, &tv) == -1)
+      continue;
     mcomm_accept(moption.comm, &rfds, moption.lisocket); /* new console  */
     mcomm_read(moption.comm, &rfds);                     /* command exec */
+    mrecv_gc();
   }
   return(0);
 }

@@ -8,6 +8,7 @@
 #define PROTOCOL_VERSION 4
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
+#define MAKUO_DEBUG
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -55,8 +56,8 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
-#define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
+#define MAKUO_SEND_TIMEOUT  250    /* 再送間隔(ms)                                 */
+#define MAKUO_SEND_RETRYCNT 240    /* 再送回数                                     */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
 #define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
@@ -222,8 +223,8 @@ typedef struct mfile
 
 typedef struct
 {
-  uint8_t state[MAKUO_PARALLEL_MAX];
-  mfile *mflist[MAKUO_PARALLEL_MAX];
+  uint8_t state[MAKUO_PARALLEL_MAX * MAX_COMM];
+  mfile *mflist[MAKUO_PARALLEL_MAX * MAX_COMM];
   char hostname[MAKUO_HOSTNAME_MAX];
   char version[32];
   struct in_addr ad;
@@ -278,7 +279,7 @@ extern BF_KEY EncKey;
 char    *SSTATE(uint8_t n);
 char    *RSTATE(uint8_t n);
 char    *OPCODE(uint8_t n);
-void     mprintf(char *func, mfile *m);
+void     mprintf(const char *func, mfile *m);
 void     lprintf(int l, char *fmt, ...);
 void     cprintf(int l, mcomm *c, char *fmt, ...);
 void     fdprintf(int s, char *fmt, ...);
@@ -293,7 +294,7 @@ mfile   *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state);
 mhost   *member_get(struct in_addr *addr);
 mhost   *member_add(struct in_addr *addr, mdata *recvdata);
 void     member_del(mhost *h);
-void     mrecv(int s);
+int      mrecv(int s);
 void     msend(int s, mfile *m);
 void     set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
 int      set_guid(int uid, int gid, gid_t *gids);
