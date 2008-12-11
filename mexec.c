@@ -21,6 +21,46 @@ char *command_list[]={"quit",     /*  */
                       "help",     /*  */
                       NULL};      /*  */
 
+mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
+{
+  mfile *m = mfadd(0);
+  if(!m){
+	  lprintf(0, "%s: out of memorry\n", __func__);
+    return(m);
+	}
+
+  strcpy(m->fn, ".");
+  if(fn){
+    if(*fn != '/'){
+	    strcat(m->fn, "/");
+    }
+	  strcat(m->fn, fn);
+  }
+  
+  strcpy(m->mdata.data, m->fn);
+	m->mdata.head.reqid  = getrid();
+	m->mdata.head.szdata = strlen(m->fn);
+	m->mdata.head.opcode = MAKUO_OP_DSYNC;
+  m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+	m->comm = c;
+  if(dryrun){
+    m->dryrun = 1;
+    m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
+  }
+  if(recurs){
+    m->recurs = 1;
+    m->mdata.head.flags |= MAKUO_FLAG_RECURS;
+  }
+  m->initstate = 1;
+
+  /*----- send to address set -----*/
+  if(t){
+    m->sendto = 1;
+    memcpy(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr));
+  }
+  return(m);
+}
+
 int mexec_scan_cmd(int fd, char *buff)
 {
   int r;
@@ -305,6 +345,7 @@ int mexec_send(mcomm *c, int n, int sync)
     }
     return(mexec_scan(c, fn, t, mode));
   }
+
   /*----- help -----*/
   if(!fn){
     if(sync){
@@ -316,10 +357,12 @@ int mexec_send(mcomm *c, int n, int sync)
       cprintf(0, c, "send [-n] [-r] [-t host] [path]\r\n");
       cprintf(0, c, "  -n  # dryrun\r\n");
       cprintf(0, c, "  -r  # recursive\r\n");
+      cprintf(0, c, "  -D  # with delete\r\n");
       cprintf(0, c, "  -t  # target host\r\n");
     }
     return(0);
   }
+
   /*----- send file -----*/
   m = mfadd(0);
   if(!m){
@@ -401,8 +444,8 @@ int mexec_send(mcomm *c, int n, int sync)
 		  mfdel(m);
       return(0);
     }
-  } 
- 
+  }
+
   return(0);
 }
 
@@ -519,7 +562,6 @@ int mexec_dsync(mcomm *c, int n)
   ssize_t size;
   char *argv[9];
   char *fn = NULL;
-  mfile *m = NULL;
   mhost *t = NULL;
   int  recurs = 0;
   int  dryrun = 0;
@@ -568,42 +610,7 @@ int mexec_dsync(mcomm *c, int n)
     return(0);
   }
 
-  /*----- start dsync -----*/
-  m = mfadd(0);
-  if(!m){
-	  lprintf(0, "%s: out of memorry\n", __func__);
-    return(0);
-	}
-
-  strcpy(m->fn, ".");
-  if(fn){
-    if(*fn != '/'){
-	    strcat(m->fn, "/");
-    }
-	  strcat(m->fn, fn);
-  }
-  
-  strcpy(m->mdata.data, m->fn);
-	m->mdata.head.reqid  = getrid();
-	m->mdata.head.szdata = strlen(m->fn);
-	m->mdata.head.opcode = MAKUO_OP_DSYNC;
-  m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
-	m->comm = c;
-  if(dryrun){
-    m->dryrun = 1;
-    m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
-  }
-  if(recurs){
-    m->recurs = 1;
-    m->mdata.head.flags |= MAKUO_FLAG_RECURS;
-  }
-  m->initstate = 1;
-
-  /*----- send to address set -----*/
-  if(t){
-    m->sendto = 1;
-    memcpy(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr));
-  }
+  mexec_with_dsync(c, fn, dryrun, recurs, t);
   return(0);
 }
 
