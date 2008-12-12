@@ -199,9 +199,37 @@ excludeitem *mfnmatch(char *str, excludeitem *exclude)
   return(NULL);
 }
 
-int isexclude(char *str, excludeitem *exclude)
+int isexclude(char *fn, excludeitem *exclude, int dir)
 {
+  char *p;
+  char path[PATH_MAX];
 
+  return(0);
+  sprintf(path, "%s/%s", moption.real_dir, fn);
+  if(mfnmatch(path, exclude)){
+    return(1);
+  }
+  if(dir){
+    strcat(path, "/");
+    if(mfnmatch(path, exclude)){
+      return(1);
+    }
+  }
+  for(p=dirname(path);*p == '/';p++);
+  if(*p == 0){
+    return(0);
+  }
+  while(strcmp(p, ".")){
+    if(mfnmatch(p, exclude)){
+      return(1);
+    }
+    strcat(p, "/");
+    if(mfnmatch(p, exclude)){
+      return(1);
+    }
+    p = dirname(p);
+  }
+  return(0);
 }
 
 void fdprintf(int s, char *fmt, ...)
@@ -975,5 +1003,26 @@ mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
     memcpy(&(a->addr), addr, sizeof(a->addr));
   }
   return(a);
+}
+
+int atomic_read(int fd, char *buff, int size)
+{
+  int r;
+
+  while(size){
+    r = read(fd, buff, size);
+    if(r == -1){
+      if(errno == EINTR){
+        continue;
+      }
+      return(-1);
+    }
+    if(r == 0){
+      return(1);
+    }
+    size -= r;
+    buff += r;
+  }
+  return(0);
 }
 

@@ -219,7 +219,7 @@ int mfdirchk(mfile *d){
   return(1);
 }
 
-int ismsend(int s, mfile *m)
+int ismsend(int s, mfile *m, int send)
 {
   int r;
   if(!m){
@@ -246,7 +246,9 @@ int ismsend(int s, mfile *m)
       recv_timeout(m);
     }
   }
-  msend(s,m);
+  if(send){
+    msend(s, m);
+  }
   return(1);
 }
 
@@ -274,11 +276,10 @@ int mloop()
       }
     }
     para = 0;
-    n = NULL;
     m = mftop[0];
     while(m){
       n = m->next;
-      para += ismsend(moption.mcsocket, m);
+      para += ismsend(moption.mcsocket, m, 1);
       m = n;
       if(para == moption.parallel){
         break;
@@ -289,9 +290,14 @@ int mloop()
     FD_ZERO(&wfds);
     FD_SET(moption.mcsocket,  &rfds);
     mcomm_fdset(moption.comm, &rfds);
-    if(mftop[0]){
-      FD_SET(moption.mcsocket, &wfds);
+
+    for(m=mftop[0];m;m=m->next){
+      if(ismsend(moption.mcsocket, m, 0)){
+        FD_SET(moption.mcsocket, &wfds);
+        break;
+      }
     }
+
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
     if(select(1024, &rfds, &wfds, NULL, &tv) == -1)

@@ -892,18 +892,16 @@ static void msend_req_del_mark(int s, mfile *m)
 
 static void msend_req_del_stat(int s, mfile *m)
 {
-  int r;
+  int    r;
   mfile *a;
   mfile *d;
-  uint8_t stat;
-  uint16_t len;
-  uint32_t mod;
+  static uint16_t len = 0;
+  static char path[PATH_MAX + sizeof(uint32_t)];
 
   if(m->pid == 0){
     for(d=mftop[0];d;d=d->next){
-      if((d->mdata.head.opcode == MAKUO_OP_DEL) &&
-         (d->mdata.head.nstate != MAKUO_SENDSTATE_STAT) &&
-         (d->mdata.head.seqno  == m->mdata.head.seqno)){
+      if((d->mdata.head.opcode == MAKUO_OP_DEL) && (d->link == m)){
+        m->sendwait = 1;
         return;
       }
     }
@@ -916,45 +914,80 @@ static void msend_req_del_stat(int s, mfile *m)
 
   if(m->pipe == -1){
     if(waitpid(m->pid, NULL, WNOHANG) == m->pid){
-      m->pid  =  0;
+      m->pid = 0;
+    }else{
+      m->sendwait = 1;
     }
     return;
   }
 
   lprintf(9, "%s:\n", __func__);
-  r = read(m->pipe, &stat, sizeof(stat));
-  if(r <= 0){
-    close(m->pipe);
-    m->pipe = -1;
-    return;
-  }
-
   d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
-  read(m->pipe, &mod, sizeof(mod));
-  read(m->pipe, &len, sizeof(len));
-  read(m->pipe, d->fn, len);
-  d->fn[len]    = 0;
-  d->fs.st_mode = mod;
-  for(a=mftop[1];a;a=a->next){
-    if(!strcmp(a->tn, d->fn)){
-      msend_mfdel(d);
-      return;
-    }
-  }
-  d->mdata.p = d->mdata.data;
-  *(uint32_t *)(d->mdata.p) = htonl(mod);
-  d->mdata.p += sizeof(mod);
-  *(uint16_t *)(d->mdata.p) = htons(len);
-  d->mdata.p += sizeof(len);
-  memcpy(d->mdata.p, d->fn, len);
   d->mdata.head.flags  = m->mdata.head.flags;
-  d->mdata.head.szdata = sizeof(mod) + sizeof(len) + len;
   d->mdata.head.reqid  = getrid();
   d->initstate = 1;
   d->sendwait  = 0;
   d->sendto = 1;
   d->dryrun = m->dryrun;
   d->recurs = m->recurs;
+  d->link   = m;
+  d->mdata.p = d->mdata.data;
+
+  if(len){
+    *(uint16_t *)(d->mdata.p) = htons(len);
+    d->mdata.p += sizeof(len);
+    d->mdata.head.szdata += sizeof(len);
+    memcpy(d->mdata.p, path, len);
+    d->mdata.p += len;
+    d->mdata.head.szdata += len;
+    lprintf(0, "%s: rid=%d %s\n", __func__, d->mdata.head.reqid, path + sizeof(uint32_t));
+  }
+
+  while(1){
+    if(atomic_read(m->pipe, &len, sizeof(len))){
+      close(m->pipe);
+      m->pipe = -1;
+      m->initstate = 1;
+      m->sendwait  = 0;
+      *(uint16_t *)(d->mdata.p) = 0;
+      d->mdata.p += sizeof(uint16_t);
+      d->mdata.head.szdata += sizeof(len);
+      break;
+    }
+    if(atomic_read(m->pipe, path, len)){
+      lprintf(0, "%s: pipe read error\n", __func__);
+      close(m->pipe);
+      m->pipe = -1;
+      m->initstate = 1;
+      m->sendwait  = 0;
+      *(uint16_t *)(d->mdata.p) = 0;
+      d->mdata.p += sizeof(uint16_t);
+      d->mdata.head.szdata += sizeof(len);
+      break;
+    }
+    path[len] = 0;
+
+    for(a=mftop[1];a;a=a->next){
+      if(!strcmp(a->tn, path + sizeof(uint32_t))){
+        break;
+      }
+    }
+    if(!a){
+      if(d->mdata.head.szdata + sizeof(len) + len > MAKUO_BUFFER_SIZE - sizeof(len)){
+        *(uint16_t *)(d->mdata.p) = 0;
+        d->mdata.p += sizeof(uint16_t);
+        d->mdata.head.szdata += sizeof(len);
+        break;
+      }
+      *(uint16_t *)(d->mdata.p) = htons(len);
+      d->mdata.p += sizeof(len);
+      d->mdata.head.szdata += sizeof(len);
+      memcpy(d->mdata.p, path, len);
+      d->mdata.p += len;
+      d->mdata.head.szdata += len;
+      lprintf(0, "%s: rid=%d %s\n", __func__, d->mdata.head.reqid, path + sizeof(uint32_t));
+    }
+  }
 }
 
 static void msend_req_del_last(int s, mfile *m)
@@ -1021,6 +1054,7 @@ static void msend_req_del_close(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
+  m->link->sendwait = 0;
   msend_mfdel(m);
 }
 
@@ -1067,6 +1101,13 @@ static void msend_req_ping(int s, mfile *m)
 /*----- send request -----*/
 static void msend_req(int s, mfile *m)
 {
+  lprintf(9, "%s: rid=%d %s %s init=%d wait=%d\n",
+    __func__, 
+    m->mdata.head.reqid, 
+    stropcode(&(m->mdata)), 
+    strmstate(&(m->mdata)), 
+    m->initstate, 
+    m->sendwait);
   switch(m->mdata.head.opcode){
     case MAKUO_OP_PING:
       msend_req_ping(s, m);

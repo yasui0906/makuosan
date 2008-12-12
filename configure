@@ -675,10 +675,10 @@ am__leading_dot
 AMTAR
 am__tar
 am__untar
-CC
 CFLAGS
-LDFLAGS
 CPPFLAGS
+CC
+LDFLAGS
 ac_ct_CC
 EXEEXT
 OBJEXT
@@ -1282,6 +1282,7 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-debug	enable debuging
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
 
@@ -2213,6 +2214,15 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 ac_config_headers="$ac_config_headers config.h"
 
+# Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then
+  enableval=$enable_debug; CFLAGS="$CFLAGS -g"
+                      CPPFLAGS="$CPPFLAGS -DMAKUO_DEBUG"
+fi
+
+
+
+CFLAGS="-O3 $CFLAGS"
 
 # Checks for programs.
 ac_ext=c
@@ -9292,10 +9302,10 @@ am__leading_dot!$am__leading_dot$ac_delim
 AMTAR!$AMTAR$ac_delim
 am__tar!$am__tar$ac_delim
 am__untar!$am__untar$ac_delim
-CC!$CC$ac_delim
 CFLAGS!$CFLAGS$ac_delim
-LDFLAGS!$LDFLAGS$ac_delim
 CPPFLAGS!$CPPFLAGS$ac_delim
+CC!$CC$ac_delim
+LDFLAGS!$LDFLAGS$ac_delim
 ac_ct_CC!$ac_ct_CC$ac_delim
 EXEEXT!$EXEEXT$ac_delim
 OBJEXT!$OBJEXT$ac_delim

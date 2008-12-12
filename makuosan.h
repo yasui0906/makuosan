@@ -317,5 +317,6 @@ int      ack_clear(mfile *m, int state);
 int      ack_check(mfile *m, int state);
 int      mtimeget(struct timeval *tv);
 int      mtimeout(struct timeval *tf, uint32_t msec);
+int      isexclude(char *fn, excludeitem *exclude, int dir);
 excludeitem *mfnmatch(char *str, excludeitem *exclude);
 
