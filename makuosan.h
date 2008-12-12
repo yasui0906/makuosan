@@ -8,7 +8,6 @@
 #define PROTOCOL_VERSION 4
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
-#define MAKUO_DEBUG
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -276,9 +275,10 @@ extern struct timeval curtime;
 extern BF_KEY EncKey;
 
 /*----- function -----*/
-char    *SSTATE(uint8_t n);
-char    *RSTATE(uint8_t n);
-char    *OPCODE(uint8_t n);
+char    *strsstate(uint8_t n);
+char    *strrstate(uint8_t n);
+char    *strmstate(mdata *data);
+char    *stropcode(mdata *data);
 void     mprintf(const char *func, mfile *m);
 void     lprintf(int l, char *fmt, ...);
 void     cprintf(int l, mcomm *c, char *fmt, ...);

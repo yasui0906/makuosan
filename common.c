@@ -85,7 +85,7 @@ uint8_t rstatenumlist[]={MAKUO_RECVSTATE_NONE,
                          MAKUO_RECVSTATE_CLOSEERROR,
                          MAKUO_STATE_MAX};
 
-char *SSTATE(uint8_t n)
+char *strsstate(uint8_t n)
 {
   int i;
   for(i=0;sstatenumlist[i] != MAKUO_STATE_MAX;i++){
@@ -96,7 +96,7 @@ char *SSTATE(uint8_t n)
   return(sstatestrlist[i]);
 }
 
-char *RSTATE(uint8_t n)
+char *strrstate(uint8_t n)
 {
   int i;
   for(i=0;rstatenumlist[i] != MAKUO_STATE_MAX;i++){
@@ -107,11 +107,19 @@ char *RSTATE(uint8_t n)
   return(rstatestrlist[i]);
 }
 
-char *OPCODE(uint8_t n)
+char *strmstate(mdata *data)
+{
+  if(data->head.flags & MAKUO_FLAG_ACK){
+    return(strrstate(data->head.nstate));
+  }
+  return(strsstate(data->head.nstate));
+}
+
+char *stropcode(mdata *data)
 {
   int i;
   for(i=0;opcodenumlist[i] != MAKUO_STATE_MAX;i++){
-    if(opcodenumlist[i] == n){
+    if(opcodenumlist[i] == data->head.opcode){
       break;
     }
   }
@@ -191,6 +199,11 @@ excludeitem *mfnmatch(char *str, excludeitem *exclude)
   return(NULL);
 }
 
+int isexclude(char *str, excludeitem *exclude)
+{
+
+}
+
 void fdprintf(int s, char *fmt, ...)
 {
   char m[2048];
@@ -241,15 +254,14 @@ void cprintf(int l, mcomm *c, char *fmt, ...)
 
 void mprintf(const char *func, mfile *m)
 {
-  char *st;
-  char *op;
-  if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-    st = RSTATE(m->mdata.head.nstate);
-  }else{
-    st = SSTATE(m->mdata.head.nstate);
-  }
-  op = OPCODE(m->mdata.head.opcode);
-  lprintf(9, "%s: rid=%d init=%d wait=%d %s %s %s %s\n", func, m->mdata.head.reqid, m->initstate, m->sendwait, inet_ntoa(m->addr.sin_addr), op, st, m->fn);
+  lprintf(9, "%s: rid=%d init=%d wait=%d %s %s %s %s\n",
+    func, 
+    m->mdata.head.reqid, 
+    m->initstate, m->sendwait, 
+    inet_ntoa(m->addr.sin_addr), 
+    stropcode(&(m->mdata)),
+    strmstate(&(m->mdata)),
+    m->fn);
 }
 
 int getrid()
@@ -503,7 +515,7 @@ void dump_hoststate(mfile *m, char *func)
   uint8_t *r;
   for(t=members;t;t=t->next){
     if(r=get_hoststate(t,m)){
-      lprintf(9,"%s: rstate=%s from %s %s\n", func, RSTATE(*r), t->hostname, m->fn);
+      lprintf(9,"%s: %s from %s %s\n", func, strrstate(*r), t->hostname, m->fn);
     }
   }
 }

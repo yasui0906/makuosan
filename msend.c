@@ -58,7 +58,6 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 {
   int r;
   int szdata;
-  char *state;
   mdata senddata;
 
   memcpy(&senddata, data, sizeof(senddata));
@@ -85,16 +84,11 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
       }
     }
   }
-  if(data->head.flags & MAKUO_FLAG_ACK){
-    state = RSTATE(data->head.nstate);
-  }else{
-    state = SSTATE(data->head.nstate);
-  }
   if(r != -1){
     lprintf(0, "%s: send size error %s %s rid=%d datasize=%d sendsize=%d seqno=%d\n",
       __func__,
-      OPCODE(data->head.opcode), 
-      state,
+      stropcode(data), 
+      strmstate(data),
       data->head.reqid,
       szdata, 
       r, 
@@ -104,8 +98,8 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   lprintf(0,"%s: send error (%s) %s %s rid=%d size=%d seqno=%d\n",
     __func__,
     strerror(errno), 
-    OPCODE(data->head.opcode), 
-    state,
+    stropcode(data), 
+    strmstate(data),
     data->head.reqid, 
     szdata, 
     data->head.seqno);
@@ -129,8 +123,8 @@ static int msend_retry(mfile *m)
     __func__,
     m->retrycnt, 
     m->mdata.head.reqid, 
-    OPCODE(m->mdata.head.opcode), 
-    SSTATE(m->mdata.head.nstate), 
+    stropcode(&(m->mdata)),
+    strmstate(&(m->mdata)), 
     m->fn);
   for(t=members;t;t=t->next){
     r = get_hoststate(t, m);
@@ -145,7 +139,7 @@ static int msend_retry(mfile *m)
         if(*r == MAKUO_RECVSTATE_NONE){
           lprintf(0, "%s:   %s %s(%s)\n", 
             __func__, 
-           RSTATE(*r), 
+           strrstate(*r), 
            inet_ntoa(t->ad), 
            t->hostname);
         }
@@ -153,7 +147,7 @@ static int msend_retry(mfile *m)
       default:
         lprintf(4, "%s:   %s %s(%s)\n", 
           __func__, 
-          RSTATE(*r), 
+          strrstate(*r), 
           inet_ntoa(t->ad), 
           t->hostname);
         break;
@@ -266,11 +260,13 @@ static void msend_req_send_stat_init(int s, mfile *m)
 {
   mstat    fs;
   uint64_t rdev;
+
   if(!m->comm){
     msend_mfdel(m);
     m = NULL;
     return;
   }
+
   m->mdata.p = m->mdata.data;
   m->mdata.head.szdata  = sizeof(fs);
   m->mdata.head.szdata += strlen(m->fn);
@@ -844,7 +840,7 @@ static void msend_req_dsync_break(int s, mfile *m)
 /*----- dsync -----*/
 static void msend_req_dsync(int s, mfile *m)
 {
-  lprintf(9, "%s: rid=%d %s %s\n", __func__, m->mdata.head.reqid, OPCODE(m->mdata.head.opcode), SSTATE(m->mdata.head.nstate));
+  lprintf(9, "%s: rid=%d %s %s\n", __func__, m->mdata.head.reqid, stropcode(&(m->mdata)), strmstate(&(m->mdata)));
   if(m->mdata.head.nstate != MAKUO_SENDSTATE_LAST){
     if(!m->comm){
       if(m->mdata.head.nstate != MAKUO_SENDSTATE_BREAK){
@@ -897,6 +893,7 @@ static void msend_req_del_mark(int s, mfile *m)
 static void msend_req_del_stat(int s, mfile *m)
 {
   int r;
+  mfile *a;
   mfile *d;
   uint8_t stat;
   uint16_t len;
@@ -938,7 +935,12 @@ static void msend_req_del_stat(int s, mfile *m)
   read(m->pipe, d->fn, len);
   d->fn[len]    = 0;
   d->fs.st_mode = mod;
-
+  for(a=mftop[1];a;a=a->next){
+    if(!strcmp(a->tn, d->fn)){
+      msend_mfdel(d);
+      return;
+    }
+  }
   d->mdata.p = d->mdata.data;
   *(uint32_t *)(d->mdata.p) = htonl(mod);
   d->mdata.p += sizeof(mod);

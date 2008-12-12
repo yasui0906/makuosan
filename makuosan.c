@@ -200,6 +200,9 @@ int mfdirchk(mfile *d){
   if(d->fn[len - 1] == '/'){
     len--;
   }
+  if(d->mdata.head.flags & MAKUO_FLAG_ACK){
+    return(1);
+  }
   for(m=mftop[0];m;m=m->next){
     if(m == d){
       continue;

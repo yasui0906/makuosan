@@ -337,6 +337,15 @@ int mexec_send(mcomm *c, int n, int sync)
   while(optind < c->argc[n])
     fn = c->parse[n][optind++];
 
+  if(fn){
+    int len;
+    if(len = strlen(fn)){
+      if(fn[len - 1] == '/'){
+        fn[len - 1] = 0;
+      }
+    }
+  }
+
   /*----- directory scan -----*/
   if(recurs){
     if(c->cpid){
@@ -601,6 +610,15 @@ int mexec_dsync(mcomm *c, int n)
     fn = c->parse[n][optind++];
   }
 
+  if(fn){
+    int len;
+    if(len = strlen(fn)){
+      if(fn[len - 1] == '/'){
+        fn[len - 1] = 0;
+      }
+    }
+  }
+
   /*----- help -----*/
   if(c->argc[n]<2){
     cprintf(0, c, "dsync [-r] [-t host] [-n] [path]\r\n");
@@ -756,19 +774,14 @@ int mexec_status(mcomm *c, int n)
     if(snow > smax){
       snow = smax;
     }
-    if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-      cprintf(0, c, "  (ack) %s %s %s (%u:%u/%u)\n", 
-        OPCODE(m->mdata.head.opcode), 
-        RSTATE(m->mdata.head.nstate), 
-        m->fn, 
-        m->markcount, snow, smax); 
-    }else{
-      cprintf(0, c, "  (req) %s %s %s (%u:%u/%u)\n", 
-        OPCODE(m->mdata.head.opcode), 
-        SSTATE(m->mdata.head.nstate), 
-        m->fn, 
-        m->markcount, snow, smax); 
-    }
+    cprintf(0, c, "  (ack) %s %s %s (%u:%u/%u) rid=%d\n", 
+      stropcode(&(m->mdata)), 
+      strmstate(&(m->mdata)), 
+      m->fn, 
+      m->markcount,
+      snow, 
+      smax,
+      m->mdata.head.reqid); 
   }
 
   count = 0;
@@ -777,13 +790,15 @@ int mexec_status(mcomm *c, int n)
   cprintf(0, c, "recv op: %d\n", count);
   for(m=mftop[1];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
-    cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d\n",
-      OPCODE(m->mdata.head.opcode), 
-      RSTATE(m->mdata.head.nstate), 
+    cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d rid=%d\n",
+      stropcode(&(m->mdata)), 
+      strrstate(m->mdata.head.nstate), 
       t->tm_hour, t->tm_min, t->tm_sec, 
       m->fn, 
-      m->recvcount, m->seqnomax, 
-      m->markcount); 
+      m->recvcount,
+      m->seqnomax, 
+      m->markcount,
+      m->mdata.head.reqid); 
   }
   return(0);
 }
