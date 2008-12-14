@@ -1315,12 +1315,13 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
     path[len] =  0;
     if(m->dryrun){
       cprintf(0, c, "(dryrun) delete %s:%s\n", hn, path);
+      lprintf(1, "%s: rid=%d (dryrun) delete %s:%s\n", __func__, data->head.reqid, hn, path);
     }else{
       if(err){
         cprintf(0, c,  "(%s) delete error %s:%s\n", strerror(err), hn, path);
         lprintf(0, "%s: rid=%d (%s) delete error %s:%s\n", __func__, data->head.reqid, strerror(err), hn, path);
       }else{
-        cprintf(0, c,  "delete %s:%s\n", hn, m->fn);
+        cprintf(0, c,  "delete %s:%s\n", hn, path);
         lprintf(1, "%s: rid=%d delete %s:%s\n", __func__, data->head.reqid, hn, path);
       }
     }
