@@ -219,7 +219,7 @@ int mfdirchk(mfile *d){
   return(1);
 }
 
-int ismsend(int s, mfile *m, int send)
+int ismsend(int s, mfile *m, int flag)
 {
   int r;
   if(!m){
@@ -246,7 +246,7 @@ int ismsend(int s, mfile *m, int send)
       recv_timeout(m);
     }
   }
-  if(send){
+  if(flag){
     msend(s, m);
   }
   return(1);

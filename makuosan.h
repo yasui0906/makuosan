@@ -319,4 +319,10 @@ int      mtimeget(struct timeval *tv);
 int      mtimeout(struct timeval *tf, uint32_t msec);
 int      isexclude(char *fn, excludeitem *exclude, int dir);
 excludeitem *mfnmatch(char *str, excludeitem *exclude);
+int      data_safeget(mdata *data, void *buff, size_t size);
+int      data_safeget16(mdata *data, uint16_t *buff);
+int      data_safeget32(mdata *data, uint32_t *buff);
+int      data_safeset(mdata *data, void *buff, size_t size);
+int      data_safeset16(mdata *data, uint16_t val);
+int      data_safeset32(mdata *data, uint32_t val);
 

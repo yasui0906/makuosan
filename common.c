@@ -1026,3 +1026,61 @@ int atomic_read(int fd, char *buff, int size)
   return(0);
 }
 
+int data_safeget(mdata *data, void *buff, size_t size)
+{
+  if(data->p + size > data->data + data->head.szdata){
+    return(-1);
+  }
+  memcpy(buff, data->p, size);
+  data->p += size;
+  return(0);
+}
+
+int data_safeget16(mdata *data, uint16_t *buff)
+{
+  int r = data_safeget(data, buff, sizeof(uint16_t));
+  if(!r){
+    *buff = ntohs(*buff);
+  }
+  return(r);
+}
+
+int data_safeget32(mdata *data, uint32_t *buff)
+{
+  int r = data_safeget(data, buff, sizeof(uint32_t));
+  if(!r){
+    *buff = ntohl(*buff);
+  }
+  return(r);
+}
+
+int data_safeset(mdata *data, void *buff, size_t size)
+{
+  if(data->head.szdata + size > MAKUO_BUFFER_SIZE){
+    return(-1);
+  }
+  memcpy(data->data + data->head.szdata, buff, size);
+  data->head.szdata += size;
+  return(0);
+}
+
+int data_safeset16(mdata *data, uint16_t val)
+{
+  if(data->head.szdata + sizeof(uint16_t) > MAKUO_BUFFER_SIZE){
+    return(-1);
+  }
+  *(uint16_t *)(data->data + data->head.szdata) = htons(val);
+  data->head.szdata += sizeof(uint16_t);
+  return(0);
+}
+
+int data_safeset32(mdata *data, uint32_t val)
+{
+  if(data->head.szdata + sizeof(uint32_t) > MAKUO_BUFFER_SIZE){
+    return(-1);
+  }
+  *(uint32_t *)(data->data + data->head.szdata) = htonl(val);
+  data->head.szdata += sizeof(uint32_t);
+  return(0);
+}
+

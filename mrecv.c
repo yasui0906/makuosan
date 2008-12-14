@@ -122,6 +122,7 @@ int mrecv(int s)
   if(mrecv_packet(s, &data, &addr) == -1){
     return(0);
   }
+  lprintf(9, "%s: rid=%d %s %s\n", __func__, data.head.reqid, stropcode(&data), strmstate(&data));
   if(data.head.flags & MAKUO_FLAG_ACK){
     mrecv_ack(&data, &addr);
   }else{
@@ -325,7 +326,7 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
   uint32_t err;
   uint32_t res;
   uint16_t len;
-  char path[PATH_MAX+sizeof(uint32_t)];
+  char path[PATH_MAX];
 
   lprintf(9, "%s: rid=%d %s\n", __func__, data->head.reqid, strmstate(data));
   if(mrecv_ack_search(&t, &m, data, addr)){
@@ -343,40 +344,28 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
       data->p=data->data;
       m->mdata.p=m->mdata.data;
       m->mdata.head.szdata = 0;
-      while(len = ntohs(*(uint16_t *)(data->p))){
+      while(!data_safeget16(data, &len)){
         m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
-        data->p += sizeof(uint16_t);
-        res = ntohl(*(uint32_t *)(data->p));
-        data->p += sizeof(uint32_t);
+        data_safeget32(data, &res);
         len -= sizeof(uint32_t);
-        memcpy(path, data->p, len);
-        data->p += len;
+        data_safeget(data, path, len);
         path[len] =  0;
 
         err = 0;
         if(m->dryrun){
-          lprintf(1, "%s: (dryrun) delete %s\n", __func__, m->fn);
+          lprintf(1, "%s: (dryrun) delete %s\n", __func__, path);
         }else{
-          if(!mremove(NULL,m->fn)){
-            lprintf(1, "%s: delete %s\n", __func__, m->fn);
+          if(!mremove(NULL,path)){
+            lprintf(1, "%s: delete %s\n", __func__, path);
           }else{
             err = errno;
-            lprintf(0, "%s: delete error %s (%s)\n", __func__, m->fn, strerror(errno));
+            lprintf(0, "%s: delete error %s (%s)\n", __func__, path, strerror(errno));
           }
         }
-        *(uint16_t *)(m->mdata.p) = htons(len + sizeof(uint32_t));
-        m->mdata.p += sizeof(uint16_t);
-        m->mdata.head.szdata += sizeof(uint16_t);
-        *(uint32_t *)(m->mdata.p) = htonl(err);
-        m->mdata.p += sizeof(uint32_t);
-        m->mdata.head.szdata += sizeof(uint32_t);
-        memcpy(m->mdata.p, path, len);
-        m->mdata.p += len;
-        m->mdata.head.szdata += len;
+        data_safeset16(&(m->mdata), len + sizeof(uint32_t));
+        data_safeset32(&(m->mdata), err);
+        data_safeset(&(m->mdata), path, len);
       }
-      *(uint16_t *)(m->mdata.p) = 0;
-      m->mdata.p += sizeof(uint16_t);
-      m->mdata.head.szdata += sizeof(uint16_t);
     }
   }
 }
@@ -1153,8 +1142,8 @@ static void mrecv_req_dsync_open(mfile *m, mdata *data, struct sockaddr_in *addr
 
   /* 走査 */
   d = mfins(0);
-  d->link = (void *)m;
-  m->link = (void *)d;
+  d->link = m;
+  m->link = d;
   d->initstate = 1;
   d->sendwait  = 0;
   d->mdata.head.opcode = MAKUO_OP_DEL;
@@ -1249,62 +1238,41 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
 {
   uint16_t len;
   uint32_t mod;
-  char *hn = "unknown host";
   mhost *t = member_get(&(addr->sin_addr));
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_OPEN);
   mfile *m = NULL;
   mcomm *c = NULL;
-  char  *p = NULL;
-  char path[PATH_MAX+sizeof(uint32_t)];
+  char path[PATH_MAX];
 
-  lprintf(9, "%s:\n", __func__);
+  lprintf(9, "%s: rid=%d\n", __func__, data->head.reqid);
   if(!a){
     lprintf(0, "%s: arror ack can't create\n", __func__);
     return;
   }
+  data->p = data->data;
   for(m=mftop[0];m;m=m->next){
     if((m->comm != NULL) && (m->mdata.head.reqid == data->head.seqno)){
       c = m->comm;
       break;
     }
   }
-  if(!m){
-    return;
-  }
-  if(t){
-    hn = t->hostname;
-  }
-
-  data->p = data->data;
-  a->mdata.p=a->mdata.data;
-  a->mdata.head.szdata = 0;
-  while(len = ntohs(*(uint16_t *)(data->p))){
-    data->p += sizeof(uint16_t);
-    mod = ntohl(*(uint32_t *)(data->p));
-    data->p += sizeof(uint32_t);
-    len -= sizeof(uint32_t);
-    memcpy(path, data->p, len);
-    data->p += len;
-    path[len] =  0;
-    lprintf(9, "%s: rid=%d %s\n", __func__, data->head.reqid, path);
-    if(isexclude(path, c->exclude, S_ISDIR(mod))){
-      continue;
-    }
-    if(lstat(path, &(a->fs)) == -1 && errno == ENOENT){
-      *(uint16_t *)(a->mdata.p) = htons(len + sizeof(uint32_t));
-      a->mdata.p += sizeof(uint16_t);
-      a->mdata.head.szdata += sizeof(uint16_t);
-      *(uint32_t *)(a->mdata.p) = 0;
-      a->mdata.p += sizeof(uint32_t);
-      a->mdata.head.szdata += sizeof(uint32_t);
-      memcpy(a->mdata.p, path, len);
-      a->mdata.p += len;
-      a->mdata.head.szdata += len;
+  if(c){
+    while(!data_safeget16(data, &len)){
+      data_safeget32(data, &mod);
+      len -= sizeof(uint32_t);
+      data_safeget(data, path, len);
+      path[len] =  0;
+      lprintf(9, "%s: rid=%d %s\n", __func__, data->head.reqid, path);
+      if(isexclude(path, c->exclude, S_ISDIR(mod))){
+        continue;
+      }
+      if(lstat(path, &(a->fs)) == -1 && errno == ENOENT){
+        data_safeset16(&(a->mdata), len + sizeof(uint32_t));
+        data_safeset32(&(a->mdata), 0);
+        data_safeset(&(a->mdata), path, len);
+      }
     }
   }
-  *(uint16_t *)(a->mdata.p) = 0;
-  a->mdata.p += sizeof(uint16_t);
-  a->mdata.head.szdata += sizeof(uint16_t);
 }
 
 static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
@@ -1340,13 +1308,10 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
     } 
   }
   data->p = data->data;
-  while(len = ntohs(*(uint16_t *)(data->p))){
-    data->p += sizeof(uint16_t);
-    err = ntohl(*(uint32_t *)(data->p));
-    data->p += sizeof(uint32_t);
+  while(!data_safeget16(data, &len)){
+    data_safeget32(data, &err);
     len -= sizeof(uint32_t);
-    memcpy(path, data->p, len);
-    data->p += len;
+    data_safeget(data, path, len);
     path[len] =  0;
     if(m->dryrun){
       cprintf(0, c, "(dryrun) delete %s:%s\n", hn, path);

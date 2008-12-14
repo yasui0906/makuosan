@@ -824,8 +824,8 @@ static void msend_req_dsync_break(int s, mfile *m)
 {
   lprintf(9, "%s: init=%d wait=%d\n", __func__, m->initstate, m->sendwait);
   if(m->initstate){
-    m->sendwait  = 1;
     m->initstate = 0;
+    m->sendwait  = 1;
     ack_clear(m, -1);
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
@@ -934,13 +934,9 @@ static void msend_req_del_stat(int s, mfile *m)
   d->mdata.p = d->mdata.data;
 
   if(len){
-    *(uint16_t *)(d->mdata.p) = htons(len);
-    d->mdata.p += sizeof(len);
-    d->mdata.head.szdata += sizeof(len);
-    memcpy(d->mdata.p, path, len);
-    d->mdata.p += len;
-    d->mdata.head.szdata += len;
-    lprintf(0, "%s: rid=%d %s\n", __func__, d->mdata.head.reqid, path + sizeof(uint32_t));
+    data_safeset16(&(d->mdata), len);
+    data_safeset(&(d->mdata), path, len);
+    lprintf(9, "%s: rid=%d %s\n", __func__, d->mdata.head.reqid, path + sizeof(uint32_t));
   }
 
   while(1){
@@ -949,9 +945,6 @@ static void msend_req_del_stat(int s, mfile *m)
       m->pipe = -1;
       m->initstate = 1;
       m->sendwait  = 0;
-      *(uint16_t *)(d->mdata.p) = 0;
-      d->mdata.p += sizeof(uint16_t);
-      d->mdata.head.szdata += sizeof(len);
       break;
     }
     if(atomic_read(m->pipe, path, len)){
@@ -960,9 +953,6 @@ static void msend_req_del_stat(int s, mfile *m)
       m->pipe = -1;
       m->initstate = 1;
       m->sendwait  = 0;
-      *(uint16_t *)(d->mdata.p) = 0;
-      d->mdata.p += sizeof(uint16_t);
-      d->mdata.head.szdata += sizeof(len);
       break;
     }
     path[len] = 0;
@@ -972,21 +962,15 @@ static void msend_req_del_stat(int s, mfile *m)
         break;
       }
     }
-    if(!a){
-      if(d->mdata.head.szdata + sizeof(len) + len > MAKUO_BUFFER_SIZE - sizeof(len)){
-        *(uint16_t *)(d->mdata.p) = 0;
-        d->mdata.p += sizeof(uint16_t);
-        d->mdata.head.szdata += sizeof(len);
-        break;
-      }
-      *(uint16_t *)(d->mdata.p) = htons(len);
-      d->mdata.p += sizeof(len);
-      d->mdata.head.szdata += sizeof(len);
-      memcpy(d->mdata.p, path, len);
-      d->mdata.p += len;
-      d->mdata.head.szdata += len;
-      lprintf(0, "%s: rid=%d %s\n", __func__, d->mdata.head.reqid, path + sizeof(uint32_t));
+    if(a){
+      continue;
     }
+    if(d->mdata.head.szdata + sizeof(len) + len > MAKUO_BUFFER_SIZE){
+      break;
+    }
+    data_safeset16(&(d->mdata), len);
+    data_safeset(&(d->mdata), path, len);
+    lprintf(9, "%s: rid=%d %s\n", __func__, d->mdata.head.reqid, path + sizeof(uint32_t));
   }
 }
 
