@@ -422,13 +422,16 @@ int main(int argc, char *argv[])
   char cmd[1024];
   char mcmd[256];
   char mopt[256];
+  char sopt[256];
   strcpy(mcmd,"send");
   strcpy(mopt,"");
+  strcpy(sopt,"");
 
   /* option */
   int loopflag = 1;
   int loglevel = 0;
   int delflag  = 0;
+  int grpflag  = 0;
   char scfile[256];
   char passwd[256];
   char target[256];
@@ -474,7 +477,7 @@ int main(int argc, char *argv[])
   passwd[0] = 0;
   defaulttarget(target, sizeof(target));
 
-  while((r = getopt_long(argc, argv, "c:f:t:K:l:hvrn", longopt, NULL)) != -1){
+  while((r = getopt_long(argc, argv, "g:c:f:t:K:l:hvrn", longopt, NULL)) != -1){
     switch(r){
       case 'h':
         usage();
@@ -525,6 +528,12 @@ int main(int argc, char *argv[])
         strcat(mopt,optarg);
         break;
 
+      case 'g':
+        grpflag = 1;
+        strcat(sopt," -g ");
+        strcat(sopt,optarg);
+        break;
+
       case 'v':
         loglevel++;
         break;
@@ -564,8 +573,14 @@ int main(int argc, char *argv[])
     }
   }
 
-  if(delflag && strcmp(mcmd,"send")){
+  if(delflag && strcmp(mcmd, "send")){
     usage();
+    return(1);
+  }
+
+  if(grpflag && strcmp(mcmd, "send")){
+    usage();
+    return(1);
   }
 
   s = connect_socket(target);
@@ -610,7 +625,7 @@ int main(int argc, char *argv[])
           return(1);
         }
       }
-      sprintf(cmd, "%s%s %s", mcmd, mopt, argv[i]);
+      sprintf(cmd, "%s%s%s %s", mcmd, mopt, sopt, argv[i]);
       if(makuo_exec(s, cmd)){
         close(s);
         return(1);
@@ -628,7 +643,7 @@ int main(int argc, char *argv[])
         return(1);
       }
     }
-    sprintf(cmd, "%s%s", mcmd, mopt);
+    sprintf(cmd, "%s%s%s", mcmd, mopt, sopt);
     for(i=optind;i<argc;i++){
       strcat(cmd, " ");
       strcat(cmd, argv[i]);

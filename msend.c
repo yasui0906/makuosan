@@ -119,6 +119,11 @@ static int msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return(0);
   }
+  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
+    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+      return(0);
+    }
+  }
   lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
     __func__,
     m->retrycnt, 
@@ -151,11 +156,6 @@ static int msend_retry(mfile *m)
           inet_ntoa(t->ad), 
           t->hostname);
         break;
-    }
-  }
-  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      return(0);
     }
   }
   m->retrycnt--;
@@ -399,7 +399,11 @@ static void msend_req_send_stat(int s, mfile *m)
     if(m->dryrun){
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     }else{
-      m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+      if(ack_check(m, MAKUO_RECVSTATE_UPDATE) == 1){
+        m->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+      }else{
+        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+      }
     }
   }
 }

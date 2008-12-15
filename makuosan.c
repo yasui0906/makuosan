@@ -263,10 +263,9 @@ int mloop()
   struct timeval *lastpong;
   struct timeval tv;
   
-  gettimeofday(&curtime,NULL);
   lastpong = pingpong(0);
   while(loop_flag){
-    gettimeofday(&curtime,NULL);
+    gettimeofday(&curtime, NULL);
     if(mtimeout(lastpong, MAKUO_PONG_INTERVAL))
       lastpong = pingpong(1);
     m = mftop[0];

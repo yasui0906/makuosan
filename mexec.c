@@ -106,12 +106,15 @@ int mexec_scan_echo(int fd, char *fmt, ...)
   return(0);
 }
 
-int mexec_scan_send(int fd, char *path, char *sendhost, int mode)
+int mexec_scan_send(int fd, char *path, char *sendhost, int mode, gid_t gid)
 {
   char buff[MAKUO_BUFFER_SIZE];
   char comm[MAKUO_BUFFER_SIZE];
 
   buff[0] = 0;
+  if((gid != -1) && (mode == MAKUO_MEXEC_SEND)){
+    sprintf(buff, "-g %d ", gid);
+  }
   if(sendhost && *sendhost){
     strcat(buff, " -t ");
     strcat(buff, sendhost);
@@ -119,7 +122,7 @@ int mexec_scan_send(int fd, char *path, char *sendhost, int mode)
   }
   switch(mode){
     case MAKUO_MEXEC_SEND:
-      sprintf(comm, "send %s%s\r\n",    buff, path);
+      sprintf(comm, "send %s%s\r\n", buff, path);
       break;
     case MAKUO_MEXEC_DRY:
       sprintf(comm, "send -n %s%s\r\n", buff, path);
@@ -128,14 +131,14 @@ int mexec_scan_send(int fd, char *path, char *sendhost, int mode)
       if(!is_reg(path)){
         return(0);
       }
-      sprintf(comm, "check %s%s\r\n",     buff, path);
+      sprintf(comm, "check %s%s\r\n", buff, path);
       break;
   }
   mexec_scan_cmd(fd, comm);
   return(0);
 }
 
-int mexec_scan_dir(int fd, char *base, char *sendhost, int mode, mcomm *c, int baseflag)
+int mexec_scan_dir(int fd, char *base, char *sendhost, int mode, mcomm *c, int baseflag, gid_t gid)
 {
   DIR *d;
   struct dirent *dent;
@@ -159,33 +162,33 @@ int mexec_scan_dir(int fd, char *base, char *sendhost, int mode, mcomm *c, int b
         strcpy(path, dent->d_name);
       }
       space_escape(path);
-      mexec_scan_child(fd, path, sendhost, mode, c);
+      mexec_scan_child(fd, path, sendhost, mode, c, gid);
     }
     closedir(d);
   }
   return(0);
 }
 
-int mexec_scan_child(int fd, char *base, char *sendhost, int mode, mcomm *c)
+int mexec_scan_child(int fd, char *base, char *sendhost, int mode, mcomm *c, gid_t gid)
 {
   char path[PATH_MAX];
   if(*base == 0){
     getcwd(path, PATH_MAX);
-    mexec_scan_dir(fd, path, sendhost, mode, c, 0);
+    mexec_scan_dir(fd, path, sendhost, mode, c, 0, gid);
   }else{
     /*----- exclude -----*/
     sprintf(path, "%s/%s", moption.real_dir, base);
     if(!mfnmatch(path, c->exclude)){
       if(!is_dir(base)){
-        mexec_scan_send(fd, base, sendhost, mode);
+        mexec_scan_send(fd, base, sendhost, mode, gid);
       }else{
         /*----- exclude dir -----*/
         strcat(path, "/");
         if(mfnmatch(path, c->exclude))
           return(0);
-        mexec_scan_dir(fd, base, sendhost, mode, c, 1);
+        mexec_scan_dir(fd, base, sendhost, mode, c, 1, gid);
         if(loop_flag && (mode != MAKUO_MEXEC_MD5)){
-          mexec_scan_send(fd, base, sendhost, mode);
+          mexec_scan_send(fd, base, sendhost, mode, gid);
         }
       }
     }
@@ -193,7 +196,7 @@ int mexec_scan_child(int fd, char *base, char *sendhost, int mode, mcomm *c)
   return(0);
 }
 
-int mexec_scan(mcomm *c, char *fn, mhost *h, int mode)
+int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
 {
   int pid;
   int p[2];
@@ -230,7 +233,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode)
   }else{
     /* child */
     close(p[0]);
-    mexec_scan_child(p[1], base, sendhost, mode, c);
+    mexec_scan_child(p[1], base, sendhost, mode, c, gid);
     close(p[1]);
     _exit(0);
   }
@@ -300,6 +303,8 @@ int mexec_send(mcomm *c, int n, int sync)
   mhost *t = NULL;
   int dryrun = 0;
   int recurs = 0;
+  gid_t gid = -1;
+  struct group  *gr = NULL;
   int mode = MAKUO_MEXEC_SEND;
 
   if(moption.dontsend){
@@ -310,7 +315,7 @@ int mexec_send(mcomm *c, int n, int sync)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
   optind = 0;
-  while((i=getopt(c->argc[n], argv, "t:nr")) != -1){
+  while((i=getopt(c->argc[n], argv, "g:t:nr")) != -1){
     switch(i){
       case 'n':
         dryrun = 1;
@@ -318,6 +323,15 @@ int mexec_send(mcomm *c, int n, int sync)
         break;
       case 'r':
         recurs = 1;
+        break;
+      case 'g':
+        if(*optarg >= '0' && *optarg <='9'){
+          gid = atoi(optarg);
+        }else{
+         if(gr = getgrnam(optarg)){
+            gid = gr->gr_gid;
+          }
+        }
         break;
       case 't':
         for(t=members;t;t=t->next)
@@ -352,7 +366,7 @@ int mexec_send(mcomm *c, int n, int sync)
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    return(mexec_scan(c, fn, t, mode));
+    return(mexec_scan(c, fn, t, mode, gid));
   }
 
   /*----- help -----*/
@@ -395,6 +409,11 @@ int mexec_send(mcomm *c, int n, int sync)
   m->initstate = 1;
   if(m->dryrun){
     m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
+  }else{
+    /*----- chgrp -----*/
+    if(gid != -1){
+      lchown(fn, -1, gid);
+    }
   }
 
 	if(lstat(fn, &m->fs) == -1){
@@ -503,7 +522,7 @@ int mexec_check(mcomm *c, int n)
       cprintf(0, c, "recursive process active now!\n");
       return(0);
     }
-    return(mexec_scan(c, fn, t, MAKUO_MEXEC_MD5));
+    return(mexec_scan(c, fn, t, MAKUO_MEXEC_MD5, -1));
   }
 
   /*----- help -----*/
@@ -665,40 +684,16 @@ int mexec_loglevel(mcomm *c, int n)
 
 int mexec_exclude_add(mcomm *c, char *pattern)
 {
-  excludeitem *e = malloc(sizeof(excludeitem));
-  
-  e->prev = NULL;
-  e->next = NULL;
-  if(c->exclude){
-    e->next = c->exclude;
-    c->exclude->prev = e;
-  }
-  c->exclude = e;
-  e->pattern = malloc(strlen(pattern)+1);
-  strcpy(e->pattern, pattern);
+  c->exclude = exclude_add(c->exclude, pattern);
   return(0);
 }
 
 int mexec_exclude_del(mcomm *c, excludeitem *e)
 {
-  excludeitem *p;
-  excludeitem *n;
-
-  if(!e)
-    return(0);
-  p = e->prev;
-  n = e->next;
-  if(p)
-    p->next=n;
-  if(n)
-    n->prev=p;
-  if(e == c->exclude)
-    c->exclude = n; 
-  free(e->pattern);
-  e->pattern = NULL;
-  e->prev = NULL;
-  e->next = NULL;
-  free(e);
+  excludeitem *d = exclude_del(e);
+  if(e == c->exclude){
+    c->exclude = d;
+  }
   return(0);
 }
 

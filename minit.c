@@ -20,7 +20,7 @@ static void usage()
   printf("  -U path  # unix domain socket\n");
   printf("  -k file  # key file (encrypt password)\n");
   printf("  -K file  # key file (console password)\n");
-  printf("  -f num   # parallel send count(default: 3) \n");
+  printf("  -f num   # parallel send count(default: 5) \n");
   printf("  -c       # chroot to base dir\n");
   printf("  -n       # don't fork\n");
   printf("  -r       # don't recv\n");
@@ -75,7 +75,7 @@ static void minit_option_setdefault()
   moption.comm_ena              = 1;
   moption.commpass              = 0;
   moption.ownmatch              = 0;
-  moption.parallel              = 3;
+  moption.parallel              = 5;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
