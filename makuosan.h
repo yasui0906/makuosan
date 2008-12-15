@@ -162,11 +162,11 @@ typedef struct
   char *p;
 }__attribute__((packed)) mdata;
 
-typedef struct
+typedef struct excludeitem
 {
   char *pattern;
-  void *prev;
-  void *next;
+  struct excludeitem *prev;
+  struct excludeitem *next;
 } excludeitem;
 
 typedef struct
@@ -218,6 +218,7 @@ typedef struct mfile
   struct mfile *prev;
   struct mfile *next;
   struct mfile *link;
+  excludeitem *exclude;
 } mfile;
 
 typedef struct
@@ -325,4 +326,6 @@ int      data_safeget32(mdata *data, uint32_t *buff);
 int      data_safeset(mdata *data, void *buff, size_t size);
 int      data_safeset16(mdata *data, uint16_t val);
 int      data_safeset32(mdata *data, uint32_t val);
+excludeitem *exclude_add(excludeitem *exclude, char *pattern);
+excludeitem *exclude_del(excludeitem *e);
 

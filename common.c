@@ -201,33 +201,23 @@ excludeitem *mfnmatch(char *str, excludeitem *exclude)
 
 int isexclude(char *fn, excludeitem *exclude, int dir)
 {
-  char *p;
   char path[PATH_MAX];
-
-  return(0);
-  sprintf(path, "%s/%s", moption.real_dir, fn);
-  if(mfnmatch(path, exclude)){
-    return(1);
+  if(!strcmp(fn, ".")){
+    fn = "";
+  }
+  if(!memcmp(fn, "./", 2)){
+    fn += 2;
+  }
+  while(*fn == '/'){
+    fn++;
   }
   if(dir){
-    strcat(path, "/");
-    if(mfnmatch(path, exclude)){
-      return(1);
-    }
+    sprintf(path, "%s/%s/", moption.real_dir, fn);
+  }else{
+    sprintf(path, "%s/%s" , moption.real_dir, fn);
   }
-  for(p=dirname(path);*p == '/';p++);
-  if(*p == 0){
-    return(0);
-  }
-  while(strcmp(p, ".")){
-    if(mfnmatch(p, exclude)){
-      return(1);
-    }
-    strcat(p, "/");
-    if(mfnmatch(p, exclude)){
-      return(1);
-    }
-    p = dirname(p);
+  if(mfnmatch(path, exclude)){
+    return(1);
   }
   return(0);
 }
@@ -1082,5 +1072,49 @@ int data_safeset32(mdata *data, uint32_t val)
   *(uint32_t *)(data->data + data->head.szdata) = htonl(val);
   data->head.szdata += sizeof(uint32_t);
   return(0);
+}
+
+excludeitem *exclude_add(excludeitem *exclude, char *pattern)
+{
+  excludeitem *e = malloc(sizeof(excludeitem));
+  e->prev = NULL;
+  e->next = NULL;
+  if(exclude){
+    e->next = exclude;
+    e->prev = exclude->prev;
+    exclude->prev = e;
+    if(e->prev){
+      e->prev->next = e;
+    }
+  }
+  e->pattern = malloc(strlen(pattern)+1);
+  strcpy(e->pattern, pattern);
+  return(e);
+}
+
+excludeitem *exclude_del(excludeitem *e)
+{
+  excludeitem *r = NULL;
+  excludeitem *p = NULL;
+  excludeitem *n = NULL;
+
+  if(!e){
+    return(NULL);
+  }
+  p = e->prev;
+  n = e->next;
+  if(p){
+    p->next=n;
+  }
+  if(n){
+    n->prev=p;
+    r = n;
+  }
+  free(e->pattern);
+  e->pattern = NULL;
+  e->prev = NULL;
+  e->next = NULL;
+  free(e);
+  return(r);
 }
 
