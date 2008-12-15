@@ -339,7 +339,9 @@ int exclude_from(char *filename)
       close(f);
       return(1);
     }
-    add_exclude(line);
+    if((*line != '\r') && (*line != '\n') && (*line !=0)){
+      add_exclude(line);
+    }
   }
   close(f);
   return(0);
