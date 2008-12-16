@@ -37,7 +37,7 @@ mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
 	  strcat(m->fn, fn);
   }
   
-  strcpy(m->mdata.data, m->fn);
+  strcpy((char *)(m->mdata.data), m->fn);
 	m->mdata.head.reqid  = getrid();
 	m->mdata.head.szdata = strlen(m->fn);
 	m->mdata.head.opcode = MAKUO_OP_DSYNC;
@@ -328,10 +328,12 @@ int mexec_send(mcomm *c, int n, int sync)
         if(*optarg >= '0' && *optarg <='9'){
           gid = atoi(optarg);
         }else{
-          for(j=0;moption.gids[j];j++){
-            if(!strcmp(optarg, moption.grnames[j])){
-              gid = moption.gids[j];
-              break;
+          if(moption.gids){
+            for(j=0;moption.gids[j];j++){
+              if(!strcmp(optarg, moption.grnames[j])){
+                gid = moption.gids[j];
+                break;
+              }
             }
           }
         }
@@ -478,7 +480,7 @@ int mexec_send(mcomm *c, int n, int sync)
   if((m->dryrun == 0) && (gid != -1)){
     if(m->fs.st_gid != gid){
       if(lchown(m->fn, -1, gid) == -1){
-        lprintf(0, "%s: chown error %d -> %d (%s)\n", __func__, m->fs.st_gid, gid, strerror(errno));
+        lprintf(0, "%s: chgrp error (%s) [%d->%d] %s\n", __func__, strerror(errno),  m->fs.st_gid, gid, m->fn);
       }else{
         m->fs.st_gid = gid;
       }
@@ -779,7 +781,8 @@ int mexec_status(mcomm *c, int n)
     if(snow > smax){
       snow = smax;
     }
-    cprintf(0, c, "  (ack) %s %s %s (%u:%u/%u) rid=%d\n", 
+    cprintf(0, c, "  (%s) %s %s %s (%u:%u/%u) rid=%d\n",
+      strackreq(&(m->mdata)), 
       stropcode(&(m->mdata)), 
       strmstate(&(m->mdata)), 
       m->fn, 

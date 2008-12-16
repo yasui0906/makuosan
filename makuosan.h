@@ -72,11 +72,10 @@
 /*----- flags -----*/
 #define MAKUO_FLAG_ACK    1
 #define MAKUO_FLAG_CRYPT  2
-#define MAKUO_FLAG_WAIT   4
-#define MAKUO_FLAG_FMARK  8
-#define MAKUO_FLAG_DRYRUN 16
-#define MAKUO_FLAG_RECURS 32
-#define MAKUO_FLAG_SYNC   64
+#define MAKUO_FLAG_FMARK  4
+#define MAKUO_FLAG_DRYRUN 8
+#define MAKUO_FLAG_RECURS 16
+#define MAKUO_FLAG_SYNC   32
 
 /*----- sendstatus -----*/
 #define MAKUO_SENDSTATE_STAT       0  /* 更新確認待 */
@@ -158,8 +157,8 @@ typedef struct
 typedef struct
 {
   mhead head;
-  char  data[MAKUO_BUFFER_SIZE];
-  char *p;
+  uint8_t data[MAKUO_BUFFER_SIZE];
+  uint8_t *p;
 }__attribute__((packed)) mdata;
 
 typedef struct excludeitem
@@ -281,6 +280,7 @@ char    *strsstate(uint8_t n);
 char    *strrstate(uint8_t n);
 char    *strmstate(mdata *data);
 char    *stropcode(mdata *data);
+char    *strackreq(mdata *data);
 void     mprintf(const char *func, mfile *m);
 void     lprintf(int l, char *fmt, ...);
 void     cprintf(int l, mcomm *c, char *fmt, ...);
@@ -301,7 +301,7 @@ void     member_del(mhost *h);
 int      mrecv(int s);
 void     msend(int s, mfile *m);
 void     set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
-int      set_guid(int uid, int gid, gid_t *gids);
+int      set_guid(uid_t uid, gid_t gid, gid_t *gids);
 int      set_gids(char *groups);
 int      seq_popmark(mfile *m, int n);
 int      seq_delmark(mfile *m, uint32_t seq);
@@ -321,14 +321,14 @@ int      ack_clear(mfile *m, int state);
 int      ack_check(mfile *m, int state);
 int      mtimeget(struct timeval *tv);
 int      mtimeout(struct timeval *tf, uint32_t msec);
-int      isexclude(char *fn, excludeitem *exclude, int dir);
-excludeitem *mfnmatch(char *str, excludeitem *exclude);
 int      data_safeget(mdata *data, void *buff, size_t size);
 int      data_safeget16(mdata *data, uint16_t *buff);
 int      data_safeget32(mdata *data, uint32_t *buff);
 int      data_safeset(mdata *data, void *buff, size_t size);
 int      data_safeset16(mdata *data, uint16_t val);
 int      data_safeset32(mdata *data, uint32_t val);
+int      isexclude(char *fn, excludeitem *exclude, int dir);
 excludeitem *exclude_add(excludeitem *exclude, char *pattern);
 excludeitem *exclude_del(excludeitem *e);
+excludeitem *mfnmatch(char *str, excludeitem *exclude);
 

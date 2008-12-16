@@ -187,7 +187,7 @@ static void minit_password(char *filename, int n)
   }
   MD5_Init(&ctx);
   MD5_Update(&ctx, buff, strlen(buff));
-  MD5_Final(moption.password[n], &ctx);
+  MD5_Final((unsigned char *)(moption.password[n]), &ctx);
   if(read(f, buff, sizeof(buff))){
     lprintf(0, "%s: password too long %s\n", __func__, optarg);
     exit(1);

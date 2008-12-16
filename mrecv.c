@@ -597,7 +597,12 @@ static void mrecv_req_send_data_write(mfile *m, mdata *r)
   if(write(m->fd, r->data, r->head.szdata) != -1){
     m->recvcount++;
   }else{
-    lprintf(0, "%s: write error seqno=%d size=%d fd=%d err=%d\n", __func__, (int)r->head.seqno, r->head.szdata, m->fd, errno);
+    lprintf(0, "%s: write error (%s) seqno=%d size=%d %s\n",
+      __func__,
+      strerror(errno), 
+      (int)(r->head.seqno), 
+      r->head.szdata,
+      m->fn);
     m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
     mrecv_req_send_data_write_error(m, r);
@@ -611,7 +616,11 @@ static void mrecv_req_send_data_retry(mfile *m, mdata *r)
   uint32_t  markcnt = m->markcount;
 
   lprintf(3, "%s: markcount=%04u recv=%06u size=%06u %s\n",
-    __func__, m->markcount, m->recvcount, m->seqnomax,  m->fn);
+    __func__,
+    m->markcount, 
+    m->recvcount, 
+    m->seqnomax,  
+    m->fn);
 
   a = mfins(0);
   if(!a){
@@ -659,10 +668,6 @@ static void mrecv_req_send_data_retry(mfile *m, mdata *r)
 static void mrecv_req_send_data(mfile *m, mdata *r)
 {
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
-    return;
-  }
-  if(r->head.flags & MAKUO_FLAG_WAIT){
-    mrecv_req_send_data_retry(m, r);
     return;
   }
   if(m->lickflag){
@@ -824,6 +829,8 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   mfile *m;
   uint16_t fnlen;
   uint16_t lnlen;
+  uint32_t  ldev;
+  uint32_t  hdev;
   uint64_t  rdev;
 
   if(data->head.nstate != MAKUO_SENDSTATE_STAT){
@@ -841,8 +848,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   data->p = data->data;
 
   /* read mstat */
-  memcpy(&fs, data->p, sizeof(fs));
-  data->p += sizeof(fs);
+  data_safeget(data, &fs, sizeof(fs));
 
   /* stat = mstat */
   m->fs.st_mode  = ntohl(fs.mode);
@@ -855,21 +861,19 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   lnlen = ntohs(fs.lnlen);
 
   /* read filename */
-  memcpy(m->fn, data->p, fnlen);
+  data_safeget(data, m->fn, fnlen);
   m->fn[fnlen] = 0;
-  data->p += fnlen;
 
   /* read linkname */
-  memcpy(m->ln, data->p, lnlen);    
+  data_safeget(data, m->ln, lnlen);
   m->ln[lnlen] = 0;
-  data->p += lnlen;
 
   /* rdev */
-  rdev = ntohl(*(uint32_t *)(data->p));
-  data->p += sizeof(uint32_t);
-  rdev <<= 32;
-  rdev |= ntohl(*(uint32_t *)(data->p));
-  data->p += sizeof(uint32_t);
+  data_safeget32(data, &hdev);
+  data_safeget32(data, &ldev);
+  rdev  = hdev;
+  rdev <<=  32;
+  rdev |= ldev;
   m->fs.st_rdev = (dev_t)rdev;
 
   /* Number of blocks */
@@ -1376,22 +1380,6 @@ static void mrecv_req(mdata *data, struct sockaddr_in *addr)
 * Receive common functions (public)
 *
 *******************************************************************/
-int mrecv(int s)
-{
-  mdata  data;
-  struct sockaddr_in addr;
-  if(mrecv_packet(s, &data, &addr) == -1){
-    return(0);
-  }
-  lprintf(9, "%s: rid=%d %s %s\n", __func__, data.head.reqid, stropcode(&data), strmstate(&data));
-  if(data.head.flags & MAKUO_FLAG_ACK){
-    mrecv_ack(&data, &addr);
-  }else{
-    mrecv_req(&data, &addr);
-  }
-  return(1);
-}
-
 void mrecv_gc()
 {
   mhost *t = members;
@@ -1433,5 +1421,21 @@ void mrecv_clean()
 {
   mfile *m = mftop[1];
   while(m=mrecv_mfdel(m));
+}
+
+int mrecv(int s)
+{
+  mdata  data;
+  struct sockaddr_in addr;
+  if(mrecv_packet(s, &data, &addr) == -1){
+    return(0);
+  }
+  lprintf(9, "%s: rid=%d %s %s\n", __func__, data.head.reqid, stropcode(&data), strmstate(&data));
+  if(data.head.flags & MAKUO_FLAG_ACK){
+    mrecv_ack(&data, &addr);
+  }else{
+    mrecv_req(&data, &addr);
+  }
+  return(1);
 }
 

@@ -126,6 +126,16 @@ char *stropcode(mdata *data)
   return(opcodestrlist[i]);
 }
 
+char *strackreq(mdata *data)
+{
+  char *ack = "ack";
+  char *req = "req";
+  if(data->head.flags & MAKUO_FLAG_ACK){
+    return(ack);
+  }
+  return(req);
+}
+
 int md5sum(int fd, unsigned char *digest)
 {
   int  rd;
@@ -714,7 +724,7 @@ int is_reg(char *path)
   return(0);
 }
 
-int set_guid(int uid, int gid, gid_t *gids)
+int set_guid(uid_t uid, gid_t gid, gid_t *gids)
 {
   size_t num;
 

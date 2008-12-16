@@ -77,6 +77,9 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
       return(1);
     }
     if(r == -1){
+      if(errno == EAGAIN){
+        return(-1);
+      }
       if(errno == EINTR){
         continue;
       }else{
@@ -165,8 +168,9 @@ static int msend_retry(mfile *m)
 /* send & free */
 static void msend_shot(int s, mfile *m)
 {
-  msend_packet(s, &(m->mdata), &(m->addr));
-  msend_mfdel(m);
+  if(msend_packet(s, &(m->mdata), &(m->addr)) == 1){
+    msend_mfdel(m);
+  }
 }
 
 /******************************************************************
@@ -182,8 +186,8 @@ static void msend_ack_ping(int s, mfile *m)
 static void msend_ack_send(int s, mfile *m)
 {
   if(m->markcount){
-    m->mdata.head.szdata = m->marksize * sizeof(uint32_t);
-    memcpy(m->mdata.data, m->mark, m->marksize * sizeof(uint32_t));
+    m->mdata.head.szdata = 0;
+    data_safeset(&(m->mdata), m->mark, m->marksize * sizeof(uint32_t));
   }
   msend_shot(s, m);
 }
@@ -195,13 +199,11 @@ static void msend_ack_md5(int s, mfile *m)
 
 static void msend_ack_dsync(int s, mfile *m)
 {
-  mprintf(__func__, m);
   msend_shot(s, m);
 }
 
 static void msend_ack_del(int s, mfile *m)
 {
-  mprintf(__func__, m);
   msend_shot(s, m);
 }
 
@@ -259,7 +261,7 @@ static void msend_req_send_break(int s, mfile *m)
 static void msend_req_send_stat_init(int s, mfile *m)
 {
   mstat    fs;
-  uint64_t rdev;
+  uint64_t dev;
 
   if(!m->comm){
     msend_mfdel(m);
@@ -273,7 +275,7 @@ static void msend_req_send_stat_init(int s, mfile *m)
   m->mdata.head.szdata += strlen(m->ln);
   m->mdata.head.szdata += sizeof(uint64_t);
   if(m->mdata.head.szdata > MAKUO_BUFFER_SIZE){
-    lprintf(0, "%s: buffer size over size=%d file=%s\n", __func__, m->mdata.head.szdata, m->fn);
+    lprintf(0, "%s: buffer size over size=%d file=%s\n",   __func__, m->mdata.head.szdata, m->fn);
     cprintf(0, m->comm, "error: buffer size over size=%d file=%s\n", m->mdata.head.szdata, m->fn);
     return;
   }
@@ -286,18 +288,14 @@ static void msend_req_send_stat_init(int s, mfile *m)
   fs.ctime = htonl(m->fs.st_ctime);
   fs.fnlen = htons(strlen(m->fn));
   fs.lnlen = htons(strlen(m->ln));
-  memcpy(m->mdata.p, &fs, sizeof(fs));
-  m->mdata.p += sizeof(fs);
-  strcpy(m->mdata.p, m->fn);
-  m->mdata.p += strlen(m->fn);
-  strcpy(m->mdata.p, m->ln);
-  m->mdata.p += strlen(m->ln);
+  dev = (uint64_t)(m->fs.st_rdev);
 
-  rdev = (uint64_t)(m->fs.st_rdev);
-  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(rdev >> 32));
-  m->mdata.p += sizeof(uint32_t);
-  *(uint32_t *)(m->mdata.p) = htonl((uint32_t)(rdev & 0xFFFFFFFF));
-  m->mdata.p += sizeof(uint32_t);
+  m->mdata.head.szdata = 0;
+  data_safeset(&(m->mdata), &fs, sizeof(fs));
+  data_safeset(&(m->mdata), m->fn, strlen(m->fn));
+  data_safeset(&(m->mdata), m->ln, strlen(m->ln));
+  data_safeset32(&(m->mdata), (uint32_t)(dev >> 32));
+  data_safeset32(&(m->mdata), (uint32_t)(dev & 0xFFFFFFFF));
   m->sendwait  = 1;
   m->initstate = 0;
   ack_clear(m, -1);

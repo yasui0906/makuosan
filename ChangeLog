@@ -1,5 +1,5 @@
 1.1.0:
- - large file transfer Tuning
+ - file transfer performance tuning
  - remote file delete function for makuosan
  - add --delete option for msync
  - add --sync   option for msync
