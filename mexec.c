@@ -475,7 +475,7 @@ int mexec_send(mcomm *c, int n, int sync)
   }
 
   /*----- chgrp -----*/
-  if(gid != -1){
+  if((m->dryrun == 0) && (gid != -1)){
     if(m->fs.st_gid != gid){
       if(lchown(m->fn, -1, gid) == -1){
         lprintf(0, "%s: chown error %d -> %d (%s)\n", __func__, m->fs.st_gid, gid, strerror(errno));
