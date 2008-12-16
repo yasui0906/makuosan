@@ -722,7 +722,7 @@ int set_guid(int uid, int gid, gid_t *gids)
   if(gids){
     for(num=0;gids[num];num++);
     if(num){
-      if(setgroups(num,gids) == -1){
+      if(setgroups(num, gids) == -1){
         return(-1);
       }
     }
@@ -774,9 +774,13 @@ int set_gids(char *groups)
   while(p){
     if(*p >= '0' && *p <= '9'){
       moption.gids[num] = atoi(p);
+      if(g = getgrgid(moption.gids[num])){
+        strcpy(moption.grnames[num], g->gr_name);
+      }
     }else{
       if(g = getgrnam(p)){
         moption.gids[num] = g->gr_gid;
+        strcpy(moption.grnames[num], p);
       }
     }
     p = strtok(NULL,",");

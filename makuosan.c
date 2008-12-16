@@ -74,24 +74,6 @@ int cleanup()
   socklen_t namelen;
   struct sockaddr_un addr;
 
-  /*----- send object -----*/
-  while(m=mftop[0])
-    mfdel(m);
-
-  /*----- recv object -----*/
-  while(m=mftop[1]){
-    if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
-      if(m->fd != -1){
-        close(m->fd);
-        m->fd = -1;
-      }
-      if(S_ISREG(m->fs.st_mode)){
-        mremove(moption.base_dir,m->tn);
-      }
-    }
-    mfdel(m);
-  }
-
   /*----- exit notify -----*/
   pingpong(2);
   msend(moption.mcsocket, mftop[0]);
@@ -311,6 +293,8 @@ int mloop()
 void mexit()
 {
   lprintf(0, "%s: shutdown start\n", __func__);
+  msend_clean(); /* recv object free         */
+  mrecv_clean(); /* recv object free         */
   restoreguid(); /* euid,egidを元に戻す      */
   chexit();      /* chrootから脱出(LinuxOnly)*/
   cleanup();     /* ディスクリプタの開放など */

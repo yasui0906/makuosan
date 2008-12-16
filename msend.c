@@ -1116,3 +1116,9 @@ void msend(int s, mfile *m)
   }
 }
 
+void msend_clean()
+{
+  mfile *m = mftop[0];
+  while(m=msend_mfdel(m));
+}
+

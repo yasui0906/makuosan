@@ -112,64 +112,6 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
 
 /******************************************************************
 *
-* Receive common functions (public)
-*
-*******************************************************************/
-int mrecv(int s)
-{
-  mdata  data;
-  struct sockaddr_in addr;
-  if(mrecv_packet(s, &data, &addr) == -1){
-    return(0);
-  }
-  lprintf(9, "%s: rid=%d %s %s\n", __func__, data.head.reqid, stropcode(&data), strmstate(&data));
-  if(data.head.flags & MAKUO_FLAG_ACK){
-    mrecv_ack(&data, &addr);
-  }else{
-    mrecv_req(&data, &addr);
-  }
-  return(1);
-}
-
-void mrecv_gc()
-{
-  mhost *t = members;
-  mfile *m = mftop[1]; 
-
-  /* file timeout */
-  while(m){
-    if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
-      if(MAKUO_RECVSTATE_CLOSE != m->mdata.head.nstate){
-        lprintf(0,"%s: mfile object GC state=%s %s\n",
-          __func__, 
-          strrstate(m->mdata.head.nstate), 
-          m->fn);
-      }
-      m = mrecv_mfdel(m);
-      continue;
-    }
-    m = m->next;
-  }
-
-  /* pong timeout */
-  while(t){
-    if(!mtimeout(&(t->lastrecv), MAKUO_PONG_TIMEOUT)){
-      t = t->next;
-    }else{
-      lprintf(0,"%s: pong timeout %s\n", __func__, t->hostname);
-      if(t->next){
-        t = t->next;
-        member_del(t->prev);
-      }else{
-        member_del(t);
-        t = NULL;
-     } 
-    }      
-  }
-}
-
-/******************************************************************
-*
 * ack receive functions (for source node tasks)
 *
 *******************************************************************/
@@ -1427,5 +1369,69 @@ static void mrecv_req(mdata *data, struct sockaddr_in *addr)
       mkack(data, addr, MAKUO_RECVSTATE_IGNORE);
       break;
   }
+}
+
+/******************************************************************
+*
+* Receive common functions (public)
+*
+*******************************************************************/
+int mrecv(int s)
+{
+  mdata  data;
+  struct sockaddr_in addr;
+  if(mrecv_packet(s, &data, &addr) == -1){
+    return(0);
+  }
+  lprintf(9, "%s: rid=%d %s %s\n", __func__, data.head.reqid, stropcode(&data), strmstate(&data));
+  if(data.head.flags & MAKUO_FLAG_ACK){
+    mrecv_ack(&data, &addr);
+  }else{
+    mrecv_req(&data, &addr);
+  }
+  return(1);
+}
+
+void mrecv_gc()
+{
+  mhost *t = members;
+  mfile *m = mftop[1]; 
+
+  /* file timeout */
+  while(m){
+    if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
+      if(MAKUO_RECVSTATE_CLOSE != m->mdata.head.nstate){
+        lprintf(0,"%s: mfile object GC state=%s %s\n",
+          __func__, 
+          strrstate(m->mdata.head.nstate), 
+          m->fn);
+      }
+      m = mrecv_mfdel(m);
+      continue;
+    }
+    m = m->next;
+  }
+
+  /* pong timeout */
+  while(t){
+    if(!mtimeout(&(t->lastrecv), MAKUO_PONG_TIMEOUT)){
+      t = t->next;
+    }else{
+      lprintf(0,"%s: pong timeout %s\n", __func__, t->hostname);
+      if(t->next){
+        t = t->next;
+        member_del(t->prev);
+      }else{
+        member_del(t);
+        t = NULL;
+     } 
+    }      
+  }
+}
+
+void mrecv_clean()
+{
+  mfile *m = mftop[1];
+  while(m=mrecv_mfdel(m));
 }
 

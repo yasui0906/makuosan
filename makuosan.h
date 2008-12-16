@@ -55,8 +55,8 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  250    /* 再送間隔(ms)                                 */
-#define MAKUO_SEND_RETRYCNT 240    /* 再送回数                                     */
+#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
+#define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
 #define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
 #define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
@@ -257,6 +257,7 @@ typedef struct
   gid_t *gids;
   char group_name[64];
   char user_name[64];
+  char grnames[32][64];
   char password[2][16];
   mcomm comm[MAX_COMM];
 } mopt;
@@ -287,6 +288,8 @@ void     fdprintf(int s, char *fmt, ...);
 int      getrid();
 void     chexit();
 void     restoreguid();
+void     mrecv_clean();
+void     msend_clean();
 void     mfdel(mfile *m);
 mfile   *mfadd(int n);
 mfile   *mfins(int n);

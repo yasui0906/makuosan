@@ -296,6 +296,7 @@ int mexec_help(mcomm *c, int n)
 int mexec_send(mcomm *c, int n, int sync)
 {
   int i;
+  int j;
   ssize_t size;
   char *argv[9];
   char *fn = NULL;
@@ -304,7 +305,6 @@ int mexec_send(mcomm *c, int n, int sync)
   int dryrun = 0;
   int recurs = 0;
   gid_t gid = -1;
-  struct group  *gr = NULL;
   int mode = MAKUO_MEXEC_SEND;
 
   if(moption.dontsend){
@@ -328,15 +328,20 @@ int mexec_send(mcomm *c, int n, int sync)
         if(*optarg >= '0' && *optarg <='9'){
           gid = atoi(optarg);
         }else{
-         if(gr = getgrnam(optarg)){
-            gid = gr->gr_gid;
+          for(j=0;moption.gids[j];j++){
+            if(!strcmp(optarg, moption.grnames[j])){
+              gid = moption.gids[j];
+              break;
+            }
           }
         }
         break;
       case 't':
-        for(t=members;t;t=t->next)
-          if(!strcmp(t->hostname, optarg))
+        for(t=members;t;t=t->next){
+          if(!strcmp(t->hostname, optarg)){
             break;
+          }
+        }
         if(!t){
           cprintf(0, c, "%s is not contained in members\r\n", optarg);
           return(0);
@@ -409,11 +414,6 @@ int mexec_send(mcomm *c, int n, int sync)
   m->initstate = 1;
   if(m->dryrun){
     m->mdata.head.flags |= MAKUO_FLAG_DRYRUN;
-  }else{
-    /*----- chgrp -----*/
-    if(gid != -1){
-      lchown(fn, -1, gid);
-    }
   }
 
 	if(lstat(fn, &m->fs) == -1){
@@ -474,6 +474,16 @@ int mexec_send(mcomm *c, int n, int sync)
     }
   }
 
+  /*----- chgrp -----*/
+  if(gid != -1){
+    if(m->fs.st_gid != gid){
+      if(lchown(m->fn, -1, gid) == -1){
+        lprintf(0, "%s: chown error %d -> %d (%s)\n", __func__, m->fs.st_gid, gid, strerror(errno));
+      }else{
+        m->fs.st_gid = gid;
+      }
+    }
+  }
   return(0);
 }
 
