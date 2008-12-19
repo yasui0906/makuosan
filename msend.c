@@ -26,9 +26,7 @@ static mfile *msend_mfdel(mfile *m)
     kill(m->pid, SIGTERM);
     waitpid(m->pid, NULL, 0);
   }
-  if(m->mark){
-    free(m->mark);
-  }
+  while(m->mark = delmark(m->mark));
   clr_hoststate(m);
   mfdel(m);
   return(r);
@@ -69,6 +67,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   senddata.head.seqno  = htonl(senddata.head.seqno);
   senddata.head.maddr  = htonl(senddata.head.maddr);
   senddata.head.mport  = htons(senddata.head.mport);
+  senddata.head.error  = htonl(senddata.head.error);
   szdata += sizeof(mhead);
  
   while(1){ 
@@ -185,10 +184,6 @@ static void msend_ack_ping(int s, mfile *m)
 
 static void msend_ack_send(int s, mfile *m)
 {
-  if(m->markcount){
-    m->mdata.head.szdata = 0;
-    data_safeset(&(m->mdata), m->mark, m->marksize * sizeof(uint32_t));
-  }
   msend_shot(s, m);
 }
 
@@ -328,7 +323,7 @@ static void msend_req_send_stat_delete_report(mfile *m)
     if(r = get_hoststate(t, m)){
       if(*r == MAKUO_RECVSTATE_DELETEOK){
         cprintf(1, m->comm, "%sdelete %s:%s\n", dryrun, t->hostname, m->fn);
-        lprintf(1, "%s: %sdelete %s:%s\n", __func__, dryrun, t->hostname, m->fn);
+        lprintf(1, "%sdelete %s:%s\n", dryrun, t->hostname, m->fn);
       }
     }
   }
@@ -360,15 +355,15 @@ static void msend_req_send_stat_update_report(mfile *m)
     if(r = get_hoststate(t, m)){
       if(*r == MAKUO_RECVSTATE_UPDATE){
         cprintf(1, m->comm, "%supdate %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(1, "%s: %supdate %s:%s\n", __func__, dryrun, t->hostname, m->fn);
+        lprintf(1, "%supdate %s:%s\n", dryrun, t->hostname, m->fn);
       }
       if(*r == MAKUO_RECVSTATE_SKIP){
         cprintf(2, m->comm, "%sskip   %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(2, "%s: %sskip   %s:%s\n", __func__, dryrun, t->hostname, m->fn);
+        lprintf(2, "%sskip   %s:%s\n", dryrun, t->hostname, m->fn);
       }
       if(*r == MAKUO_RECVSTATE_READONLY){
         cprintf(2, m->comm, "%sskipro %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(2, "%s: %sskipro %s:%s\n", __func__, dryrun, t->hostname, m->fn);
+        lprintf(2, "%sskipro %s:%s\n", dryrun, t->hostname, m->fn);
       }
     }
   }
@@ -424,8 +419,8 @@ static void msend_req_send_open_init(int s, mfile *m)
       m->initstate = 1;
       m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-      cprintf(0, m->comm, "error: file open error errno=%d %s\n", errno, m->fn);
-      lprintf(0, "%s: open error errno=%d %s\n", __func__, errno, m->fn);
+      cprintf(0, m->comm, "error: can't open (%s) %s\n", strerror(errno), m->fn);
+      lprintf(0, "%s: can't open (%s) %s\n", __func__,   strerror(errno), m->fn);
     }
   }
 }
@@ -461,16 +456,15 @@ static void msend_req_send_open(int s, mfile *m)
 static void msend_req_send_markdata(int s, mfile *m)
 {
   int r;
-  if(!m->markcount){
+  if(!m->mark){
     /* close */
     m->initstate = 1;
     m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
     return;
   }
-  m->markcount--;
-  lprintf(4, "%s: block send retry seqno=%u count=%u\n", __func__, m->mark[m->markcount], m->markcount);
-  m->mdata.head.seqno = m->mark[m->markcount];
+  m->mdata.head.seqno = seq_getmark(m);
+  lprintf(4, "%s: block send retry seqno=%u count=%u\n", __func__, m->mdata.head.seqno, m->markcount);
   lseek(m->fd, m->mdata.head.seqno * MAKUO_BUFFER_SIZE, SEEK_SET);
   r = read(m->fd, m->mdata.data, MAKUO_BUFFER_SIZE);
   if(r>0){
@@ -480,7 +474,8 @@ static void msend_req_send_markdata(int s, mfile *m)
     if(!r){
       lprintf(0, "%s: read eof? seqno=%d\n", __func__, m->mdata.head.seqno);
     }else{
-      lprintf(0, "%s: read err! seqno=%d errno=%d\n", __func__, m->mdata.head.seqno, errno);
+      lprintf(0, "%s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
+      cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
     }
   }
   if(m->markcount == 0){
@@ -492,9 +487,8 @@ static void msend_req_send_markdata(int s, mfile *m)
 static void msend_req_send_filedata(int s, mfile *m)
 {
   int readsize;
-  if(m->markcount){
-    m->markcount--;
-    m->mdata.head.seqno = m->mark[m->markcount];
+  if(m->mark){
+    m->mdata.head.seqno = seq_getmark(m);
   }else{
     m->mdata.head.seqno = m->seqnonow++;
   }
@@ -506,7 +500,8 @@ static void msend_req_send_filedata(int s, mfile *m)
   }else{
     if(readsize == -1){
       /* err */
-      lprintf(0, "%s: read error! seqno=%d errno=%d %s\n", __func__, m->mdata.head.seqno, errno, m->fn);
+      lprintf(0, "%s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
+      cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
     }else{
       /* eof */
       lprintf(4, "%s: block send count=%d %s\n", __func__, m->mdata.head.seqno, m->fn);
@@ -555,7 +550,7 @@ static void msend_req_send_mark(int s, mfile *m)
     msend_req_send_mark_init(s, m);
     return;
   }
-  lprintf(9, "%s: MARK mark=%d %s\n", __func__, m->markcount, m->fn);
+  lprintf(0, "%s: MARK mark=%d %s\n", __func__, m->markcount, m->fn);
   m->mdata.head.nstate = MAKUO_SENDSTATE_DATA;
 }
 
@@ -594,7 +589,7 @@ static void msend_req_send_close(int s, mfile *m)
   if(m->mdata.head.ostate == MAKUO_SENDSTATE_MARK || 
      m->mdata.head.ostate == MAKUO_SENDSTATE_DATA ||
      m->mdata.head.ostate == MAKUO_SENDSTATE_OPEN){
-    lprintf(1,"%s: update complate %s \n", __func__, m->fn);
+    lprintf(6,"%s: update complate %s \n", __func__, m->fn);
   }
   m->initstate = 1;
   m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
@@ -904,8 +899,8 @@ static void msend_req_del_stat(int s, mfile *m)
 
   lprintf(9, "%s:\n", __func__);
   d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
-  d->mdata.head.flags  = m->mdata.head.flags;
-  d->mdata.head.reqid  = getrid();
+  d->mdata.head.flags = m->mdata.head.flags;
+  d->mdata.head.reqid = getrid();
   d->initstate = 1;
   d->sendwait  = 0;
   d->sendto = 1;
@@ -960,6 +955,7 @@ static void msend_req_del_last(int s, mfile *m)
   lprintf(9, "%s:\n", __func__);
   msend_mfdel(m);
 }
+
 static void msend_req_del_break(int s, mfile *m)
 {
   lprintf(9, "%s:\n", __func__);
@@ -1106,6 +1102,13 @@ void msend(int s, mfile *m)
   if(msend_retry(m)){
     return;
   }
+  lprintf(9, "%s: %s %s %s rid=%d seq=%d\n", 
+    __func__, 
+    strackreq(&(m->mdata)),
+    stropcode(&(m->mdata)), 
+    strmstate(&(m->mdata)),
+    m->mdata.head.reqid, 
+    m->mdata.head.seqno); 
   mtimeget(&m->lastsend);
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
     msend_ack(s, m); /* source node task */

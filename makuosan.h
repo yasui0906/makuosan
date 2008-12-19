@@ -5,7 +5,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#define PROTOCOL_VERSION 4
+#define PROTOCOL_VERSION 5
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
 #include <stdio.h>
@@ -124,6 +124,7 @@ typedef struct
   uint32_t seqno;
   uint32_t maddr;
   uint16_t mport;
+  uint32_t error;
   uint8_t  hash[16];
 }__attribute__((packed)) mhead;
 
@@ -186,6 +187,14 @@ typedef struct
   excludeitem *exclude;
 } mcomm;
 
+typedef struct mmark
+{
+  uint32_t l;
+  uint32_t h;
+  struct mmark *prev;
+  struct mmark *next;
+} mmark;
+
 typedef struct mfile
 {
   int  fd;
@@ -200,16 +209,14 @@ typedef struct mfile
   uint32_t lickflag;
   uint32_t initstate;
   uint32_t recvcount;
-  uint32_t markdelta;
   uint32_t markcount;
-  uint32_t marksize;
   uint32_t seqnonow;
   uint32_t seqnomax;
   int pid;
   int pipe;
   mdata mdata;
   mcomm *comm;
-  uint32_t *mark;
+  mmark *mark;
   struct stat fs;
   struct sockaddr_in addr;
   struct timeval lastsend;
@@ -303,9 +310,11 @@ void     msend(int s, mfile *m);
 void     set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
 int      set_guid(uid_t uid, gid_t gid, gid_t *gids);
 int      set_gids(char *groups);
-int      seq_popmark(mfile *m, int n);
+mmark   *delmark(mmark *mm);
+uint32_t seq_getmark(mfile *m);
+void     seq_setmark(mfile *m, uint32_t lseq, uint32_t useq);
+void     seq_addmark(mfile *m, uint32_t lseq, uint32_t useq);
 int      seq_delmark(mfile *m, uint32_t seq);
-int      seq_addmark(mfile *m, uint32_t lseq, uint32_t useq);
 int      linkcmp(mfile *m);
 int      statcmp(struct stat *s1, struct stat *s2);
 int      mremove(char *base, char *name);

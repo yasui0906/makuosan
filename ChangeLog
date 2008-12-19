@@ -1,3 +1,6 @@
+1.1.1:
+ - error message output in detail
+
 1.1.0:
  - file transfer performance tuning
  - remote file delete function for makuosan

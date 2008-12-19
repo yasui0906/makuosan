@@ -447,80 +447,170 @@ void member_del(mhost *t)
   free(t);
 }
 
-int seq_addmark(mfile *m, uint32_t lseq, uint32_t useq)
+mmark *markalloc()
 {
-  int i, j;
-  int size = 0;
-  void  *n = NULL;
-  mfile *a = NULL;
+  mmark *mm = calloc(1, sizeof(mmark));
+  return(mm);
 
-  if(!m->mark){
-    m->markcount = 0;
-    m->marksize  = 1024;
-    m->mark = malloc(sizeof(uint32_t) * m->marksize);
-    if(!m->mark){
-      lprintf(0, "%s: out of memory(mark)\n", __func__);
-      return(-1); 
-    }
-  }
-  size = m->marksize;
-  while(size < m->markcount + useq - lseq){
-    size += 1024;
-  }
-  if(size != m->marksize){
-    n = realloc(m->mark, sizeof(uint32_t) * size);
-    if(!n){
-      lprintf(0, "%s: out of memory(realloc)\n", __func__);
-      return(-1); 
-    }
-    m->mark = n;
-    m->marksize = size;
-  }
+}
 
-  /***** mark ******/
-  for(i=lseq;i<useq;i++){
-    for(j=0;j<m->markcount;j++)
-      if(i == m->mark[j])
-        break;
-    if(j == m->markcount){
-      m->mark[m->markcount++] = i;
-      m->markdelta++;
+void markfree(mmark *mm)
+{
+  free(mm);
+}
+
+mmark *addmark(mmark *mm, uint32_t l, uint32_t h)
+{
+  mmark *nn = markalloc();
+  nn->l = l;
+  nn->h = h;
+  if(mm){
+    nn->next = mm;
+    nn->prev = mm->prev;
+    mm->prev = nn;
+    if(nn->prev){
+      nn->prev->next = nn;
     }
   }
-  if(m->markdelta>32){
-    m->markdelta = 0;
-    return(1);
+  return(nn);
+}
+
+mmark *delmark(mmark *mm)
+{
+  mmark *nn = NULL;
+  if(mm){
+    if(mm->prev){
+      mm->prev->next = mm->next;
+    }
+    if(mm->next){
+      mm->next->prev = mm->prev;
+    }
+    nn = mm->next;
+    markfree(mm);
   }
-  return(0);
+  return(nn);
+}
+
+void seq_addmark(mfile *m, uint32_t l, uint32_t h)
+{
+  mmark *mm;
+  if(!m){
+    return;
+  }
+  if(h == l){
+    return;
+  }
+  m->markcount += (h - l);
+  m->mark = addmark(m->mark, l, h);
+
+  int c=0;
+  for(mm=m->mark;mm;mm=mm->next){
+    c++;
+  }
+  lprintf(9,"%s: %06d->%06d markcount=%d marklist=%d\n", __func__, l, h, m->markcount, c);
+  return;
 }
 
 int seq_delmark(mfile *m, uint32_t seq)
 {
-  int i;
-  int r = 0;
-  for(i=0;i<m->markcount;i++){
-    if(m->mark[i] == seq){
-      r = 1;
+  uint32_t l;
+  uint32_t h;
+  mmark  *mm;
+  if(!m){
+    return(0);
+  }
+
+  for(mm=m->mark;mm;mm=mm->next){
+    l = mm->l;
+    h = mm->h - 1;
+    if(seq == l){
+      mm->l++;
+      if(mm->l == mm->h){
+        if(mm == m->mark){
+          m->mark = mm->next;
+        }
+        delmark(mm);
+      }
       m->markcount--;
-      m->mark[i] = m->mark[m->markcount];
+      return(1);
+    }
+    if(seq == h){
+      mm->h--;
+      if(mm->l == mm->h){
+        if(mm == m->mark){
+          m->mark = mm->next;
+        }
+        delmark(mm);
+      }
+      m->markcount--;
+      return(1);
+    }
+    if((seq>l) && (seq<h)){
+      if(mm == m->mark){
+        m->mark = addmark(mm, mm->l, seq);
+      }else{
+        addmark(mm, mm->l, seq);
+      }
+      mm->l = seq + 1;
+      m->markcount--;
+      return(1);
     }
   }
-  return(r);
+  return(0);
 }
 
-int seq_popmark(mfile *m, int n)
+void seq_setmark(mfile *m, uint32_t l, uint32_t h)
 {
-  char *s;
-  char *d;
-  int size = m->markcount - n;
-  if(size > 0){
-    s = (char *)(m->mark + n);
-    d = (char *)(m->mark + 0);
-   memmove(d, s, size * sizeof(uint32_t));
-    m->markcount = size;
-  }else{
-    m->markcount = 0;
+  mmark *mm;
+  mmark *mn;
+
+  if(!m){
+    return;
   }
+  mm = m->mark;
+  mn = addmark(NULL, l, h);
+  while(mm){
+    if((mn->h < mm->l) || (mn->l > mm->h)){
+      mm = mm->next;
+      continue;
+    }
+    if(mn->l > mm->l){
+      mn->l = mm->l;
+    }
+    if(mn->h < mm->h){
+      mn->h = mm->h;
+    }
+    if(mm == m->mark){
+      m->mark = mm->next;
+    }
+    mm = delmark(mm);
+  }
+  if(mn->next = m->mark){
+    m->mark->prev = mn;
+  }
+  m->mark = mn;
+  m->markcount = 0;
+  for(mm=m->mark;mm;mm=mm->next){
+    m->markcount += (mm->h - mm->l);
+  }
+}
+
+uint32_t seq_getmark(mfile *m)
+{
+  uint32_t seq;
+  if(!m){
+    return(0);
+  }
+  if(!m->mark){
+    return(0);
+  }
+  seq = m->mark->l;
+  m->markcount--;
+  m->mark->l++;
+  if(m->mark->l == m->mark->h){
+    m->mark = delmark(m->mark);
+  }  
+  return(seq);
 }
 
 void clr_hoststate(mfile *m)
@@ -998,6 +1088,16 @@ mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state)
 mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
 {
   mfile *a;
+  for(a=mftop[0];a;a=a->next){
+    if((a->mdata.head.flags & MAKUO_FLAG_ACK)      &&
+       (a->mdata.head.opcode == data->head.opcode) &&
+       (a->mdata.head.reqid  == data->head.reqid)  &&
+       (a->mdata.head.seqno  == data->head.seqno)  &&
+       (a->mdata.head.nstate == state)             &&
+       (!memcmp(&(a->addr), addr, sizeof(a->addr)))){
+      return(a);
+    }
+  }
   if(a = mfins(0)){
     a->mdata.head.flags |= MAKUO_FLAG_ACK;
     a->mdata.head.opcode = data->head.opcode;

@@ -15,8 +15,9 @@ static void mrecv_ack(mdata *data, struct sockaddr_in *addr);
 static mfile *mrecv_mfdel(mfile *m)
 {
   mfile *r;
-  if(!m)
+  if(!m){
     return(NULL);
+  }
   r = m->next;
   if(m->fd != -1){
     close(m->fd);
@@ -25,10 +26,7 @@ static mfile *mrecv_mfdel(mfile *m)
       mremove(moption.base_dir, m->tn);
     }
   }
-  if(m->mark){
-    free(m->mark);
-    m->mark = NULL;
-  }
+  while(m->mark = delmark(m->mark));
   mfdel(m);
   return(r);
 }
@@ -98,6 +96,7 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
   data->head.seqno  = ntohl(data->head.seqno);
   data->head.maddr  = ntohl(data->head.maddr);
   data->head.mport  = ntohs(data->head.mport);
+  data->head.error  = ntohl(data->head.error);
   if(data->head.maddr != moption.maddr.sin_addr.s_addr){
     return(-1);
   }
@@ -143,19 +142,34 @@ static int mrecv_ack_search(mhost **lpt, mfile **lpm, mdata *data, struct sockad
 static void mrecv_ack_report(mfile *m, mhost *h, mdata *data)
 {
   if(data->head.nstate == MAKUO_RECVSTATE_OPENERROR){
-    cprintf(0, m->comm, "%s: file open error %s\n", h->hostname, m->fn);
-    lprintf(0,          "%s: file open error rid=%06d state=%s %s(%s) %s\n", __func__,
-      data->head.reqid, strrstate(data->head.nstate), inet_ntoa(h->ad), h->hostname, m->fn);
+    cprintf(0, m->comm, "error: can't open (%s) %s:%s\n", strerror(data->head.error), h->hostname, m->fn);
+    lprintf(0,          "%s: can't open (%s) rid=%06d %s %s:%s\n", 
+      __func__,
+      strerror(data->head.error),
+      data->head.reqid, 
+      strrstate(data->head.nstate), 
+      h->hostname, 
+      m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_WRITEERROR){
-    cprintf(0, m->comm, "%s: file write error %s\n", h->hostname, m->fn);
-    lprintf(0,          "%s: file write error rid=%06d state=%s %s(%s) %s\n", __func__,
-     data->head.reqid, strrstate(data->head.nstate), inet_ntoa(h->ad), h->hostname, m->fn);
+    cprintf(0, m->comm, "error: can't write (%s) %s:%s\n", strerror(data->head.error), h->hostname, m->fn);
+    lprintf(0,          "%s: can't write (%s) rid=%06d %s %s:%s\n", 
+      __func__,
+      strerror(data->head.error),
+      data->head.reqid, 
+      strrstate(data->head.nstate), 
+      h->hostname, 
+      m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
-    cprintf(0, m->comm, "%s: file close error %s\n", h->hostname, m->fn);
-    lprintf(0,          "%s: file close error rid=%06d state=%s %s(%s) %s\n", __func__,
-      data->head.reqid, strrstate(data->head.nstate), inet_ntoa(h->ad), h->hostname, m->fn);
+    cprintf(0, m->comm, "error: close error (%s) %s:%s\n", strerror(data->head.error), h->hostname, m->fn);
+    lprintf(0,          "%s: close error (%s) rid=%06d %s %s:%s\n", 
+      __func__,
+      strerror(data->head.error),
+      data->head.reqid, 
+      strrstate(data->head.nstate), 
+      h->hostname, 
+      m->fn);
   }
 }
 
@@ -166,15 +180,14 @@ static void mrecv_ack_ping(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_ack_send_mark(mdata *data, mfile *m, mhost *t)
 {
-  uint32_t *d = (uint32_t *)(data->data);
-  while(d < (uint32_t *)&data->data[data->head.szdata]){
-    if(*d >= m->seqnomax){
-      lprintf(0, "%s: mark seqno error seq=%d max=%d %s from %s\n", __func__,
-         *d, m->seqnomax, m->fn, t->hostname);
-      break;
-    }
-    seq_addmark(m, *d, (*d) + 1);
-    d++;
+  uint32_t l;
+  uint32_t h;
+
+  data->p = data->data;
+  while(!data_safeget32(data, &l)){
+    data_safeget32(data, &h);
+    seq_setmark(m, l, h);
+    lprintf(0,"%s: %06d->%06d count=%d\n", __func__, l, h, m->markcount);
   }
 }
 
@@ -228,10 +241,6 @@ static void mrecv_ack_md5(mdata *data, struct sockaddr_in *addr)
   }
   *s = data->head.nstate;
   mrecv_ack_report(m, t, data);
-}
-
-static void mrecv_ack_dsync_data(mdata *data, struct sockaddr_in *addr)
-{
 }
 
 static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
@@ -464,6 +473,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
       set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
     }else{
       lprintf(0, "%s: symlink error %s -> %s\n", __func__, m->ln, m->fn);
+      m->mdata.head.error  = errno;
     }
   }else{
     if(S_ISDIR(m->fs.st_mode)){
@@ -476,6 +486,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         set_filestat(fpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0,"%s: mkdir error %s\n", __func__, m->fn);
+        m->mdata.head.error = errno;
       }
     }
     if(S_ISREG(m->fs.st_mode)){
@@ -484,6 +495,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
       }else{
         lprintf(0, "%s: open error %s\n", __func__, m->fn);
+        m->mdata.head.error = errno;
       }
     }
     if(S_ISCHR(m->fs.st_mode)){
@@ -492,6 +504,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0, "%s: can't create character device %s\n", __func__, m->fn);
+        m->mdata.head.error = errno;
       }
     }
     if(S_ISBLK(m->fs.st_mode)){
@@ -500,6 +513,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0, "%s: can't create block device %s\n", __func__, m->fn);
+        m->mdata.head.error = errno;
       }
     }
     if(S_ISFIFO(m->fs.st_mode)){
@@ -508,6 +522,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
         lprintf(0, "%s: can't create fifo %s\n", __func__, m->fn);
+        m->mdata.head.error = errno;
       }
     }
   }
@@ -522,14 +537,16 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
   a->mdata.head.seqno  = r->head.seqno;
   a->mdata.head.ostate = m->mdata.head.ostate;
   a->mdata.head.nstate = m->mdata.head.nstate;
+  a->mdata.head.error  = m->mdata.head.error;
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
 }
 
 static void mrecv_req_send_mark(mfile *m, mdata *r)
 {
-  if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN)
+  if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
     return;
-
+  }
+  mmark *mm;
   mfile *a = mfins(0);
   if(!a){
     lprintf(0, "%s: out of momory\n", __func__);
@@ -549,17 +566,20 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
     m->mdata.head.seqno = m->seqnomax;
   }
   m->lickflag = 1;
-  if(m->markcount){
-    if(MAKUO_BUFFER_SIZE < m->markcount * sizeof(uint32_t)){
-      a->marksize = MAKUO_BUFFER_SIZE / sizeof(uint32_t);
-    }else{
-      a->marksize = m->markcount;
+  for(mm=m->mark;mm;mm=mm->next){
+    if(a->mdata.head.szdata > MAKUO_BUFFER_SIZE - sizeof(uint32_t) * 2){
+      a = mfins(0);
+      a->mdata.head.flags |= MAKUO_FLAG_ACK;
+      a->mdata.head.flags |= MAKUO_FLAG_FMARK;
+      a->mdata.head.opcode = r->head.opcode;
+      a->mdata.head.reqid  = r->head.reqid;
+      a->mdata.head.seqno  = r->head.seqno;
+      a->mdata.head.ostate = m->mdata.head.nstate;
+      a->mdata.head.nstate = MAKUO_RECVSTATE_MARK;
+      a->mdata.head.szdata = 0;
     }
-    a->markcount = a->marksize;
-    a->mark = malloc(a->marksize * sizeof(uint32_t));
-    memcpy(a->mark, m->mark, a->marksize * sizeof(uint32_t));
-    lprintf(3, "%s: repeat mark=%04d reqest=%03d recv=%06d size=%06d %s\n", __func__,
-      m->markcount, a->markcount, m->recvcount, m->seqnomax,  m->fn);
+    data_safeset32(&(a->mdata), mm->l);
+    data_safeset32(&(a->mdata), mm->h);
   }
 }
 
@@ -611,10 +631,6 @@ static void mrecv_req_send_data_write(mfile *m, mdata *r)
 
 static void mrecv_req_send_data_retry(mfile *m, mdata *r)
 {
-  mfile *a;
-  uint32_t *markptr = m->mark;
-  uint32_t  markcnt = m->markcount;
-
   lprintf(3, "%s: markcount=%04u recv=%06u size=%06u %s\n",
     __func__,
     m->markcount, 
@@ -622,12 +638,10 @@ static void mrecv_req_send_data_retry(mfile *m, mdata *r)
     m->seqnomax,  
     m->fn);
 
-  a = mfins(0);
-  if(!a){
-    lprintf(0, "%s: out of momory\n", __func__);
-    return;
-  }
+  mmark *mm;
+  mfile *a = mfins(0);
   a->mdata.head.flags |= MAKUO_FLAG_ACK;
+  a->mdata.head.flags |= MAKUO_FLAG_FMARK;
   a->mdata.head.opcode = r->head.opcode;
   a->mdata.head.reqid  = r->head.reqid;
   a->mdata.head.seqno  = r->head.seqno;
@@ -635,33 +649,11 @@ static void mrecv_req_send_data_retry(mfile *m, mdata *r)
   a->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
   a->mdata.head.szdata = 0;
   memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
-
-  while(markcnt){
-    a = mfins(0);
-    if(!a){
-      lprintf(0, "%s: out of momory\n", __func__);
-      return;
+  for(mm=m->mark;mm;mm=mm->next){
+    if(data_safeset32(&(a->mdata), mm->l)){
+      break;
     }
-    a->mdata.head.flags |= MAKUO_FLAG_FMARK;
-    a->mdata.head.flags |= MAKUO_FLAG_ACK;
-    a->mdata.head.opcode = r->head.opcode;
-    a->mdata.head.reqid  = r->head.reqid;
-    a->mdata.head.seqno  = r->head.seqno;
-    a->mdata.head.ostate = m->mdata.head.nstate;
-    a->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
-    a->mdata.head.szdata = 0;
-    memcpy(&(a->addr), &(m->addr), sizeof(a->addr));
-    if(MAKUO_BUFFER_SIZE < (markcnt * sizeof(uint32_t))){
-      a->marksize = MAKUO_BUFFER_SIZE / sizeof(uint32_t);
-    }else{
-      a->marksize = markcnt;
-    }
-    if(a->markcount = a->marksize){
-      a->mark = malloc(a->marksize * sizeof(uint32_t));
-      memcpy(a->mark, markptr, a->marksize * sizeof(uint32_t));
-      markptr += a->marksize;
-      markcnt -= a->marksize;
-    }
+    data_safeset32(&(a->mdata), mm->h);
   }
 }
 
@@ -683,9 +675,8 @@ static void mrecv_req_send_data(mfile *m, mdata *r)
     return;
   }
   if(m->mdata.head.seqno < r->head.seqno){
-    if(seq_addmark(m, m->mdata.head.seqno, r->head.seqno) == 1){
-      mrecv_req_send_data_retry(m, r);
-    }
+    seq_addmark(m, m->mdata.head.seqno, r->head.seqno);
+    mrecv_req_send_data_retry(m, r);
     m->mdata.head.seqno = r->head.seqno;
   }
   mrecv_req_send_data_write(m, r);
@@ -919,6 +910,7 @@ static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
     m->fn[l] = 0;
     m->fd = open(m->fn, O_RDONLY);
     if(m->fd == -1){
+      m->mdata.head.error  = errno;
       m->mdata.head.nstate = MAKUO_RECVSTATE_OPENERROR;
     }else{
       r = md5sum(m->fd, m->mdata.data);
@@ -926,6 +918,7 @@ static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
       m->fd = -1;
       if(r == -1){
 	      lprintf(0, "%s: file read error %s\n", __func__, m->fn);
+        m->mdata.head.error  = errno;
         m->mdata.head.nstate = MAKUO_RECVSTATE_READERROR;
       }else{
         if(!memcmp(m->mdata.data, data->data, 16)){
@@ -1430,7 +1423,12 @@ int mrecv(int s)
   if(mrecv_packet(s, &data, &addr) == -1){
     return(0);
   }
-  lprintf(9, "%s: rid=%d %s %s\n", __func__, data.head.reqid, stropcode(&data), strmstate(&data));
+  lprintf(9, "%s: %s %s rid=%d seq=%d\n", 
+    __func__, 
+    stropcode(&data), 
+    strmstate(&data),
+    data.head.reqid, 
+    data.head.seqno); 
   if(data.head.flags & MAKUO_FLAG_ACK){
     mrecv_ack(&data, &addr);
   }else{

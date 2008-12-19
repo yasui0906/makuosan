@@ -216,7 +216,7 @@ int readline(int s, char *buff, int size, int prompt, char *passwd)
 
 int wait_prompt(int s, char *passwd){
   int  r;
-  char buff[1024];
+  char buff[8192];
 
   while(r = readline(s, buff, sizeof(buff), 1, passwd)){
     if(r == -1){
@@ -227,7 +227,11 @@ int wait_prompt(int s, char *passwd){
       /* return prompt */
       return(1);
     }
-    fprintf(stderr, "%s\n", buff);
+    if(!memcmp(buff, "error:", 6)){
+      fprintf(stderr, "%s\n", buff);
+    }else{
+      fprintf(stdout, "%s\n", buff);
+    }
   }
   return(0);
 } 
@@ -430,6 +434,7 @@ int main(int argc, char *argv[])
   /* option */
   int loopflag = 1;
   int loglevel = 0;
+  int sendflag = 1;
   int delflag  = 0;
   int grpflag  = 0;
   char scfile[256];
@@ -494,15 +499,18 @@ int main(int argc, char *argv[])
       case 'S':
         strcpy(mcmd, "status");
         loopflag = 0;
+        sendflag = 0;
         break;
 
       case 'M':
         strcpy(mcmd, "members");
         loopflag = 0;
+        sendflag = 0;
         break;
 
       case 'C':
         strcpy(mcmd, "check");
+        sendflag = 0;
         break;
 
       case 'E':
@@ -573,12 +581,12 @@ int main(int argc, char *argv[])
     }
   }
 
-  if(delflag && strcmp(mcmd, "send")){
+  if(delflag && !sendflag){
     usage();
     return(1);
   }
 
-  if(grpflag && strcmp(mcmd, "send")){
+  if(grpflag && !sendflag){
     usage();
     return(1);
   }
