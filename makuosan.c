@@ -267,6 +267,7 @@ int mloop()
       }
     }
     mcomm_check(moption.comm);
+
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
     FD_SET(moption.mcsocket,  &rfds);

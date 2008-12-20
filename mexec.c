@@ -781,7 +781,7 @@ int mexec_status(mcomm *c, int n)
     if(snow > smax){
       snow = smax;
     }
-    cprintf(0, c, "  (%s) %s %s %s (%u:%u/%u) rid=%d\n",
+    cprintf(0, c, "  (%s) %s %s %s (%u:%u/%u) rid=%d flags=%x\n",
       strackreq(&(m->mdata)), 
       stropcode(&(m->mdata)), 
       strmstate(&(m->mdata)), 
@@ -789,7 +789,8 @@ int mexec_status(mcomm *c, int n)
       m->markcount,
       snow, 
       smax,
-      m->mdata.head.reqid); 
+      m->mdata.head.reqid,
+      m->mdata.head.flags);
   }
 
   count = 0;

@@ -507,7 +507,7 @@ void seq_addmark(mfile *m, uint32_t l, uint32_t h)
   for(mm=m->mark;mm;mm=mm->next){
     c++;
   }
-  lprintf(9,"%s: %06d->%06d markcount=%d marklist=%d\n", __func__, l, h, m->markcount, c);
+  lprintf(9, "%s: %06d->%06d (%d) markcount=%d marklist=%d %s\n", __func__, l, h, h - l, m->markcount, c, m->fn);
   return;
 }
 
@@ -593,6 +593,7 @@ void seq_setmark(mfile *m, uint32_t l, uint32_t h)
   for(mm=m->mark;mm;mm=mm->next){
     m->markcount += (mm->h - mm->l);
   }
+  lprintf(9, "%s: %06d->%06d (%d) rid=%d %s\n", __func__, l, h, h - l, m->mdata.head.reqid, m->fn);
 }
 
 uint32_t seq_getmark(mfile *m)
