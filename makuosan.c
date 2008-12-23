@@ -248,14 +248,19 @@ int mloop()
   lastpong = pingpong(0);
   while(loop_flag){
     gettimeofday(&curtime, NULL);
-    if(mtimeout(lastpong, MAKUO_PONG_INTERVAL))
+    if(mtimeout(lastpong, MAKUO_PONG_INTERVAL)){
       lastpong = pingpong(1);
+    }
+
+    /* udp packet receive */
     m = mftop[0];
     while(mrecv(moption.mcsocket)){
       if(m != mftop[0]){
         break;
       }
     }
+
+    /* udp packet send */
     para = 0;
     m = mftop[0];
     while(m){
@@ -266,20 +271,21 @@ int mloop()
         break;
       }
     }
+
+    /* command read */
     mcomm_check(moption.comm);
 
+    /* wait */
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
     FD_SET(moption.mcsocket,  &rfds);
     mcomm_fdset(moption.comm, &rfds);
-
     for(m=mftop[0];m;m=m->next){
       if(ismsend(moption.mcsocket, m, 0)){
         FD_SET(moption.mcsocket, &wfds);
         break;
       }
     }
-
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
     if(select(1024, &rfds, &wfds, NULL, &tv) == -1)

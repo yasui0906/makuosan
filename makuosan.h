@@ -72,10 +72,9 @@
 /*----- flags -----*/
 #define MAKUO_FLAG_ACK    1
 #define MAKUO_FLAG_CRYPT  2
-#define MAKUO_FLAG_FMARK  4
-#define MAKUO_FLAG_DRYRUN 8
-#define MAKUO_FLAG_RECURS 16
-#define MAKUO_FLAG_SYNC   32
+#define MAKUO_FLAG_DRYRUN 4
+#define MAKUO_FLAG_RECURS 8
+#define MAKUO_FLAG_SYNC   16
 
 /*----- sendstatus -----*/
 #define MAKUO_SENDSTATE_STAT       0  /* 更新確認待 */
@@ -97,6 +96,7 @@
 #define MAKUO_RECVSTATE_IGNORE     6
 #define MAKUO_RECVSTATE_READONLY   7
 #define MAKUO_RECVSTATE_BREAK      8
+#define MAKUO_RECVSTATE_LAST       9
 #define MAKUO_RECVSTATE_MD5OK      10
 #define MAKUO_RECVSTATE_MD5NG      11
 #define MAKUO_RECVSTATE_DELETEOK   12

@@ -345,12 +345,12 @@ int mexec_send(mcomm *c, int n, int sync)
           }
         }
         if(!t){
-          cprintf(0, c, "%s is not contained in members\r\n", optarg);
+          cprintf(0, c, "%s is not contained in members\n", optarg);
           return(0);
         }
         break;
       case '?':
-        cprintf(0, c, "invalid option -- %c\r\n", optopt);
+        cprintf(0, c, "invalid option -- %c\n", optopt);
         return(0); 
     }
   }
@@ -379,16 +379,16 @@ int mexec_send(mcomm *c, int n, int sync)
   /*----- help -----*/
   if(!fn){
     if(sync){
-      cprintf(0, c, "sync [-n] [-r] [-t host] [path]\r\n");
-      cprintf(0, c, "  -n  # dryrun\r\n");
-      cprintf(0, c, "  -r  # recursive\r\n");
-      cprintf(0, c, "  -t  # target host\r\n");
+      cprintf(0, c, "sync [-n] [-r] [-t host] [path]\n");
+      cprintf(0, c, "  -n  # dryrun\n");
+      cprintf(0, c, "  -r  # recursive\n");
+      cprintf(0, c, "  -t  # target host\n");
     }else{
-      cprintf(0, c, "send [-n] [-r] [-t host] [path]\r\n");
-      cprintf(0, c, "  -n  # dryrun\r\n");
-      cprintf(0, c, "  -r  # recursive\r\n");
-      cprintf(0, c, "  -D  # with delete\r\n");
-      cprintf(0, c, "  -t  # target host\r\n");
+      cprintf(0, c, "send [-n] [-r] [-t host] [path]\n");
+      cprintf(0, c, "  -n  # dryrun\n");
+      cprintf(0, c, "  -r  # recursive\n");
+      cprintf(0, c, "  -D  # with delete\n");
+      cprintf(0, c, "  -t  # target host\n");
     }
     return(0);
   }
@@ -515,12 +515,12 @@ int mexec_check(mcomm *c, int n)
           if(!strcmp(t->hostname, optarg))
             break;
         if(!t){
-          cprintf(0, c, "%s is not contained in members\r\n", optarg);
+          cprintf(0, c, "%s is not contained in members\n", optarg);
           return(0);
         }
         break;
       case '?':
-        cprintf(0, c, "invalid option -- %c\r\n", optopt);
+        cprintf(0, c, "invalid option -- %c\n", optopt);
         return(0); 
     }
   }
@@ -539,9 +539,9 @@ int mexec_check(mcomm *c, int n)
 
   /*----- help -----*/
   if(!fn){
-    cprintf(0, c,"usage: check [-t host] [-r] [path]\r\n");
-    cprintf(0, c, "  -r  # dir recursive\r\n");
-    cprintf(0, c, "  -t  # target host\r\n");
+    cprintf(0, c,"usage: check [-t host] [-r] [path]\n");
+    cprintf(0, c, "  -r  # dir recursive\n");
+    cprintf(0, c, "  -t  # target host\n");
     return(0);
   }
 
@@ -566,8 +566,8 @@ int mexec_check(mcomm *c, int n)
   /*----- open -----*/
   m->fd = open(m->fn, O_RDONLY);
   if(m->fd == -1){
-	  lprintf(0, "%s: file open error %s\n", __func__, m->fn);
-    cprintf(0, c, "file open error: %s\r\n", m->fn);
+	  lprintf(0, "%s: file open error (%s) %s\n", __func__, strerror(errno), m->fn);
+    cprintf(0, c, "error: file open error (%s) %s\n", strerror(errno), m->fn);
     mfdel(m);
     return(0);
   }
@@ -579,8 +579,8 @@ int mexec_check(mcomm *c, int n)
   close(m->fd);
   m->fd = -1;
   if(r == -1){
-	  lprintf(0, "%s: file read error %s\n", __func__, m->fn);
-    cprintf(0, c, "error: file read error %s\n", m->fn);
+	  lprintf(0, "%s: file read error (%s) %s\n", __func__, strerror(errno), m->fn);
+    cprintf(0, c, "error: file read error (%s) %s\n", strerror(errno), m->fn);
     mfdel(m);
     return(0);
   }
@@ -627,12 +627,12 @@ int mexec_dsync(mcomm *c, int n)
           if(!strcmp(t->hostname, optarg))
             break;
         if(!t){
-          cprintf(0, c, "%s is not contained in members\r\n", optarg);
+          cprintf(0, c, "%s is not contained in members\n", optarg);
           return(0);
         }
         break;
       case '?':
-        cprintf(0, c, "invalid option -- %c\r\n", optopt);
+        cprintf(0, c, "invalid option -- %c\n", optopt);
         return(0); 
     }
   }
@@ -652,10 +652,10 @@ int mexec_dsync(mcomm *c, int n)
 
   /*----- help -----*/
   if(c->argc[n]<2){
-    cprintf(0, c, "dsync [-r] [-t host] [-n] [path]\r\n");
-    cprintf(0, c, "  -r  # recursive\r\n");
-    cprintf(0, c, "  -t  # target host\r\n");
-    cprintf(0, c, "  -n  # dryrun\r\n");
+    cprintf(0, c, "dsync [-r] [-t host] [-n] [path]\n");
+    cprintf(0, c, "  -r  # recursive\n");
+    cprintf(0, c, "  -t  # target host\n");
+    cprintf(0, c, "  -n  # dryrun\n");
     return(0);
   }
 

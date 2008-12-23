@@ -1104,7 +1104,9 @@ mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
     a->mdata.head.opcode = data->head.opcode;
     a->mdata.head.reqid  = data->head.reqid;
     a->mdata.head.seqno  = data->head.seqno;
+    a->mdata.head.ostate = data->head.ostate;
     a->mdata.head.nstate = state;
+    a->mdata.head.error  = data->head.error;
     memcpy(&(a->addr), addr, sizeof(a->addr));
   }
   return(a);
