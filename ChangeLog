@@ -1,4 +1,5 @@
 1.1.2:
+ - fix: not send shutdown message 
 
 1.1.1:
  - error message output in detail
