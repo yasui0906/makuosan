@@ -72,13 +72,16 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   senddata.head.error  = htonl(senddata.head.error);
   szdata += sizeof(mhead);
  
-  while(loop_flag){ 
+  while(1){ 
     FD_ZERO(&fds);
     FD_SET(moption.mcsocket, &fds);
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
     if(select(1024, NULL, &fds, NULL, &tv) != 1){
-      continue;
+      if(loop_flag){
+        continue;
+      }
+      break;
     }
     r = sendto(s, &senddata, szdata, 0, (struct sockaddr*)addr, sizeof(struct sockaddr_in));
     if(r == szdata){

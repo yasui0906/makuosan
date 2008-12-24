@@ -68,30 +68,6 @@ struct timeval *pingpong(int n)
   return(&tv);
 }
 
-int cleanup()
-{
-  mfile *m;
-  socklen_t namelen;
-  struct sockaddr_un addr;
-
-  /*----- exit notify -----*/
-  pingpong(2);
-  msend(moption.mcsocket, mftop[0]);
-
-  /*----- unlink unix domain socket -----*/
-  namelen=sizeof(addr);
-  if(!getsockname(moption.lisocket, (struct sockaddr *)&addr, &namelen)){
-    if(addr.sun_family == AF_UNIX){
-      unlink(addr.sun_path);
-    }
-  }
-
-  /*----- close -----*/
-  close(moption.mcsocket);
-  close(moption.lisocket);
-  return(0);
-}
-
 int mcomm_accept(mcomm *c, fd_set *fds, int s)
 {
   int i;
@@ -235,7 +211,7 @@ int ismsend(int s, mfile *m, int flag)
 }
 
 /***** main loop *****/
-int mloop()
+void mloop()
 {
   int para;
   mfile *n;
@@ -294,18 +270,8 @@ int mloop()
     mcomm_read(moption.comm, &rfds);                     /* command exec */
     mrecv_gc();
   }
-  return(0);
-}
-
-void mexit()
-{
-  lprintf(0, "%s: shutdown start\n", __func__);
-  msend_clean(); /* recv object free         */
-  mrecv_clean(); /* recv object free         */
-  restoreguid(); /* euid,egidを元に戻す      */
-  chexit();      /* chrootから脱出(LinuxOnly)*/
-  cleanup();     /* ディスクリプタの開放など */
-  lprintf(0, "%s: shutdown complete\n", __func__);
+  pingpong(2); /* exit notify */
+  msend(moption.mcsocket, mftop[0]);
 }
 
 int main(int argc, char *argv[])

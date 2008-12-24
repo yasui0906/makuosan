@@ -1038,41 +1038,6 @@ int space_escape(char *str)
   return(r);
 }
 
-void chexit()
-{
-  struct utsname uts;
-  char cwd[PATH_MAX];
-  if(moption.chroot){
-    if(uname(&uts) == -1){
-      return;
-    }
-    if(strcmp("Linux", uts.sysname)){
-      return;
-    }
-    /*----- chroot exit(linux only) -----*/
-    mtempname("",".MAKUOWORK",cwd);
-    mkdir(cwd,0700);
-    chroot(cwd);
-    rmdir(cwd);
-    chdir("..");
-    getcwd(cwd,PATH_MAX);
-    while(strcmp("/", cwd)){
-      chdir("..");
-      getcwd(cwd,PATH_MAX);
-    }
-    chroot(".");
-  }
-  return;
-}
-
-void restoreguid()
-{
-  if(getuid() != geteuid())
-    seteuid(getuid());
-  if(getgid() != getegid())
-    setegid(getgid());
-}
-
 mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state)
 {
   mfile *a;

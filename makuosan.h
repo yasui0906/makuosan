@@ -22,12 +22,10 @@
 #include <getopt.h>
 #include <pwd.h>
 #include <grp.h>
-#include <poll.h>
 #include <libgen.h>
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <syslog.h>
-#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -282,62 +280,81 @@ extern char TZ[256];
 extern struct timeval curtime;
 extern BF_KEY EncKey;
 
-/*----- function -----*/
-char    *strsstate(uint8_t n);
-char    *strrstate(uint8_t n);
-char    *strmstate(mdata *data);
-char    *stropcode(mdata *data);
-char    *strackreq(mdata *data);
-void     mprintf(const char *func, mfile *m);
-void     lprintf(int l, char *fmt, ...);
-void     cprintf(int l, mcomm *c, char *fmt, ...);
-void     fdprintf(int s, char *fmt, ...);
-int      getrid();
-void     chexit();
-void     restoreguid();
-void     mrecv_clean();
-void     msend_clean();
-void     mfdel(mfile *m);
-mfile   *mfadd(int n);
-mfile   *mfins(int n);
-mfile   *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state);
-mfile   *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state);
-mhost   *member_get(struct in_addr *addr);
-mhost   *member_add(struct in_addr *addr, mdata *recvdata);
-void     member_del(mhost *h);
-int      mrecv(int s);
-void     msend(int s, mfile *m);
-void     set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
-int      set_guid(uid_t uid, gid_t gid, gid_t *gids);
-int      set_gids(char *groups);
+/*----- report -----*/
+char *strsstate(uint8_t n);
+char *strrstate(uint8_t n);
+char *strmstate(mdata *data);
+char *stropcode(mdata *data);
+char *strackreq(mdata *data);
+void mprintf(const char *func, mfile *m);
+void lprintf(int l, char *fmt, ...);
+void cprintf(int l, mcomm *c, char *fmt, ...);
+void fdprintf(int s, char *fmt, ...);
+
+/*----- packet data access -----*/
+int data_safeget(mdata *data, void *buff, size_t size);
+int data_safeget16(mdata *data, uint16_t *buff);
+int data_safeget32(mdata *data, uint32_t *buff);
+int data_safeset(mdata *data, void *buff, size_t size);
+int data_safeset16(mdata *data, uint16_t val);
+int data_safeset32(mdata *data, uint32_t val);
+
+/*----- file object operation -----*/
+void mfdel(mfile *m);
+mfile *mfadd(int n);
+mfile *mfins(int n);
+mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state);
+mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state);
+
+/*----- exclude functions -----*/
+excludeitem *exclude_add(excludeitem *exclude, char *pattern);  /* add list */
+excludeitem *exclude_del(excludeitem *e);                       /* del list */
+excludeitem *mfnmatch(char *str, excludeitem *exclude);         /* is match */
+int isexclude(char *fn, excludeitem *exclude, int dir);         /*          */
+
+/*----- filesystem operation -----*/
+int statcmp(struct stat *s1, struct stat *s2);
+int mremove(char *base, char *name);
+int mcreatedir(char  *base, char *name, mode_t mode);
+int mcreatefile(char *base, char *name, mode_t mode);
+int mcreatelink(char *base, char *name, char *link);
+void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
+
+/*----- uid/gid -----*/
+int set_guid(uid_t uid, gid_t gid, gid_t *gids);
+int set_gids(char *groups);
+
+/*----- node operation -----*/
+void   member_del(mhost *h);
+mhost *member_get(struct in_addr *addr);
+mhost *member_add(struct in_addr *addr, mdata *recvdata);
+
+/*----- mark operation -----*/
 mmark   *delmark(mmark *mm);
 uint32_t seq_getmark(mfile *m);
 void     seq_setmark(mfile *m, uint32_t lseq, uint32_t useq);
 void     seq_addmark(mfile *m, uint32_t lseq, uint32_t useq);
 int      seq_delmark(mfile *m, uint32_t seq);
-int      linkcmp(mfile *m);
-int      statcmp(struct stat *s1, struct stat *s2);
-int      mremove(char *base, char *name);
-int      mcreatedir(char  *base, char *name, mode_t mode);
-int      mcreatefile(char *base, char *name, mode_t mode);
-int      mcreatelink(char *base, char *name, char *link);
-int      space_escape(char *str);
-int      workend(mcomm *c);
+
+/*----- status operation -----*/
+int      ack_clear(mfile *m, int state);
+int      ack_check(mfile *m, int state);
 void     clr_hoststate(mfile *m);
 uint8_t *get_hoststate(mhost *t, mfile *m);
 uint8_t *set_hoststate(mhost *t, mfile *m, uint8_t state);
-int      ack_clear(mfile *m, int state);
-int      ack_check(mfile *m, int state);
-int      mtimeget(struct timeval *tv);
-int      mtimeout(struct timeval *tf, uint32_t msec);
-int      data_safeget(mdata *data, void *buff, size_t size);
-int      data_safeget16(mdata *data, uint16_t *buff);
-int      data_safeget32(mdata *data, uint32_t *buff);
-int      data_safeset(mdata *data, void *buff, size_t size);
-int      data_safeset16(mdata *data, uint16_t val);
-int      data_safeset32(mdata *data, uint32_t val);
-int      isexclude(char *fn, excludeitem *exclude, int dir);
-excludeitem *exclude_add(excludeitem *exclude, char *pattern);
-excludeitem *exclude_del(excludeitem *e);
-excludeitem *mfnmatch(char *str, excludeitem *exclude);
+
+/*----- send/receive -----*/
+void mrecv_clean();
+void msend_clean();
+int  mrecv(int s);
+void msend(int s, mfile *m);
+
+/*----- other -----*/
+int getrid();
+int linkcmp(mfile *m);
+int space_escape(char *str);
+int workend(mcomm *c);
+int mtimeget(struct timeval *tv);
+int mtimeout(struct timeval *tf, uint32_t msec);
+
 

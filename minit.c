@@ -535,7 +535,7 @@ static void minit_bootlog()
 
 /*
  *  まくお初期化関数
- *  main関数から呼び出される
+ *  mainから呼び出される
  */
 void minit(int argc, char *argv[])
 {

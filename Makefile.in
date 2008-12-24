@@ -51,8 +51,8 @@ binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS) $(sbin_PROGRAMS)
 am_makuosan_OBJECTS = makuosan.$(OBJEXT) common.$(OBJEXT) \
-	mexec.$(OBJEXT) minit.$(OBJEXT) mrecv.$(OBJEXT) \
-	msend.$(OBJEXT)
+	mexec.$(OBJEXT) minit.$(OBJEXT) mexit.$(OBJEXT) \
+	mrecv.$(OBJEXT) msend.$(OBJEXT)
 makuosan_OBJECTS = $(am_makuosan_OBJECTS)
 makuosan_LDADD = $(LDADD)
 am_msync_OBJECTS = msync.$(OBJEXT)
@@ -165,7 +165,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-makuosan_SOURCES = makuosan.c common.c mexec.c minit.c mrecv.c msend.c makuosan.h
+makuosan_SOURCES = makuosan.c common.c mexec.c minit.c mexit.c mrecv.c msend.c makuosan.h
 msync_SOURCES = msync.c 
 EXTRA_DIST = support
 all: config.h
@@ -285,6 +285,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mexec.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mexit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mrecv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msend.Po@am__quote@
