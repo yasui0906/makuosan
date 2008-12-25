@@ -295,6 +295,7 @@ int mexec_help(mcomm *c, int n)
 
 int mexec_send(mcomm *c, int n, int sync)
 {
+  int e;
   int i;
   int j;
   ssize_t size;
@@ -419,26 +420,15 @@ int mexec_send(mcomm *c, int n, int sync)
   }
 
 	if(lstat(fn, &m->fs) == -1){
-    if(errno == ENOENT){
+    e = errno;
+    if(e == ENOENT){
       if(sync){
         m->mdata.head.flags |= MAKUO_FLAG_SYNC;
         return(0);
       }      
     }
-	  cprintf(0, c, "error: file not found %s\n", fn);
-		lprintf(1, "%s: lstat() error argc=%d cmd=%s\n",
-      __func__, 
-      c->argc[n], 
-      c->cmdline[n]);
-    for(i=0;i<c->argc[n];i++){
-		  lprintf(1, "%s: read error argv[%d]=%s\n",
-        __func__, 
-        i, 
-        c->parse[n][i]);
-    }
-		lprintf(0, "%s: read error file=%s\n", 
-      __func__, 
-      fn);
+	  cprintf(0, c, "error: %s %s\n", strerror(e), fn);
+		lprintf(0, "%s: %s %s\n", __func__, strerror(e), fn);
 		mfdel(m);
     return(0);
 	}

@@ -8,19 +8,21 @@ void recv_timeout(mfile *m)
 {
   mhost   *t;
   uint8_t *r;
-  if(m){
-    m->retrycnt = MAKUO_SEND_RETRYCNT;
-    do{
-      for(t=members;t;t=t->next){
-        r = get_hoststate(t, m);
-        if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s: %s(%s) timeout\n", __func__, inet_ntoa(t->ad), t->hostname);
-          member_del(t);
-          break;
-        }
-      }
-    }while(t); 
+  if(!m){
+    return;
   }
+  m->retrycnt = MAKUO_SEND_RETRYCNT;
+  do{
+    for(t=members;t;t=t->next){
+      r = get_hoststate(t, m);
+      if(*r == MAKUO_RECVSTATE_NONE){
+        lprintf(0, "%s: %s(%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
+        member_del_message(t, "receive time out");
+        member_del(t);
+        break;
+      }
+    }
+  }while(t); 
 }
 
 struct timeval *pingpong(int n)
@@ -210,7 +212,6 @@ int ismsend(int s, mfile *m, int flag)
   return(1);
 }
 
-/***** main loop *****/
 void mloop()
 {
   int para;
@@ -220,8 +221,11 @@ void mloop()
   fd_set wfds;
   struct timeval *lastpong;
   struct timeval tv;
-  
+
+  /* multicast ping request */  
   lastpong = pingpong(0);
+
+  /* main loop */
   while(loop_flag){
     gettimeofday(&curtime, NULL);
     if(mtimeout(lastpong, MAKUO_PONG_INTERVAL)){
@@ -264,13 +268,16 @@ void mloop()
     }
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
-    if(select(1024, &rfds, &wfds, NULL, &tv) == -1)
+    if(select(1024, &rfds, &wfds, NULL, &tv) == -1){
       continue;
+    }
     mcomm_accept(moption.comm, &rfds, moption.lisocket); /* new console  */
     mcomm_read(moption.comm, &rfds);                     /* command exec */
     mrecv_gc();
   }
-  pingpong(2); /* exit notify */
+
+  /* shutdown notify */
+  pingpong(2);
   msend(moption.mcsocket, mftop[0]);
 }
 

@@ -405,8 +405,12 @@ static void mrecv_req_ping(mdata *data, struct sockaddr_in *addr)
 }
 
 static void mrecv_req_exit(mdata *data, struct sockaddr_in *addr)
-{
+{ 
   mhost *t = member_get(&(addr->sin_addr));
+  if(!t){
+    return;
+  }
+  member_del_message(t, "member exit");
   member_del(t);
 }
 
@@ -1323,6 +1327,7 @@ void mrecv_gc()
       t = t->next;
     }else{
       lprintf(0,"%s: pong timeout %s\n", __func__, t->hostname);
+      member_del_message(t, "pong time out");
       if(t->next){
         t = t->next;
         member_del(t->prev);
@@ -1342,10 +1347,14 @@ void mrecv_clean()
 
 int mrecv(int s)
 {
+  mhost *t;
   mdata  data;
   struct sockaddr_in addr;
   if(mrecv_packet(s, &data, &addr) == -1){
     return(0);
+  }
+  if(t=member_get(&addr.sin_addr)){
+    mtimeget(&t->lastrecv);
   }
   if(data.head.flags & MAKUO_FLAG_ACK){
     mrecv_ack(&data, &addr);

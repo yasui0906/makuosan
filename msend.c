@@ -408,6 +408,7 @@ static void msend_req_send_stat(int s, mfile *m)
 
 static void msend_req_send_open_init(int s, mfile *m)
 {
+  int e;
   m->sendwait  = 1;
   m->initstate = 0;
   ack_clear(m, MAKUO_RECVSTATE_UPDATE);
@@ -420,12 +421,13 @@ static void msend_req_send_open_init(int s, mfile *m)
     if(m->fd != -1){
       msend_packet(s, &(m->mdata), &(m->addr));
     }else{
+      e = errno;
       m->sendwait  = 0;
       m->initstate = 1;
       m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
-      cprintf(0, m->comm, "error: can't open (%s) %s\n", strerror(errno), m->fn);
-      lprintf(0, "%s: can't open (%s) %s\n", __func__,   strerror(errno), m->fn);
+      cprintf(0, m->comm, "error: %s %s\n", strerror(e), m->fn);
+      lprintf(0, "%s: %s %s\n", __func__,   strerror(e), m->fn);
     }
   }
 }
@@ -618,6 +620,14 @@ static void msend_req_send_last(int s, mfile *m)
   }
   if(m->sendwait){
     msend_packet(s, &(m->mdata), &(m->addr));
+    return;
+  }
+  if(ack_check(m, MAKUO_RECVSTATE_SKIP) == 1){
+    msend_req_send_last_init(s, m);
+    return;
+  }
+  if(ack_check(m, MAKUO_RECVSTATE_CLOSE) == 1){
+    msend_req_send_last_init(s, m);
     return;
   }
   msend_mfdel(m);

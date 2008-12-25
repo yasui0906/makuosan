@@ -55,8 +55,8 @@
 /*----- timeout -----*/
 #define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
-#define MAKUO_PONG_TIMEOUT  180000 /* メンバから除外するまでの時間(ms)             */
-#define MAKUO_PONG_INTERVAL 45000  /* PING送信間隔(ms)                             */
+#define MAKUO_PONG_TIMEOUT  300000 /* メンバから除外するまでの時間(ms)             */
+#define MAKUO_PONG_INTERVAL 45000  /* PONG送信間隔(ms)                             */
 #define MAKUO_RECV_GCWAIT   180000 /* 消し損ねたオブジェクトを開放する待ち時間(ms) */
 
 /*----- operation -----*/
@@ -105,9 +105,9 @@
 #define MAKUO_RECVSTATE_CLOSEERROR 93
 
 /*----- mexec mode -----*/
-#define MAKUO_MEXEC_SEND  0
-#define MAKUO_MEXEC_DRY   1
-#define MAKUO_MEXEC_MD5   2
+#define MAKUO_MEXEC_SEND 0
+#define MAKUO_MEXEC_DRY  1
+#define MAKUO_MEXEC_MD5  2
 
 /*----- struct -----*/
 typedef struct
@@ -313,6 +313,7 @@ excludeitem *mfnmatch(char *str, excludeitem *exclude);         /* is match */
 int isexclude(char *fn, excludeitem *exclude, int dir);         /*          */
 
 /*----- filesystem operation -----*/
+int linkcmp(mfile *m);
 int statcmp(struct stat *s1, struct stat *s2);
 int mremove(char *base, char *name);
 int mcreatedir(char  *base, char *name, mode_t mode);
@@ -324,10 +325,11 @@ void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
 int set_guid(uid_t uid, gid_t gid, gid_t *gids);
 int set_gids(char *groups);
 
-/*----- node operation -----*/
+/*----- member operation -----*/
 void   member_del(mhost *h);
 mhost *member_get(struct in_addr *addr);
 mhost *member_add(struct in_addr *addr, mdata *recvdata);
+void   member_del_message(mhost *t, char *mess);
 
 /*----- mark operation -----*/
 mmark   *delmark(mmark *mm);
@@ -349,12 +351,12 @@ void msend_clean();
 int  mrecv(int s);
 void msend(int s, mfile *m);
 
-/*----- other -----*/
-int getrid();
-int linkcmp(mfile *m);
-int space_escape(char *str);
-int workend(mcomm *c);
+/*----- time -----*/
 int mtimeget(struct timeval *tv);
 int mtimeout(struct timeval *tf, uint32_t msec);
 
+/*----- other -----*/
+uint32_t getrid();
+int space_escape(char *str);
+int workend(mcomm *c);
 

@@ -56,6 +56,7 @@ char *rstatestrlist[] = {"RECV_NONE    ",
                          "RECV_IGNORE  ",
                          "RECV_READONLY",
                          "RECV_BREAK   ",
+                         "RECV_LAST    ",
                          "RECV_MD5OK   ",
                          "RECV_MD5NG   ",
                          "RECV_DELETEOK",
@@ -75,6 +76,7 @@ uint8_t rstatenumlist[]={MAKUO_RECVSTATE_NONE,
                          MAKUO_RECVSTATE_IGNORE,
                          MAKUO_RECVSTATE_READONLY,
                          MAKUO_RECVSTATE_BREAK,
+                         MAKUO_RECVSTATE_LAST,
                          MAKUO_RECVSTATE_MD5OK,
                          MAKUO_RECVSTATE_MD5NG,
                          MAKUO_RECVSTATE_DELETEOK,
@@ -292,9 +294,9 @@ void mprintf(const char *func, mfile *m)
     m->fn);
 }
 
-int getrid()
+uint32_t getrid()
 {
-  static int rid=0;
+  static uint32_t rid=0;
   return(rid++);
 }
 
@@ -435,16 +437,33 @@ void member_del(mhost *t)
 {
   mhost *p;
   mhost *n;
-  if(!t)
+  if(!t){
     return;
+  }
   lprintf(0, "%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
-  if(p = (mhost *)t->prev)
+  if(p = (mhost *)t->prev){
     p->next = t->next;
-  if(n = (mhost *)t->next)
+  }
+  if(n = (mhost *)t->next){
     n->prev = t->prev;
-  if(members == t)
+  }
+  if(members == t){
     members = n;
+  }
   free(t);
+}
+
+void member_del_message(mhost *t, char *mess)
+{
+  int i;
+  for(i=0;i<MAX_COMM;i++){
+    if(moption.comm[i].working){
+      cprintf(0, &(moption.comm[i]), "error: %s %s(%s)\n", 
+        mess, 
+        inet_ntoa(t->ad), 
+        t->hostname);
+    }
+  }
 }
 
 mmark *markalloc()
