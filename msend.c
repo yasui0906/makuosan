@@ -1096,9 +1096,9 @@ void msend(int s, mfile *m)
   }
   mtimeget(&m->lastsend);
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-    msend_ack(s, m); /* source node task */
+    msend_ack(s, m); 
   }else{
-    msend_req(s, m); /* destination node task */
+    msend_req(s, m); 
   }
 }
 

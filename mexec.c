@@ -481,6 +481,7 @@ int mexec_send(mcomm *c, int n, int sync)
 
 int mexec_check(mcomm *c, int n)
 {
+  int e;
   int i;
   int r;
   ssize_t size;
@@ -556,8 +557,9 @@ int mexec_check(mcomm *c, int n)
   /*----- open -----*/
   m->fd = open(m->fn, O_RDONLY);
   if(m->fd == -1){
-	  lprintf(0, "%s: file open error (%s) %s\n", __func__, strerror(errno), m->fn);
-    cprintf(0, c, "error: file open error (%s) %s\n", strerror(errno), m->fn);
+    e = errno;
+	  lprintf(0, "%s: %s %s\n", __func__, strerror(e), m->fn);
+    cprintf(0, c, "error: %s %s\n", strerror(e), m->fn);
     mfdel(m);
     return(0);
   }
@@ -569,8 +571,9 @@ int mexec_check(mcomm *c, int n)
   close(m->fd);
   m->fd = -1;
   if(r == -1){
-	  lprintf(0, "%s: file read error (%s) %s\n", __func__, strerror(errno), m->fn);
-    cprintf(0, c, "error: file read error (%s) %s\n", strerror(errno), m->fn);
+    e = errno; 
+	  lprintf(0, "%s: %s %s\n", __func__, strerror(e), m->fn);
+    cprintf(0, c, "error: %s %s\n",     strerror(e), m->fn);
     mfdel(m);
     return(0);
   }

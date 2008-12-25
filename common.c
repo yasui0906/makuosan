@@ -456,12 +456,13 @@ void member_del(mhost *t)
 void member_del_message(mhost *t, char *mess)
 {
   int i;
+  if(!t || !mess){
+    return;
+  }
   for(i=0;i<MAX_COMM;i++){
     if(moption.comm[i].working){
       cprintf(0, &(moption.comm[i]), "error: %s %s(%s)\n", 
-        mess, 
-        inet_ntoa(t->ad), 
-        t->hostname);
+        mess, inet_ntoa(t->ad), t->hostname);
     }
   }
 }
@@ -470,7 +471,6 @@ mmark *markalloc()
 {
   mmark *mm = calloc(1, sizeof(mmark));
   return(mm);
-
 }
 
 void markfree(mmark *mm)
@@ -512,22 +512,11 @@ mmark *delmark(mmark *mm)
 
 void seq_addmark(mfile *m, uint32_t l, uint32_t h)
 {
-  mmark *mm;
-  if(!m){
-    return;
-  }
-  if(h == l){
+  if(!m || (h == l)){
     return;
   }
   m->markcount += (h - l);
   m->mark = addmark(m->mark, l, h);
-
-  int c=0;
-  for(mm=m->mark;mm;mm=mm->next){
-    c++;
-  }
-  lprintf(9, "%s: %06d->%06d (%d) markcount=%d marklist=%d %s\n", __func__, l, h, h - l, m->markcount, c, m->fn);
-  return;
 }
 
 int seq_delmark(mfile *m, uint32_t seq)
@@ -535,6 +524,7 @@ int seq_delmark(mfile *m, uint32_t seq)
   uint32_t l;
   uint32_t h;
   mmark  *mm;
+
   if(!m){
     return(0);
   }
@@ -612,7 +602,6 @@ void seq_setmark(mfile *m, uint32_t l, uint32_t h)
   for(mm=m->mark;mm;mm=mm->next){
     m->markcount += (mm->h - mm->l);
   }
-  lprintf(9, "%s: %06d->%06d (%d) rid=%d %s\n", __func__, l, h, h - l, m->mdata.head.reqid, m->fn);
 }
 
 uint32_t seq_getmark(mfile *m)
@@ -739,9 +728,7 @@ int ack_check(mfile *m, int state)
       s = get_hoststate(t,m);
       if(!s){
         lprintf(0,"%s: can't get state area host=%s fn=%s\n", 
-          __func__,
-          t->hostname, 
-          m->fn);
+          __func__, t->hostname, m->fn);
       }else{
         if(*s == state){
           return(1);
@@ -752,9 +739,7 @@ int ack_check(mfile *m, int state)
         s = get_hoststate(t,m);
         if(!s){
           lprintf(0,"%s: can't get state area host=%s fn=%s\n", 
-            __func__,
-            t->hostname, 
-            m->fn);
+            __func__, t->hostname, m->fn);
         }else{
           if(*s == state){
             return(1);
@@ -765,8 +750,9 @@ int ack_check(mfile *m, int state)
       }
     }
   }
-  if(m->sendto)
+  if(m->sendto){
     return(-1);
+  }
   return(0);
 }
 
@@ -821,16 +807,18 @@ int statcmp(struct stat *s1, struct stat *s2)
 int is_dir(char *path)
 {
   struct stat mstat;
-  if(!lstat(path,&mstat))
+  if(!lstat(path,&mstat)){
     return(S_ISDIR(mstat.st_mode));
+  }
   return(0);
 }
 
 int is_reg(char *path)
 {
   struct stat mstat;
-  if(!lstat(path,&mstat))
+  if(!lstat(path,&mstat)){
     return(S_ISREG(mstat.st_mode));
+  }
   return(0);
 }
 
@@ -860,6 +848,7 @@ int set_guid(uid_t uid, gid_t gid, gid_t *gids)
       return(-1);
     }
   }
+
   /*----- setuid -----*/
   if(uid != geteuid()){
     if(seteuid(uid) == -1){

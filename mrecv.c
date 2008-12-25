@@ -142,36 +142,36 @@ static int mrecv_ack_search(mhost **lpt, mfile **lpm, mdata *data, struct sockad
   return(0);
 }
 
-static void mrecv_ack_report(mfile *m, mhost *h, mdata *data)
+static void mrecv_ack_report(mfile *m, mhost *t, mdata *data)
 {
   if(data->head.nstate == MAKUO_RECVSTATE_OPENERROR){
-    cprintf(0, m->comm, "error: can't open (%s) %s:%s\n", strerror(data->head.error), h->hostname, m->fn);
-    lprintf(0,          "%s: can't open (%s) rid=%06d %s %s:%s\n", 
+    cprintf(0, m->comm, "error: %s %s:%s\n", strerror(data->head.error), t->hostname, m->fn);
+    lprintf(0,          "%s: %s rid=%06d %s %s:%s\n", 
       __func__,
       strerror(data->head.error),
       data->head.reqid, 
       strrstate(data->head.nstate), 
-      h->hostname, 
+      t->hostname, 
       m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_WRITEERROR){
-    cprintf(0, m->comm, "error: can't write (%s) %s:%s\n", strerror(data->head.error), h->hostname, m->fn);
-    lprintf(0,          "%s: can't write (%s) rid=%06d %s %s:%s\n", 
+    cprintf(0, m->comm, "error: %s %s:%s\n", strerror(data->head.error), t->hostname, m->fn);
+    lprintf(0,          "%s: %s rid=%06d %s %s:%s\n", 
       __func__,
       strerror(data->head.error),
       data->head.reqid, 
       strrstate(data->head.nstate), 
-      h->hostname, 
+      t->hostname, 
       m->fn);
   }
   if(data->head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
-    cprintf(0, m->comm, "error: close error %s:%s\n", h->hostname, m->fn);
+    cprintf(0, m->comm, "error: close error %s:%s\n", t->hostname, m->fn);
     lprintf(0,          "%s: close error rid=%06d %s %s:%s\n", 
       __func__,
       strerror(data->head.error),
       data->head.reqid, 
       strrstate(data->head.nstate), 
-      h->hostname, 
+      t->hostname, 
       m->fn);
   }
 }
@@ -461,8 +461,9 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
   char fpath[PATH_MAX];
   char tpath[PATH_MAX];
 
-  if(m->mdata.head.nstate != MAKUO_RECVSTATE_UPDATE)
+  if(m->mdata.head.nstate != MAKUO_RECVSTATE_UPDATE){
     return;
+  }
 
   mtempname(moption.base_dir, m->fn, m->tn);
   sprintf(fpath, "%s/%s", moption.base_dir, m->fn);
@@ -497,7 +498,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
       if(m->fd != -1){
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
       }else{
-        lprintf(0, "%s: open error %s\n", __func__, m->fn);
+        lprintf(0, "%s: %s %s\n", __func__, strerror(errno), m->fn);
         m->mdata.head.error = errno;
       }
     }
@@ -506,7 +507,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
         set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
-        lprintf(0, "%s: can't create character device %s\n", __func__, m->fn);
+        lprintf(0, "%s: %s %s\n", __func__, strerror(errno), m->fn);
         m->mdata.head.error = errno;
       }
     }
@@ -515,7 +516,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
         set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
-        lprintf(0, "%s: can't create block device %s\n", __func__, m->fn);
+        lprintf(0, "%s: %s %s\n", __func__, strerror(errno), m->fn);
         m->mdata.head.error = errno;
       }
     }
@@ -524,7 +525,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
         m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
         set_filestat(tpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
       }else{
-        lprintf(0, "%s: can't create fifo %s\n", __func__, m->fn);
+        lprintf(0, "%s: %s %s\n", __func__, strerror(errno), m->fn);
         m->mdata.head.error = errno;
       }
     }
@@ -583,7 +584,8 @@ static void mrecv_req_send_data_write(mfile *m, mdata *r)
   offset = r->head.seqno;
   offset *= MAKUO_BUFFER_SIZE;
   if(lseek(m->fd, offset, SEEK_SET) == -1){
-    lprintf(0, "%s: seek error seq=%d size=%d fd=%d err=%d\n", __func__, (int)r->head.seqno, r->head.szdata, m->fd, errno);
+    lprintf(0, "%s: seek error (%s) seq=%u\n",
+      __func__, strerror(errno), (int)(r->head.seqno));
     m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
     mrecv_req_send_data_write_error(m, r);
@@ -778,6 +780,10 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   uint32_t  hdev;
   uint64_t  rdev;
 
+  if(m = mrecv_req_search(data, addr)){
+    return(m);
+  }
+
   if(data->head.nstate != MAKUO_SENDSTATE_STAT){
     return(NULL);
   }
@@ -832,12 +838,9 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
 {
-  mfile *m = mrecv_req_search(data, addr); 
+  mfile *m;
 
-  if(!m){
-    m = mrecv_req_send_create(data, addr);
-  }
-  if(m){
+  if(m = mrecv_req_send_create(data, addr)){
     mtimeget(&(m->lastrecv));
     mrecv_req_send_next(m, data);
   }else{
@@ -1312,9 +1315,7 @@ void mrecv_gc()
   while(m){
     if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
       lprintf(0,"%s: mfile object GC state=%s %s\n",
-        __func__, 
-        strrstate(m->mdata.head.nstate), 
-        m->fn);
+        __func__, strrstate(m->mdata.head.nstate), m->fn);
       m = mrecv_mfdel(m);
       continue;
     }
@@ -1347,14 +1348,10 @@ void mrecv_clean()
 
 int mrecv(int s)
 {
-  mhost *t;
   mdata  data;
   struct sockaddr_in addr;
   if(mrecv_packet(s, &data, &addr) == -1){
     return(0);
-  }
-  if(t=member_get(&addr.sin_addr)){
-    mtimeget(&t->lastrecv);
   }
   if(data.head.flags & MAKUO_FLAG_ACK){
     mrecv_ack(&data, &addr);
