@@ -890,16 +890,12 @@ static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
     }
   }
   mtimeget(&(m->lastrecv));
-  if(!mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate)){
-    lprintf(0,"%s: out of memory\n", __func__);
-  }
+  mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate);
 }
 
 static void mrecv_req_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
-  if(!mkack(data, addr, MAKUO_RECVSTATE_CLOSE)){
-    lprintf(0,"%s: out of memory\n", __func__);
-  }
+  mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
   mrecv_mfdel(m);
 }
 
@@ -1253,9 +1249,6 @@ static void mrecv_req_del_close(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m = mrecv_req_search(data, addr);
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
-  if(!m){
-    return;
-  }
   mrecv_mfdel(m);
 }
 
@@ -1348,10 +1341,14 @@ void mrecv_clean()
 
 int mrecv(int s)
 {
+  mhost *t;
   mdata  data;
   struct sockaddr_in addr;
   if(mrecv_packet(s, &data, &addr) == -1){
     return(0);
+  }
+  if(t = member_get(&addr.sin_addr)){
+    mtimeget(&(t->lastrecv));
   }
   if(data.head.flags & MAKUO_FLAG_ACK){
     mrecv_ack(&data, &addr);
