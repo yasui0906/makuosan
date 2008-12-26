@@ -58,8 +58,8 @@ excludeitem *add_exclude(char *pattern)
   excludeitem *item = malloc(sizeof(excludeitem));
   item->pattern = malloc(strlen(pattern) + 1);
   strcpy(item->pattern, pattern);
-  item->prev    = NULL;
-  item->next    = NULL;
+  item->prev = NULL;
+  item->next = NULL;
   if(exclude){
     exclude->prev = item;
     item->next = exclude;

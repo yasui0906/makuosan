@@ -6,6 +6,7 @@
 
 mopt moption;
 mfile *mftop[2] = {NULL,NULL};
+mfile *mfreeobj = NULL;
 mhost *members  = NULL;
 int loop_flag   = 1;
 struct timeval curtime;
@@ -316,6 +317,23 @@ int workend(mcomm *c)
   return(0);
 }
 
+mfile *mfalloc()
+{
+  mfile *m = mfreeobj;
+  if(m){
+    mfreeobj = m->next;
+  }else{
+    m = (mfile *)malloc(sizeof(mfile));
+  }
+  return(m);
+}
+
+void mfree(mfile *m){
+  m->prev  = NULL;
+  m->next  = mfreeobj;
+  mfreeobj = m;
+}
+
 void mfdel(mfile *m)
 {
   mfile *p;
@@ -329,14 +347,14 @@ void mfdel(mfile *m)
       mftop[0] = n;
     if(mftop[1] == m)
       mftop[1] = n;
-    free(m);
+    mfree(m);
   }
 }
 
 mfile *mfnew()
 {
   mfile *m;
-  if(m = (mfile *)malloc(sizeof(mfile))){
+  if(m = mfalloc()){
     memset(m, 0, sizeof(mfile));
     m->mdata.head.maddr  = moption.maddr.sin_addr.s_addr;
     m->mdata.head.mport  = moption.maddr.sin_port;
