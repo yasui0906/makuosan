@@ -81,9 +81,11 @@ int mexec_scan_cmd(int fd, char *buff)
     if(FD_ISSET(fd,&fds)){
       r = write(fd, cmd, size);
       if(r == -1){
-        lprintf(0, "%s: commend write error! %s", 
-          __func__, 
-          buff);
+        if(errno == EINTR){
+          continue;
+        }
+        lprintf(0, "%s: commend write error (%s) %s", 
+          __func__, strerror(errno), buff);
         return(-1);
       }
       size -= r;
