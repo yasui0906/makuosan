@@ -661,36 +661,49 @@ int mexec_dsync(mcomm *c, int n)
 int mexec_members(mcomm *c, int n)
 {
   int i, j;
-  int count=0;
+  int counter = 0;
+  int namelen = 0;
+  int addrlen = 0;
   mhost *t;
   mhost **pt;
+  char form[256];
 
   /* count */
 	for(t=members;t;t=t->next){
-    count++;
+    counter++;
+    if(namelen < strlen(t->hostname)){
+      namelen = strlen(t->hostname);
+    }
+    if(addrlen < strlen(inet_ntoa(t->ad))){
+      addrlen = strlen(inet_ntoa(t->ad));
+    }
   }
+
   /* set */
   t  = members;
-  pt = malloc(sizeof(mhost *) * count);
-  for(i=0;i<count;i++){
+  pt = malloc(sizeof(mhost *) * counter);
+  for(i=0;i<counter;i++){
     pt[i] = t;
     t = t->next;
   }
+
   /* sort */
-  for(i=1;i<count;i++){
-    for(j=0;j<i;j++){
-      if(strcmp(pt[i]->hostname, pt[j]->hostname) == -1){
+  for(i=0;i<counter;i++){
+    for(j=i+1;j<counter;j++){
+      if(strcmp(pt[i]->hostname, pt[j]->hostname) > 0){
         t = pt[i];
         pt[i] = pt[j];
         pt[j] = t;
       }
     }
   }
+
   /* view */
-  for(i=0;i<count;i++){
-    cprintf(0, c, "%s: %s %s\n", pt[i]->version, pt[i]->hostname, inet_ntoa(pt[i]->ad));
+  sprintf(form, "%%-%ds %%-%ds (Ver%%s)\n", namelen, addrlen);
+  for(i=0;i<counter;i++){
+    cprintf(0, c, form, pt[i]->hostname, inet_ntoa(pt[i]->ad), pt[i]->version);
   }
-  cprintf(0, c, "Total: %d members\n", count);
+  cprintf(0, c, "Total: %d members\n", counter);
   free(pt);
   return(0);
 }
