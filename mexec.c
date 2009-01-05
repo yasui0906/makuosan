@@ -660,13 +660,38 @@ int mexec_dsync(mcomm *c, int n)
 
 int mexec_members(mcomm *c, int n)
 {
+  int i, j;
   int count=0;
-  mhost *h;
-	for(h=members;h;h=h->next){
-    cprintf(0, c, "%s: %s %s\n", h->version, h->hostname, inet_ntoa(h->ad));
+  mhost *t;
+  mhost **pt;
+
+  /* count */
+	for(t=members;t;t=t->next){
     count++;
   }
+  /* set */
+  t  = members;
+  pt = malloc(sizeof(mhost *) * count);
+  for(i=0;i<count;i++){
+    pt[i] = t;
+    t = t->next;
+  }
+  /* sort */
+  for(i=1;i<count;i++){
+    for(j=0;j<i;j++){
+      if(strcmp(pt[i]->hostname, pt[j]->hostname) == -1){
+        t = pt[i];
+        pt[i] = pt[j];
+        pt[j] = t;
+      }
+    }
+  }
+  /* view */
+  for(i=0;i<count;i++){
+    cprintf(0, c, "%s: %s %s\n", pt[i]->version, pt[i]->hostname, inet_ntoa(pt[i]->ad));
+  }
   cprintf(0, c, "Total: %d members\n", count);
+  free(pt);
   return(0);
 }
 
