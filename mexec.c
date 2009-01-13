@@ -323,7 +323,7 @@ int mexec_send(mcomm *c, int n, int sync)
   optreset = 1;
 #else
   optind = 0;
-#endif;
+#endif
   while((i=getopt(c->argc[n], argv, "g:t:nr")) != -1){
     switch(i){
       case 'n':
@@ -508,7 +508,7 @@ int mexec_check(mcomm *c, int n)
   optreset = 1;
 #else
   optind = 0;
-#endif;
+#endif
   while((i=getopt(c->argc[n], argv, "t:r")) != -1){
     switch(i){
       case 'r':
@@ -624,7 +624,7 @@ int mexec_dsync(mcomm *c, int n)
   optreset = 1;
 #else
   optind = 0;
-#endif;
+#endif
   while((i=getopt(c->argc[n], argv, "t:nr")) != -1){
     switch(i){
       case 'n':
