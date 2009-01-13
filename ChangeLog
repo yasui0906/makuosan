@@ -1,5 +1,6 @@
 1.1.3:
  - sort msync --members by hostname
+ - fix: msync failed for FreeBSD and MacOSX
 
 1.1.2:
  - fix: not send shutdown message 

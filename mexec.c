@@ -314,10 +314,16 @@ int mexec_send(mcomm *c, int n, int sync)
     cprintf(0, c, "error: this server can't send\n");
     return(0);
   }
-  for(i=0;i<c->argc[n];i++)
+  for(i=0;i<c->argc[n];i++){
     argv[i] = c->parse[n][i];
+  }
   argv[i] = NULL;
+#ifdef HAVE_GETOPT_OPTRESET
+  optind   = 1;
+  optreset = 1;
+#else
   optind = 0;
+#endif;
   while((i=getopt(c->argc[n], argv, "g:t:nr")) != -1){
     switch(i){
       case 'n':

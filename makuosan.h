@@ -273,6 +273,7 @@ extern char *optarg;
 extern int optind;
 extern int opterr;
 extern int optopt;
+extern int optreset;
 extern int loop_flag;
 extern char *tzname[2];
 extern int daylight;

@@ -1,6 +1,3 @@
-#                                               -*- Autoconf -*-
-# Process this file with autoconf to produce a configure script.
-AC_PREREQ(2.61)
 AC_INIT(makuosan, 1.1.3, info-makuosan@klab.jp)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([makuosan.c])
@@ -50,7 +47,12 @@ AC_FUNC_SELECT_ARGTYPES
 AC_FUNC_UTIME_NULL
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([ftime getcwd gethostname gettimeofday inet_ntoa memmove memset mkdir realpath rmdir select setenv socket tzset utime])
-
+AC_CACHE_CHECK([whether getopt has optreset support], ac_cv_have_getopt_optreset,[
+	AC_TRY_LINK([#include <unistd.h>], extern int optreset; optreset = 0;, [ ac_cv_have_getopt_optreset="yes" ], [ ac_cv_have_getopt_optreset="no" ])
+])
+if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
+	AC_DEFINE(HAVE_GETOPT_OPTRESET, 1, [getopt has optreset support])
+fi
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
