@@ -503,7 +503,12 @@ int mexec_check(mcomm *c, int n)
   for(i=0;i<c->argc[n];i++)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
+#ifdef HAVE_GETOPT_OPTRESET
+  optind   = 1;
+  optreset = 1;
+#else
   optind = 0;
+#endif;
   while((i=getopt(c->argc[n], argv, "t:r")) != -1){
     switch(i){
       case 'r':
@@ -614,7 +619,12 @@ int mexec_dsync(mcomm *c, int n)
   for(i=0;i<c->argc[n];i++)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
+#ifdef HAVE_GETOPT_OPTRESET
+  optind   = 1;
+  optreset = 1;
+#else
   optind = 0;
+#endif;
   while((i=getopt(c->argc[n], argv, "t:nr")) != -1){
     switch(i){
       case 'n':
