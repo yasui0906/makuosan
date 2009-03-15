@@ -39,7 +39,7 @@ static int mrecv_decrypt(mdata *data, struct sockaddr_in *addr)
 
   if(data->head.flags & MAKUO_FLAG_CRYPT){
     if(!moption.cryptena){
-      lprintf(0, "%s: encrypt packet from %s. I have not key!\n", __func__, inet_ntoa(addr->sin_addr));
+      lprintf(0, "%s: [warn] encrypt packet from %s. I have not key!\n", __func__, inet_ntoa(addr->sin_addr));
       return(-1);
     }
     if(data->head.szdata){
@@ -50,13 +50,13 @@ static int mrecv_decrypt(mdata *data, struct sockaddr_in *addr)
       MD5_Update(&ctx, data->data, data->head.szdata);
       MD5_Final(hash, &ctx);
       if(memcmp(hash,data->head.hash,16)){
-        lprintf(0, "%s: protocol checksum error from %s\n", __func__, inet_ntoa(addr->sin_addr));
+        lprintf(0, "[error] %s: protocol checksum error from %s\n", __func__, inet_ntoa(addr->sin_addr));
         return(-1);
       }
     }
   }else{
     if(moption.cryptena){
-      lprintf(0, "%s: not encrypt packet from %s. I have key!\n", __func__, inet_ntoa(addr->sin_addr));
+      lprintf(0, "%s: [warn] not encrypt packet from %s. I have key!\n", __func__, inet_ntoa(addr->sin_addr));
       return(-1);
     }
   }
@@ -81,12 +81,12 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
       if(errno == EINTR){
         continue;
       }else{
-        lprintf(0, "%s: recv error from %s\n", __func__, inet_ntoa(addr->sin_addr));
+        lprintf(0, "[error] %s: %s recv error\n", __func__, strerror(errno));
         return(-1);
       }
     }
     if(recvsize < sizeof(data->head)){
-      lprintf(0, "%s: recv head size error\n", __func__);
+      lprintf(0, "[error] %s: recv head size error from %s\n", __func__, inet_ntoa(addr->sin_addr));
       return(-1);
     }
     data->head.szdata = ntohs(data->head.szdata);
@@ -146,7 +146,7 @@ static void mrecv_ack_report(mfile *m, mhost *t, mdata *data)
 {
   if(data->head.nstate == MAKUO_RECVSTATE_OPENERROR){
     cprintf(0, m->comm, "error: %s %s:%s\n", strerror(data->head.error), t->hostname, m->fn);
-    lprintf(0,          "%s: %s rid=%06d %s %s:%s\n", 
+    lprintf(0, "[error] %s: %s rid=%06d %s %s:%s\n", 
       __func__,
       strerror(data->head.error),
       data->head.reqid, 
@@ -156,7 +156,7 @@ static void mrecv_ack_report(mfile *m, mhost *t, mdata *data)
   }
   if(data->head.nstate == MAKUO_RECVSTATE_WRITEERROR){
     cprintf(0, m->comm, "error: %s %s:%s\n", strerror(data->head.error), t->hostname, m->fn);
-    lprintf(0,          "%s: %s rid=%06d %s %s:%s\n", 
+    lprintf(0, "[error] %s: %s rid=%06d %s %s:%s\n", 
       __func__,
       strerror(data->head.error),
       data->head.reqid, 
@@ -166,7 +166,7 @@ static void mrecv_ack_report(mfile *m, mhost *t, mdata *data)
   }
   if(data->head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
     cprintf(0, m->comm, "error: close error %s:%s\n", t->hostname, m->fn);
-    lprintf(0,          "%s: close error rid=%06d %s %s:%s\n", 
+    lprintf(0, "[error] %s: close error rid=%06d %s %s:%s\n", 
       __func__,
       strerror(data->head.error),
       data->head.reqid, 
@@ -416,7 +416,7 @@ static void mrecv_req_exit(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_send_break(mfile *m, mdata *r)
 {
-  mkack(r, &(m->addr), MAKUO_RECVSTATE_IGNORE);
+  msend(mkack(r, &(m->addr), MAKUO_RECVSTATE_IGNORE));
   mrecv_mfdel(m);
 }
 
@@ -453,7 +453,7 @@ static void mrecv_req_send_stat(mfile *m, mdata *r)
       }
     }
   }
-  mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate); 
+  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
 }
 
 static void mrecv_req_send_open(mfile *m, mdata *r)
@@ -530,10 +530,7 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
       }
     }
   }
-  if(!mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate)){
-    lprintf(0, "%s: out of momory\n", __func__);
-    return;
-  }
+  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
 }
 
 static void mrecv_req_send_mark(mfile *m, mdata *r)
@@ -566,13 +563,12 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
       break;
     }
   }
+  msend(a);
 }
 
 static void mrecv_req_send_data_write_error(mfile *m, mdata *r)
 {
-  if(!mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate)){
-    lprintf(0, "%s: out of momory\n", __func__);
-  }
+  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
 }
 
 static void mrecv_req_send_data_write(mfile *m, mdata *r)
@@ -628,6 +624,7 @@ static void mrecv_req_send_data_retry(mfile *m, mdata *r)
       break;
     }
   }
+  msend(a);
 }
 
 static void mrecv_req_send_data(mfile *m, mdata *r)
@@ -726,14 +723,12 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
       return;
   }
 
-  if(!mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate)){
-    lprintf(0, "%s: out of memory\n", __func__);
-  }
+  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
 }
 
 static void mrecv_req_send_last(mfile *m, mdata *r)
 {
-  mkack(r, &(m->addr), MAKUO_RECVSTATE_LAST);
+  msend(mkack(r, &(m->addr), MAKUO_RECVSTATE_LAST));
   mrecv_mfdel(m);
 }
 
@@ -1339,12 +1334,15 @@ void mrecv_clean()
   while(m=mrecv_mfdel(m));
 }
 
-int mrecv(int s)
+int mrecv()
 {
+  mfile *m;
   mhost *t;
-  mdata  data;
+  mdata data;
   struct sockaddr_in addr;
-  if(mrecv_packet(s, &data, &addr) == -1){
+
+  m = mftop[0];
+  if(mrecv_packet(moption.mcsocket, &data, &addr) == -1){
     return(0);
   }
   if(t = member_get(&addr.sin_addr)){
@@ -1355,6 +1353,6 @@ int mrecv(int s)
   }else{
     mrecv_req(&data, &addr);
   }
-  return(1);
+  return(m == mftop[0]);
 }
 

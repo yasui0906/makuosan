@@ -53,7 +53,7 @@
 #define MAKUO_MCAST_PORT  5000
 
 /*----- timeout -----*/
-#define MAKUO_SEND_TIMEOUT  500    /* 再送間隔(ms)                                 */
+#define MAKUO_SEND_TIMEOUT  501    /* 再送間隔(ms)                                 */
 #define MAKUO_SEND_RETRYCNT 120    /* 再送回数                                     */
 #define MAKUO_PONG_TIMEOUT  300000 /* メンバから除外するまでの時間(ms)             */
 #define MAKUO_PONG_INTERVAL 45000  /* PONG送信間隔(ms)                             */
@@ -251,6 +251,7 @@ typedef struct
   int commpass;
   int ownmatch;
   int parallel;
+  int sendready;
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;
@@ -349,8 +350,8 @@ uint8_t *set_hoststate(mhost *t, mfile *m, uint8_t state);
 /*----- send/receive -----*/
 void mrecv_clean();
 void msend_clean();
-int  mrecv(int s);
-void msend(int s, mfile *m);
+int  mrecv();
+void msend(mfile *m);
 
 /*----- time -----*/
 int mtimeget(struct timeval *tv);

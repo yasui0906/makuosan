@@ -32,9 +32,10 @@ struct timeval *pingpong(int n)
   mping *p = NULL;
   char buff[MAKUO_HOSTNAME_MAX + 1];
 
+  gettimeofday(&tv, NULL);
   if(!m){
     lprintf(0, "%s: out of memmory\r\n", __func__);
-    return(0);
+    return(&tv);
   }
   switch(n){
     case 0:
@@ -66,7 +67,6 @@ struct timeval *pingpong(int n)
   m->mdata.p += p->versionlen;
   p->hostnamelen = htons(p->hostnamelen);
   p->versionlen  = htons(p->versionlen);
-  gettimeofday(&tv,NULL);
   return(&tv);
 }
 
@@ -130,8 +130,9 @@ int mcomm_fdset(mcomm *c, fd_set *fds)
   int i;
 
   /*----- listen socket -----*/
-  if(moption.lisocket != -1)
+  if(moption.lisocket != -1){
     FD_SET(moption.lisocket, fds);
+  }
 
   /*----- connect socket -----*/
   for(i=0;i<MAX_COMM;i++){
@@ -179,7 +180,7 @@ int mfdirchk(mfile *d){
   return(1);
 }
 
-int ismsend(int s, mfile *m, int flag)
+int ismsend(mfile *m, int flag)
 {
   int r;
   if(!m){
@@ -207,7 +208,7 @@ int ismsend(int s, mfile *m, int flag)
     }
   }
   if(flag){
-    msend(s, m);
+    msend(m);
   }
   return(1);
 }
@@ -233,19 +234,14 @@ void mloop()
     }
 
     /* udp packet receive */
-    m = mftop[0];
-    while(mrecv(moption.mcsocket)){
-      if(m != mftop[0]){
-        break;
-      }
-    }
+    while(mrecv());
 
     /* udp packet send */
     para = 0;
     m = mftop[0];
     while(m){
       n = m->next;
-      para += ismsend(moption.mcsocket, m, 1);
+      para += ismsend(m, 1);
       m = n;
       if(para == moption.parallel){
         break;
@@ -261,7 +257,7 @@ void mloop()
     FD_SET(moption.mcsocket,  &rfds);
     mcomm_fdset(moption.comm, &rfds);
     for(m=mftop[0];m;m=m->next){
-      if(ismsend(moption.mcsocket, m, 0)){
+      if(ismsend(m, 0)){
         FD_SET(moption.mcsocket, &wfds);
         break;
       }
@@ -271,6 +267,7 @@ void mloop()
     if(select(1024, &rfds, &wfds, NULL, &tv) == -1){
       continue;
     }
+    moption.sendready = FD_ISSET(moption.mcsocket,&rfds);
     mcomm_accept(moption.comm, &rfds, moption.lisocket); /* new console  */
     mcomm_read(moption.comm, &rfds);                     /* command exec */
     mrecv_gc();
@@ -278,7 +275,7 @@ void mloop()
 
   /* shutdown notify */
   pingpong(2);
-  msend(moption.mcsocket, mftop[0]);
+  msend(mftop[0]);
 }
 
 int main(int argc, char *argv[])

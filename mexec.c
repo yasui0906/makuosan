@@ -207,7 +207,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
 
   if(pipe(p) == -1){
     cprintf(0, c, "error: pipe error\n");    
-    lprintf(0, "%s: pipe error\n", __func__);    
+    lprintf(0, "[error] %s: %s pipe error\n", __func__, strerror(errno));    
     return(-1);
   }
 
@@ -223,7 +223,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
     close(p[0]);
     close(p[1]);
     cprintf(0, c, "error: fork error\n");
-    lprintf(0, "%s: fork error\n", __func__);
+    lprintf(0, "[error] %s: %s fork error\n", __func__, strerror(errno));
     return(-1);
   }
   if(pid){
@@ -436,7 +436,7 @@ int mexec_send(mcomm *c, int n, int sync)
       }      
     }
 	  cprintf(0, c, "error: %s %s\n", strerror(e), fn);
-		lprintf(0, "%s: %s %s\n", __func__, strerror(e), fn);
+		lprintf(0, "[error] %s: %s %s\n", __func__, strerror(e), fn);
 		mfdel(m);
     return(0);
 	}
@@ -468,7 +468,7 @@ int mexec_send(mcomm *c, int n, int sync)
       m->ln[size] = 0;
     }else{
 		  cprintf(0, c, "error: readlink error %s\n", fn);
-		  lprintf(0, "%s: readlink error %s\n", __func__, fn);
+		  lprintf(0, "[error] %s: readlink error %s\n", __func__, fn);
 		  mfdel(m);
       return(0);
     }
@@ -552,7 +552,7 @@ int mexec_check(mcomm *c, int n)
   /*----- create mfile -----*/
   m = mfadd(0);
   if(!m){
-	  lprintf(0, "%s: out of memorry\n", __func__);
+	  lprintf(0, "[error] %s: out of memorry\n", __func__);
 	  cprintf(0, c, "error: out of memorry\n");
     return(0);
 	}
@@ -571,7 +571,7 @@ int mexec_check(mcomm *c, int n)
   m->fd = open(m->fn, O_RDONLY);
   if(m->fd == -1){
     e = errno;
-	  lprintf(0, "%s: %s %s\n", __func__, strerror(e), m->fn);
+	  lprintf(0, "[error] %s: %s %s\n", __func__, strerror(e), m->fn);
     cprintf(0, c, "error: %s %s\n", strerror(e), m->fn);
     mfdel(m);
     return(0);
@@ -585,8 +585,8 @@ int mexec_check(mcomm *c, int n)
   m->fd = -1;
   if(r == -1){
     e = errno; 
-	  lprintf(0, "%s: %s %s\n", __func__, strerror(e), m->fn);
-    cprintf(0, c, "error: %s %s\n",     strerror(e), m->fn);
+	  lprintf(0, "[error] %s: %s %s\n", __func__, strerror(e), m->fn);
+    cprintf(0, c, "error: %s %s\n", strerror(e), m->fn);
     mfdel(m);
     return(0);
   }

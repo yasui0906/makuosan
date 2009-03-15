@@ -52,13 +52,33 @@ static int msend_encrypt(mdata *data)
   return(szdata);
 }
 
+static int msend_readywait()
+{
+  fd_set fds;
+  struct timeval tv;
+  while(!moption.sendready){
+    FD_ZERO(&fds);
+    FD_SET(moption.mcsocket, &fds);
+    tv.tv_sec  = 1;
+    tv.tv_usec = 0;
+    if(select(1024, NULL, &fds, NULL, &tv) == 1){
+      moption.sendready = FD_ISSET(moption.mcsocket, &fds);
+    }else{
+      if(loop_flag){
+        continue;
+      }else{
+        break;
+      }
+    }
+  }
+  return(moption.sendready);
+}
+
 static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 {
   int r;
   int szdata;
   mdata senddata;
-  fd_set fds;
-  struct timeval tv;
 
   memcpy(&senddata, data, sizeof(senddata));
   szdata = msend_encrypt(&senddata);
@@ -72,20 +92,11 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   senddata.head.error  = htonl(senddata.head.error);
   szdata += sizeof(mhead);
  
-  while(1){ 
-    FD_ZERO(&fds);
-    FD_SET(moption.mcsocket, &fds);
-    tv.tv_sec  = 1;
-    tv.tv_usec = 0;
-    if(select(1024, NULL, &fds, NULL, &tv) != 1){
-      if(loop_flag){
-        continue;
-      }
-      break;
-    }
+  while(msend_readywait()){ 
+    moption.sendready = 0;
     r = sendto(s, &senddata, szdata, 0, (struct sockaddr*)addr, sizeof(struct sockaddr_in));
     if(r == szdata){
-      return(0);
+      return(0); // success
     }
     if(r == -1){
       if(errno == EINTR){
@@ -149,7 +160,7 @@ static int msend_retry(mfile *m)
       continue;
     }
     switch(moption.loglevel){
-      case 3:
+      case 2:
         if(*r == MAKUO_RECVSTATE_NONE){
           lprintf(0, "%s:   %s %s(%s)\n", 
             __func__, 
@@ -159,7 +170,7 @@ static int msend_retry(mfile *m)
         }
         break;
       default:
-        lprintf(4, "%s:   %s %s(%s)\n", 
+        lprintf(3, "%s:   %s %s(%s)\n", 
           __func__, 
           strrstate(*r), 
           inet_ntoa(t->ad), 
@@ -276,7 +287,7 @@ static void msend_req_send_stat_init(int s, mfile *m)
   m->mdata.head.szdata += strlen(m->ln);
   m->mdata.head.szdata += sizeof(uint64_t);
   if(m->mdata.head.szdata > MAKUO_BUFFER_SIZE){
-    lprintf(0, "%s: buffer size over size=%d file=%s\n",   __func__, m->mdata.head.szdata, m->fn);
+    lprintf(0, "[error] %s: buffer size over size=%d file=%s\n",   __func__, m->mdata.head.szdata, m->fn);
     cprintf(0, m->comm, "error: buffer size over size=%d file=%s\n", m->mdata.head.szdata, m->fn);
     return;
   }
@@ -365,11 +376,11 @@ static void msend_req_send_stat_update_report(mfile *m)
       }
       if(*r == MAKUO_RECVSTATE_SKIP){
         cprintf(2, m->comm, "%sskip   %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(2, "%sskip   %s:%s\n", dryrun, t->hostname, m->fn);
+        lprintf(3, "%sskip   %s:%s\n", dryrun, t->hostname, m->fn);
       }
       if(*r == MAKUO_RECVSTATE_READONLY){
         cprintf(2, m->comm, "%sskipro %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(2, "%sskipro %s:%s\n", dryrun, t->hostname, m->fn);
+        lprintf(3, "%sskipro %s:%s\n", dryrun, t->hostname, m->fn);
       }
     }
   }
@@ -427,7 +438,7 @@ static void msend_req_send_open_init(int s, mfile *m)
       m->mdata.head.ostate = m->mdata.head.nstate;
       m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
       cprintf(0, m->comm, "error: %s %s\n", strerror(e), m->fn);
-      lprintf(0, "%s: %s %s\n", __func__,   strerror(e), m->fn);
+      lprintf(0, "[error] %s: %s %s\n", __func__,   strerror(e), m->fn);
     }
   }
 }
@@ -481,7 +492,7 @@ static void msend_req_send_markdata(int s, mfile *m)
     if(!r){
       lprintf(0, "%s: read eof? seqno=%d\n", __func__, m->mdata.head.seqno);
     }else{
-      lprintf(0, "%s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
+      lprintf(0, "[error] %s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
       cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
     }
   }
@@ -510,7 +521,7 @@ static void msend_req_send_filedata(int s, mfile *m)
   }else{
     if(readsize == -1){
       /* err */
-      lprintf(0, "%s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
+      lprintf(0, "[error] %s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
       cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
     }else{
       /* eof */
@@ -1089,16 +1100,16 @@ static void msend_req(int s, mfile *m)
 * send common functions (public)
 *
 *******************************************************************/
-void msend(int s, mfile *m)
+void msend(mfile *m)
 {
   if(msend_retry(m)){
     return;
   }
   mtimeget(&m->lastsend);
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-    msend_ack(s, m); 
+    msend_ack(moption.mcsocket, m); 
   }else{
-    msend_req(s, m); 
+    msend_req(moption.mcsocket, m); 
   }
 }
 
