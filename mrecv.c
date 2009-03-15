@@ -168,7 +168,6 @@ static void mrecv_ack_report(mfile *m, mhost *t, mdata *data)
     cprintf(0, m->comm, "error: close error %s:%s\n", t->hostname, m->fn);
     lprintf(0, "[error] %s: close error rid=%06d %s %s:%s\n", 
       __func__,
-      strerror(data->head.error),
       data->head.reqid, 
       strrstate(data->head.nstate), 
       t->hostname, 
@@ -657,73 +656,103 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
 {
   struct stat fs;
   struct utimbuf mftime;
-  char  fpath[PATH_MAX];
-  char  tpath[PATH_MAX];
-  sprintf(fpath, "%s/%s", moption.base_dir, m->fn);
-  sprintf(tpath, "%s/%s", moption.base_dir, m->tn);
+  char   path[PATH_MAX];
 
-  if(m->mdata.head.nstate == MAKUO_RECVSTATE_OPEN){
-    if(m->fd != -1){
-      fstat(m->fd, &fs);
-      close(m->fd);
-      m->fd = -1;
-    }
-    mftime.actime  = m->fs.st_ctime; 
-    mftime.modtime = m->fs.st_mtime;
-    if(S_ISLNK(m->fs.st_mode)){
-      if(!mrename(moption.base_dir, m->tn, m->fn)){
-      }else{
-        m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
-        lprintf(0, "%s: close error %s -> %s\n", __func__, m->ln, m->fn);
-        mremove(moption.base_dir, m->tn);
-      }
-    }else{
-      if(S_ISDIR(m->fs.st_mode)){
-        utime(fpath, &mftime);
-      }else{
-        utime(tpath, &mftime);
-        if(!S_ISREG(m->fs.st_mode)){
-          if(!mrename(moption.base_dir, m->tn, m->fn)){
-          }else{
-            m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
-            lprintf(0, "%s: close error %s\n", __func__, m->fn);
-            mremove(moption.base_dir, m->tn);
-          }
-        }else{
-          if(fs.st_size != m->fs.st_size){
-            m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
-            lprintf(0, "%s: close error %s (file size mismatch %d != %d)\n", __func__, m->fn, (int)(fs.st_size), (int)(m->fs.st_size));
-            lprintf(0, "%s: seq=%d max=%d mark=%d recv=%d\n", __func__, m->mdata.head.seqno, m->seqnomax, m->markcount, m->recvcount);
-            mremove(moption.base_dir, m->tn);
-          }else{
-            if(!mrename(moption.base_dir, m->tn, m->fn)){
-              set_filestat(fpath, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
-            }else{
-              m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
-              lprintf(0, "%s: close error %s\n", __func__, m->fn);
-              mremove(moption.base_dir, m->tn);
-            }
-          }
-        }
-      }
-    }
+  if(m->mdata.head.nstate == MAKUO_RECVSTATE_CLOSE || 
+     m->mdata.head.nstate == MAKUO_RECVSTATE_CLOSEERROR){
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    return;
   }
 
-  switch(m->mdata.head.nstate){
-    case MAKUO_RECVSTATE_OPEN:
-    case MAKUO_RECVSTATE_UPDATE:
-    case MAKUO_RECVSTATE_MARK:
-      m->mdata.head.ostate = m->mdata.head.nstate;
+  if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
+    return;
+  }
+ 
+  mftime.actime  = m->fs.st_ctime; 
+  mftime.modtime = m->fs.st_mtime;
+  m->mdata.head.ostate = m->mdata.head.nstate;
+
+  if(S_ISLNK(m->fs.st_mode)){
+    if(!mrename(moption.base_dir, m->tn, m->fn)){
       m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
-      break;
-    case MAKUO_RECVSTATE_CLOSE:
-    case MAKUO_RECVSTATE_CLOSEERROR:
-      break;
-    default:
-      return;
+      msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    }else{
+      m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+      msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+      lprintf(0, "%s: close error %s -> %s\n", __func__, m->ln, m->fn);
+      mremove(moption.base_dir, m->tn);
+    }
+    return;
   }
 
-  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+  if(S_ISDIR(m->fs.st_mode)){
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    sprintf(path, "%s/%s", moption.base_dir, m->fn);
+    utime(path, &mftime);
+    return;
+  }
+
+  if(!S_ISREG(m->fs.st_mode)){
+    if(!mrename(moption.base_dir, m->tn, m->fn)){
+      m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+      msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+      sprintf(path, "%s/%s", moption.base_dir, m->tn);
+      utime(path, &mftime);
+    }else{
+      m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+      msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+      lprintf(0, "[error] %s: close error %s (can't rename)\n", __func__, m->fn);
+      mremove(moption.base_dir, m->tn);
+    }
+    return;
+  }
+
+  if(m->fd == -1){
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    lprintf(0, "[error] %s: bat discriptor close error %s\n", __func__, m->fn);
+    mremove(moption.base_dir, m->tn);
+    return;
+  }
+
+  if(fstat(m->fd, &fs) == -1){
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    lprintf(0, "[error] %s: %s fstat error %s\n", __func__, strerror(errno), m->fn);
+    return; 
+  }
+
+  if(close(m->fd) == -1){
+    m->fd = -1;
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    lprintf(0, "[error] %s: %s close error %s\n", __func__, strerror(errno), m->fn);
+    return; 
+  }
+
+  m->fd = -1;
+  if(fs.st_size != m->fs.st_size){
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    lprintf(0, "[error] %s: close error %s (file size mismatch %d != %d)\n", __func__, m->fn, (int)(fs.st_size), (int)(m->fs.st_size));
+    lprintf(0, "[error] %s: seq=%d max=%d mark=%d recv=%d\n", __func__, m->mdata.head.seqno, m->seqnomax, m->markcount, m->recvcount);
+    mremove(moption.base_dir, m->tn);
+    return;
+  }
+
+  if(!mrename(moption.base_dir, m->tn, m->fn)){
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    sprintf(path, "%s/%s", moption.base_dir, m->fn);
+    set_filestat(path, m->fs.st_uid, m->fs.st_gid, m->fs.st_mode);
+    utime(path, &mftime);
+  }else{
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    lprintf(0, "%s: close error %s (can't rename)\n", __func__, m->fn);
+    mremove(moption.base_dir, m->tn);
+  }
 }
 
 static void mrecv_req_send_last(mfile *m, mdata *r)

@@ -1,5 +1,6 @@
 1.1.4:
- -
+ - log format change. add [error] for error log
+ - latency improvement.
 
 1.1.3:
  - sort msync --members by hostname
