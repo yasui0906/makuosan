@@ -792,8 +792,9 @@ int linkcmp(mfile *m)
 
 int statcmp(struct stat *s1, struct stat *s2)
 {
-  if(s1->st_mtime != s2->st_mtime)
+  if(s1->st_mtime != s2->st_mtime){
     return(MAKUO_RECVSTATE_UPDATE);
+  }
   if(!geteuid() || !getegid()){
     if(s1->st_uid != s2->st_uid){
       return(MAKUO_RECVSTATE_UPDATE);

@@ -129,6 +129,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 /* retry */
 static int msend_retry(mfile *m)
 {
+  uint32_t w;
   uint8_t *r;
   mhost   *t;
 
@@ -141,7 +142,13 @@ static int msend_retry(mfile *m)
   }
   if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
     if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      return(0);
+      m->retrycnt--;
+      w = (MAKUO_SEND_RETRYCNT - m->retrycnt) * MAKUO_SEND_TIMEOUT;
+      if(w < 15000){
+        return(0);
+      }else{
+        m->retrycnt = MAKUO_SEND_RETRYCNT;
+      }
     }
   }
   lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
@@ -1112,7 +1119,6 @@ void msend(mfile *m)
     msend_req(moption.mcsocket, m); 
   }
 }
-
 void msend_clean()
 {
   mfile *m = mftop[0];

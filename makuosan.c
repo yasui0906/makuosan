@@ -16,7 +16,7 @@ void recv_timeout(mfile *m)
     for(t=members;t;t=t->next){
       r = get_hoststate(t, m);
       if(*r == MAKUO_RECVSTATE_NONE){
-        lprintf(0, "%s: %s(%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
+        lprintf(0, "[error] %s: %s(%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
         member_del_message(t, "receive time out");
         member_del(t);
         break;
@@ -92,19 +92,17 @@ int mcomm_accept(mcomm *c, fd_set *fds, int s)
 }
 
 void mcomm_check(mcomm *c){
-  int i, j;
+  int    i;
   mfile *m;
   for(i=0;i<MAX_COMM;i++){
-    if(c[i].fd[1] == -1){
+    if(c[i].working && !c[i].cpid && (c[i].fd[1] == -1)){
       for(m=mftop[0];m;m=m->next){
         if(m->comm == &c[i]){
-          break;
+          break; /* working */
         }
       }
       if(!m){
-        if(c[i].working && !c[i].cpid){
-          workend(&c[i]);
-        }
+        workend(&c[i]);
       }
     }
   }

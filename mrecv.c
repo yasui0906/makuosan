@@ -547,10 +547,11 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
   m->lickflag = 1;
   a = mkack(&(m->mdata),&(m->addr),MAKUO_RECVSTATE_MARK);
   if(!a){
-    lprintf(0, "%s: out of momory\n", __func__);
+    lprintf(0, "[error] %s: out of momory\n", __func__);
     return;
   }
   if(a->mdata.head.szdata){
+    msend(a);
     return;
   }
   for(mm=m->mark;mm;mm=mm->next){
@@ -576,29 +577,33 @@ static void mrecv_req_send_data_write(mfile *m, mdata *r)
   if(r->head.szdata == 0){
     return;
   }
-  offset = r->head.seqno;
+  offset  = r->head.seqno;
   offset *= MAKUO_BUFFER_SIZE;
   if(lseek(m->fd, offset, SEEK_SET) == -1){
-    lprintf(0, "%s: seek error (%s) seq=%u\n",
-      __func__, strerror(errno), (int)(r->head.seqno));
+    m->mdata.head.error  = errno;
     m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
     mrecv_req_send_data_write_error(m, r);
-    return; /* seek error */
-  }
-  if(write(m->fd, r->data, r->head.szdata) != -1){
-    m->recvcount++;
-  }else{
-    lprintf(0, "%s: write error (%s) seqno=%d size=%d %s\n",
+    lprintf(0, "[error] %s: seek error (%s) seq=%u\n",
       __func__,
-      strerror(errno), 
+      strerror(m->mdata.head.error), 
+      (int)(r->head.seqno));
+    return; /* lseek error */
+  }
+  if(write(m->fd, r->data, r->head.szdata) == -1){
+    m->mdata.head.error  = errno;
+    m->mdata.head.ostate = m->mdata.head.nstate;
+    m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
+    mrecv_req_send_data_write_error(m, r);
+    lprintf(0, "[error] %s: write error (%s) seqno=%d size=%d %s\n",
+      __func__,
+      strerror(m->mdata.head.error), 
       (int)(r->head.seqno), 
       r->head.szdata,
       m->fn);
-    m->mdata.head.ostate = m->mdata.head.nstate;
-    m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
-    mrecv_req_send_data_write_error(m, r);
+    return; /* write error */
   }
+  m->recvcount++;
 }
 
 static void mrecv_req_send_data_retry(mfile *m, mdata *r)
@@ -664,14 +669,16 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
     return;
   }
 
+  m->mdata.head.ostate = m->mdata.head.nstate;
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
+    m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
     return;
   }
- 
+
   mftime.actime  = m->fs.st_ctime; 
   mftime.modtime = m->fs.st_mtime;
-  m->mdata.head.ostate = m->mdata.head.nstate;
-
+ 
   if(S_ISLNK(m->fs.st_mode)){
     if(!mrename(moption.base_dir, m->tn, m->fn)){
       m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
@@ -863,7 +870,6 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
 static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m;
-
   if(m = mrecv_req_send_create(data, addr)){
     mtimeget(&(m->lastrecv));
     mrecv_req_send_next(m, data);
@@ -1117,7 +1123,7 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
   pipe(p);
   pid = fork();
   if(pid == -1){
-    lprintf(0, "%s: fork error (%s)\n", __func__, strerror(errno));
+    lprintf(0, "%s: %s fork error\n", __func__, strerror(errno));
     close(p[0]);
     close(p[1]);
     return;

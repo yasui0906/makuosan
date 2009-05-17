@@ -1,10 +1,10 @@
 Name:           makuosan
-Version:        1.0.0
+Version:        1.1.4
 Release:        1%{?dist}
 Summary:        Multicasts All-Kinds of Updating Operation for Servers on Administered Network
 
 Group:          System Environment/Daemons
-License:        BSD
+License:        GPL
 URL:            http://lab.klab.org/wiki/Makuosan
 Source0:        http://downloads.sourceforge.net/makuosan/%{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -83,6 +83,7 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sat May 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.1.4
+
 * Thu Nov  6 2008 Naoya Nakazawa <naoya.n@gmail.com> - 1.0.0
 - Initial version
-
