@@ -809,6 +809,7 @@ int mexec_exclude(mcomm *c, int n)
 
 int mexec_status(mcomm *c, int n)
 {
+  int i;
   int count;
   mfile  *m;
   struct tm *t;
@@ -857,6 +858,18 @@ int mexec_status(mcomm *c, int n)
       m->seqnomax, 
       m->markcount,
       m->mdata.head.reqid); 
+  }
+  count = 0;
+  for(i=0;i<MAX_COMM;i++){
+    if(moption.comm[i].working && (c != &(moption.comm[i]))){
+      count++;
+    }
+  }
+  cprintf(0, c, "run cmd: %d\n", count);
+  for(i=0;i<MAX_COMM;i++){
+    if(moption.comm[i].working && (c != &(moption.comm[i]))){
+      cprintf(0, c, "  %d> %s\n", i, moption.comm[i].cmdline[0]);
+    }
   }
   return(0);
 }

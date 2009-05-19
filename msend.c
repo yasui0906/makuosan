@@ -891,9 +891,31 @@ static void msend_req_del_mark(int s, mfile *m)
   }
 }
 
+static int msend_req_del_stat_read_pathcmp(int s, mfile *m)
+{
+  char *p1;
+  char *p2;
+  mfile *a;
+  for(a=mftop[1];a;a=a->next){
+    if(a->mdata.head.opcode == MAKUO_OP_SEND){
+      p1 = a->tn;
+      p2 = m->tn;
+      while((strlen(p1) > 1) && (memcmp(p1, "./" ,2) == 0)){
+        p1 += 2;
+      }
+      while((strlen(p2) > 1) && (memcmp(p2, "./" ,2) == 0)){
+        p2 += 2;
+      }
+      if(!strcmp(p1,p2)){
+        return(1);
+      }
+    }
+  }
+  return(0);
+}
+
 static void msend_req_del_stat_read(int s, mfile *m)
 {
-  mfile *a;
   mfile *d;
   uint16_t len;
 
@@ -908,7 +930,7 @@ static void msend_req_del_stat_read(int s, mfile *m)
   d->link      = m;
   d->mdata.p   = d->mdata.data;
 
-  if(m->len){
+  if(m->len >= sizeof(m->mod)){
     len = m->len - sizeof(m->mod);
     data_safeset16(&(d->mdata), m->len);
     data_safeset32(&(d->mdata), m->mod);
@@ -926,11 +948,11 @@ static void msend_req_del_stat_read(int s, mfile *m)
     }
     len = m->len - sizeof(m->mod);
     if(atomic_read(m->pipe, &(m->mod), sizeof(m->mod))){
-      lprintf(0, "[error] %s: read error\n", __func__);
+      lprintf(0, "[error] %s: filemode read error\n", __func__);
       break;
     }
     if(atomic_read(m->pipe, m->tn, len)){
-      lprintf(0, "[error] %s: read error\n", __func__);
+      lprintf(0, "[error] %s: filename read error\n", __func__);
       break;
     }
     m->tn[len] = 0;
@@ -940,46 +962,46 @@ static void msend_req_del_stat_read(int s, mfile *m)
         continue;
       }
     }
-    for(a=mftop[1];a;a=a->next){
-      if(a->mdata.head.opcode == MAKUO_OP_SEND){
-        if(!strcmp(a->tn, m->tn)){
-          break;
-        }
-      }
-    }
-    if(a){
+    if(msend_req_del_stat_read_pathcmp(s, m)){
       m->len = 0;
       continue;
     }
     if(d->mdata.head.szdata + sizeof(m->len) + m->len > MAKUO_BUFFER_SIZE){
-      return;
+      return; /* packet full */
     }
-    data_safeset16(&(d->mdata),   m->len);
-    data_safeset32(&(d->mdata),   m->mod);
+    data_safeset16(&(d->mdata), m->len);
+    data_safeset32(&(d->mdata), m->mod);
     data_safeset(&(d->mdata), m->tn, len);
     m->len = 0;
   }
-
   close(m->pipe);
   m->pipe      = -1;
   m->initstate =  1;
   m->sendwait  =  0;
 }
 
-static void msend_req_del_stat(int s, mfile *m)
+static int msend_req_del_stat_waitcheck(int s, mfile *m)
 {
   mfile *a;
-  if(m->pid == 0){
-    for(a=mftop[0];a;a=a->next){
-      if((a->mdata.head.opcode == MAKUO_OP_DEL) && (a->link == m)){
-        m->sendwait = 1;
-        return;
-      }
+  for(a=mftop[0];a;a=a->next){
+    if((a->mdata.head.opcode == MAKUO_OP_DEL) && (a->link == m)){
+      return(1);
     }
-    m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
-    m->initstate = 1;
-    m->sendwait  = 0;
-    ack_clear(m, -1);
+  }
+  return(0);
+}
+
+static void msend_req_del_stat(int s, mfile *m)
+{
+  if(m->pid == 0){
+    if(msend_req_del_stat_waitcheck(s, m)){
+      m->sendwait = 1;
+    }else{
+      m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+      m->initstate = 1;
+      m->sendwait  = 0;
+      ack_clear(m, -1);
+    }
     return;
   }
   if(m->pipe == -1){
