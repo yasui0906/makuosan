@@ -969,10 +969,11 @@ static void dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t 
     base++;
     len--;
   }
-  *(uint16_t *)p = len + sizeof(uint32_t); 
-  p += sizeof(uint16_t);
-  *(uint32_t *)p = htonl(mod); 
-  p += sizeof(uint32_t);
+
+  *(uint16_t *)p = len + sizeof(mod); 
+  p += sizeof(len);
+  *(uint32_t *)p = mod; 
+  p += sizeof(mod);
   memcpy(p, base, len);
 
   p = buff;
@@ -989,6 +990,10 @@ static void dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t 
     if(FD_ISSET(fd,&wfds)){
       r = write(fd, p, s);
       if(r == -1){
+        if(errno == EINTR){
+          continue;
+        }
+        lprintf(0, "[error] %s: write error\n", __func__);
         return;
       }else{
         s -= r;
@@ -1201,7 +1206,7 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
   char path[PATH_MAX];
 
   if(!a){
-    lprintf(0, "%s: arror ack can't create\n", __func__);
+    lprintf(0, "[error] %s: ack can't create\n", __func__);
     return;
   }
   data->p = data->data;

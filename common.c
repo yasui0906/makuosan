@@ -1227,3 +1227,14 @@ excludeitem *exclude_del(excludeitem *e)
   return(r);
 }
 
+int pathcmp(char *p1, char *p2)
+{
+  char path1[PATH_MAX];
+  char path2[PATH_MAX];
+
+
+  return(0);
+}
+
+
+

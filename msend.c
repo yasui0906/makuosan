@@ -891,17 +891,87 @@ static void msend_req_del_mark(int s, mfile *m)
   }
 }
 
-static void msend_req_del_stat(int s, mfile *m)
+static void msend_req_del_stat_read(int s, mfile *m)
 {
-  int    r;
   mfile *a;
   mfile *d;
-  static uint16_t len = 0;
-  static char path[PATH_MAX + sizeof(uint32_t)];
+  uint16_t len;
 
+  d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
+  d->mdata.head.flags = m->mdata.head.flags;
+  d->mdata.head.reqid = getrid();
+  d->initstate = 1;
+  d->sendwait  = 0;
+  d->sendto    = 1;
+  d->dryrun    = m->dryrun;
+  d->recurs    = m->recurs;
+  d->link      = m;
+  d->mdata.p   = d->mdata.data;
+
+  if(m->len){
+    len = m->len - sizeof(m->mod);
+    data_safeset16(&(d->mdata), m->len);
+    data_safeset32(&(d->mdata), m->mod);
+    data_safeset(&(d->mdata), m->tn, len);
+    m->len = 0;
+  }
+
+  while(1){
+    if(atomic_read(m->pipe, &(m->len), sizeof(m->len))){
+      break;
+    }
+    if(m->len <= sizeof(m->mod)){
+      lprintf(0, "[error] %s: length error\n", __func__);
+      break;
+    }
+    len = m->len - sizeof(m->mod);
+    if(atomic_read(m->pipe, &(m->mod), sizeof(m->mod))){
+      lprintf(0, "[error] %s: read error\n", __func__);
+      break;
+    }
+    if(atomic_read(m->pipe, m->tn, len)){
+      lprintf(0, "[error] %s: read error\n", __func__);
+      break;
+    }
+    m->tn[len] = 0;
+    if(lstat(m->tn, &(m->fs)) == -1){
+      if(errno == ENOENT){
+        m->len = 0;
+        continue;
+      }
+    }
+    for(a=mftop[1];a;a=a->next){
+      if(a->mdata.head.opcode == MAKUO_OP_SEND){
+        if(!strcmp(a->tn, m->tn)){
+          break;
+        }
+      }
+    }
+    if(a){
+      m->len = 0;
+      continue;
+    }
+    if(d->mdata.head.szdata + sizeof(m->len) + m->len > MAKUO_BUFFER_SIZE){
+      return;
+    }
+    data_safeset16(&(d->mdata),   m->len);
+    data_safeset32(&(d->mdata),   m->mod);
+    data_safeset(&(d->mdata), m->tn, len);
+    m->len = 0;
+  }
+
+  close(m->pipe);
+  m->pipe      = -1;
+  m->initstate =  1;
+  m->sendwait  =  0;
+}
+
+static void msend_req_del_stat(int s, mfile *m)
+{
+  mfile *a;
   if(m->pid == 0){
-    for(d=mftop[0];d;d=d->next){
-      if((d->mdata.head.opcode == MAKUO_OP_DEL) && (d->link == m)){
+    for(a=mftop[0];a;a=a->next){
+      if((a->mdata.head.opcode == MAKUO_OP_DEL) && (a->link == m)){
         m->sendwait = 1;
         return;
       }
@@ -912,7 +982,6 @@ static void msend_req_del_stat(int s, mfile *m)
     ack_clear(m, -1);
     return;
   }
-
   if(m->pipe == -1){
     if(waitpid(m->pid, NULL, WNOHANG) == m->pid){
       m->pid = 0;
@@ -921,55 +990,7 @@ static void msend_req_del_stat(int s, mfile *m)
     }
     return;
   }
-
-  d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
-  d->mdata.head.flags = m->mdata.head.flags;
-  d->mdata.head.reqid = getrid();
-  d->initstate = 1;
-  d->sendwait  = 0;
-  d->sendto = 1;
-  d->dryrun = m->dryrun;
-  d->recurs = m->recurs;
-  d->link   = m;
-  d->mdata.p = d->mdata.data;
-
-  if(len){
-    data_safeset16(&(d->mdata), len);
-    data_safeset(&(d->mdata), path, len);
-  }
-
-  while(1){
-    if(atomic_read(m->pipe, &len, sizeof(len))){
-      close(m->pipe);
-      m->pipe = -1;
-      m->initstate = 1;
-      m->sendwait  = 0;
-      break;
-    }
-    if(atomic_read(m->pipe, path, len)){
-      lprintf(0, "%s: pipe read error\n", __func__);
-      close(m->pipe);
-      m->pipe = -1;
-      m->initstate = 1;
-      m->sendwait  = 0;
-      break;
-    }
-    path[len] = 0;
-
-    for(a=mftop[1];a;a=a->next){
-      if(!strcmp(a->tn, path + sizeof(uint32_t))){
-        break;
-      }
-    }
-    if(a){
-      continue;
-    }
-    if(d->mdata.head.szdata + sizeof(len) + len > MAKUO_BUFFER_SIZE){
-      break;
-    }
-    data_safeset16(&(d->mdata), len);
-    data_safeset(&(d->mdata), path, len);
-  }
+  msend_req_del_stat_read(s, m);
 }
 
 static void msend_req_del_last(int s, mfile *m)

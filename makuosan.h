@@ -199,6 +199,8 @@ typedef struct mfile
   char fn[PATH_MAX];
   char tn[PATH_MAX];
   char ln[PATH_MAX];
+  uint16_t len;
+  uint32_t mod;
   uint32_t sendto;
   uint32_t dryrun;
   uint32_t recurs;
