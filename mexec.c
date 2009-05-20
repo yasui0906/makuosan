@@ -23,9 +23,10 @@ char *command_list[]={"quit",     /*  */
 
 mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
 {
-  mfile *m = mfadd(0);
+  mfile *m = mfadd(MFSEND);
   if(!m){
 	  lprintf(0, "%s: out of memorry\n", __func__);
+	  cprintf(0, c, "error: out of memorry\n");
     return(m);
 	}
 
@@ -38,6 +39,7 @@ mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
   }
   
   strcpy((char *)(m->mdata.data), m->fn);
+  strcpy(m->cmdline, c->cmdline[0]);
 	m->mdata.head.reqid  = getrid();
 	m->mdata.head.szdata = strlen(m->fn);
 	m->mdata.head.opcode = MAKUO_OP_DSYNC;
@@ -403,9 +405,10 @@ int mexec_send(mcomm *c, int n, int sync)
   }
 
   /*----- send file -----*/
-  m = mfadd(0);
+  m = mfadd(MFSEND);
   if(!m){
 	  lprintf(0, "%s: out of memorry\n", __func__);
+	  cprintf(0, c, "error: out of memorry\n");
     return(0);
 	}
 
@@ -416,6 +419,7 @@ int mexec_send(mcomm *c, int n, int sync)
   }
 
 	strcpy(m->fn, fn);
+  strcpy(m->cmdline, c->cmdline[n]);
 	m->mdata.head.reqid  = getrid();
 	m->mdata.head.opcode = MAKUO_OP_SEND;
   m->mdata.head.nstate = MAKUO_SENDSTATE_STAT;
@@ -550,7 +554,7 @@ int mexec_check(mcomm *c, int n)
   }
 
   /*----- create mfile -----*/
-  m = mfadd(0);
+  m = mfadd(MFSEND);
   if(!m){
 	  lprintf(0, "[error] %s: out of memorry\n", __func__);
 	  cprintf(0, c, "error: out of memorry\n");
@@ -566,6 +570,7 @@ int mexec_check(mcomm *c, int n)
   m->dryrun    = 0;
   m->ln[0]     = 0;
 	strcpy(m->fn, fn);
+  strcpy(m->cmdline, c->cmdline[n]);
 
   /*----- open -----*/
   m->fd = open(m->fn, O_RDONLY);
@@ -680,6 +685,7 @@ int mexec_members(mcomm *c, int n)
   int counter = 0;
   int namelen = 0;
   int addrlen = 0;
+  int statcnt = 0;
   mhost *t;
   mhost **pt;
   char form[256];
@@ -715,10 +721,23 @@ int mexec_members(mcomm *c, int n)
   }
 
   /* view */
+#ifdef MAKUO_DEBUG
+  sprintf(form, "%%-%ds %%-%ds (Ver%%s) STATE_AREA(%%d/%%d)\n", namelen, addrlen);
+  for(i=0;i<counter;i++){
+    statcnt = 0;
+    for(j=0;j<MAKUO_HOSTSTATE_SIZE;j++){
+      if(pt[i]->mflist[j]){
+        statcnt++;
+      }
+    }
+    cprintf(0, c, form, pt[i]->hostname, inet_ntoa(pt[i]->ad), pt[i]->version, statcnt, MAKUO_HOSTSTATE_SIZE);
+  }
+#else
   sprintf(form, "%%-%ds %%-%ds (Ver%%s)\n", namelen, addrlen);
   for(i=0;i<counter;i++){
     cprintf(0, c, form, pt[i]->hostname, inet_ntoa(pt[i]->ad), pt[i]->version);
   }
+#endif
   cprintf(0, c, "Total: %d members\n", counter);
   free(pt);
   return(0);
@@ -820,12 +839,28 @@ int mexec_status(mcomm *c, int n)
   }else{
     cprintf(0, c, "basedir: %s/\n", moption.base_dir);
   }
+
+  /*----- command -----*/
   count = 0;
-  for(m=mftop[0];m;m=m->next){
+  for(i=0;i<MAX_COMM;i++){
+    if(moption.comm[i].working && (c != &(moption.comm[i]))){
+      count++;
+    }
+  }
+  cprintf(0, c, "command: %d\n", count);
+  for(i=0;i<MAX_COMM;i++){
+    if(moption.comm[i].working && (c != &(moption.comm[i]))){
+      cprintf(0, c, "  %d> %s\n", i, moption.comm[i].cmdline[0]);
+    }
+  }
+
+  /*----- send -----*/
+  count = 0;
+  for(m=mftop[MFSEND];m;m=m->next){
     count++;
   }
   cprintf(0,c,"send op: %d\n", count);
-  for(m=mftop[0];m;m=m->next){
+  for(m=mftop[MFSEND];m;m=m->next){
     uint32_t snow = m->seqnonow;
     uint32_t smax = m->seqnomax;
     if(snow > smax){
@@ -843,11 +878,12 @@ int mexec_status(mcomm *c, int n)
       m->mdata.head.flags);
   }
 
+  /*----- recv -----*/
   count = 0;
-  for(m=mftop[1];m;m=m->next)
+  for(m=mftop[MFRECV];m;m=m->next)
     count++;
   cprintf(0, c, "recv op: %d\n", count);
-  for(m=mftop[1];m;m=m->next){
+  for(m=mftop[MFRECV];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
     cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d rid=%d\n",
       stropcode(&(m->mdata)), 
@@ -858,18 +894,6 @@ int mexec_status(mcomm *c, int n)
       m->seqnomax, 
       m->markcount,
       m->mdata.head.reqid); 
-  }
-  count = 0;
-  for(i=0;i<MAX_COMM;i++){
-    if(moption.comm[i].working && (c != &(moption.comm[i]))){
-      count++;
-    }
-  }
-  cprintf(0, c, "run cmd: %d\n", count);
-  for(i=0;i<MAX_COMM;i++){
-    if(moption.comm[i].working && (c != &(moption.comm[i]))){
-      cprintf(0, c, "  %d> %s\n", i, moption.comm[i].cmdline[0]);
-    }
   }
   return(0);
 }

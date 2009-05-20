@@ -26,6 +26,10 @@ static mfile *msend_mfdel(mfile *m)
     kill(m->pid, SIGTERM);
     waitpid(m->pid, NULL, 0);
   }
+  if(m->link){
+    m->link->link = NULL;
+    m->link = NULL;
+  }
   while(m->mark = delmark(m->mark));
   clr_hoststate(m);
   mfdel(m);
@@ -870,24 +874,29 @@ static void msend_req_dsync(int s, mfile *m)
 static void msend_req_del_mark(int s, mfile *m)
 {
   mfile *d = m->link; /* dsync object */
-  if(m->initstate){
-    m->initstate = 0;
-    m->sendwait  = 1;
-    ack_clear(m, -1);
-    if(member_get(&(d->addr.sin_addr))){
-      mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
-    }else{
-      d->lastrecv.tv_sec = 1;
+
+  if(!d){
+    m->sendwait = 0;
+    m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
+  }else{
+    if(m->initstate){
+      m->initstate = 0;
+      m->sendwait  = 1;
+      ack_clear(m, -1);
+      if(member_get(&(d->addr.sin_addr))){
+        mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
+      }else{
+        d->lastrecv.tv_sec = 1;
+      }
+      return;
     }
-    return;
-  }
-  if(m->sendwait){
-    if(member_get(&(d->addr.sin_addr))){
-      mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
-    }else{
-      d->lastrecv.tv_sec = 1;
+    if(m->sendwait){
+      if(member_get(&(d->addr.sin_addr))){
+        mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
+      }else{
+        d->lastrecv.tv_sec = 1;
+      }
     }
-    return;
   }
 }
 
@@ -896,7 +905,7 @@ static int msend_req_del_stat_read_pathcmp(int s, mfile *m)
   char *p1;
   char *p2;
   mfile *a;
-  for(a=mftop[1];a;a=a->next){
+  for(a=mftop[MFRECV];a;a=a->next){
     if(a->mdata.head.opcode == MAKUO_OP_SEND){
       p1 = a->tn;
       p2 = m->tn;
@@ -1022,10 +1031,8 @@ static void msend_req_del_last(int s, mfile *m)
 
 static void msend_req_del_break(int s, mfile *m)
 {
-  if(m->link){
-    m->link->lastrecv.tv_sec = 1;
-  }
   msend_mfdel(m);
+  lprintf(0,"%s: break dsync\n", __func__);
 }
 
 static void msend_req_del_open(int s, mfile *m)
@@ -1075,7 +1082,7 @@ static void msend_req_del_close(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  m->link->sendwait = 0;
+  m->link = NULL;
   msend_mfdel(m);
 }
 

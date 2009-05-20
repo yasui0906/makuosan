@@ -241,8 +241,9 @@ void fdprintf(int s, char *fmt, ...)
   va_list arg;
   if(s != -1){
     va_start(arg, fmt);
-    vsprintf(m, fmt, arg);
+    vsnprintf(m, sizeof(m), fmt, arg);
     va_end(arg);
+    m[sizeof(m) - 1] = 0;
     write(s, m, strlen(m));
   }
 }
@@ -251,18 +252,19 @@ void lprintf(int l, char *fmt, ...)
 {
   va_list arg;
   struct timeval tv;
-  char msg[2048];
+  char m[2048];
   if(moption.loglevel >= l){
     va_start(arg, fmt);
-    vsprintf(msg, fmt, arg);
+    vsnprintf(m, sizeof(m), fmt, arg);
     va_end(arg);
+    m[sizeof(m) - 1] = 0;
 #ifdef MAKUO_DEBUG
     gettimeofday(&tv, NULL);
-    fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, msg);
+    fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, m);
 #else
-    fprintf(stderr, "%s", msg);
+    fprintf(stderr, "%s", m);
 #endif
-    syslog(LOG_ERR, "%s: %s", moption.user_name, msg);
+    syslog(LOG_ERR, "%s: %s", moption.user_name, m);
   }
 }
 
@@ -276,8 +278,9 @@ void cprintf(int l, mcomm *c, char *fmt, ...)
     return;
   if(c->loglevel >= l){
     va_start(arg, fmt);
-    vsprintf(m, fmt, arg);
+    vsnprintf(m, sizeof(m), fmt, arg);
     va_end(arg);
+    m[sizeof(m) - 1] = 0;
     write(c->fd[0], m, strlen(m));
     fsync(c->fd[0]);
   }
@@ -288,7 +291,8 @@ void mprintf(const char *func, mfile *m)
   lprintf(9, "%s: rid=%d init=%d wait=%d %s %s %s %s\n",
     func, 
     m->mdata.head.reqid, 
-    m->initstate, m->sendwait, 
+    m->initstate, 
+    m->sendwait, 
     inet_ntoa(m->addr.sin_addr), 
     stropcode(&(m->mdata)),
     strmstate(&(m->mdata)),
@@ -402,10 +406,10 @@ mhost *member_get(struct in_addr *addr)
   mhost *t;
   for(t=members;t;t=t->next){
     if(!memcmp(&t->ad, addr, sizeof(t->ad))){
-      break;
+      return(t);
     }
   }
-  return(t); 
+  return(NULL); 
 }
 
 mhost *member_add(struct in_addr *addr, mdata *data)
@@ -645,7 +649,7 @@ void clr_hoststate(mfile *m)
   int i;
   mhost *t;
   for(t=members;t;t=t->next){
-    for(i=0;i<MAKUO_PARALLEL_MAX;i++){
+    for(i=0;i<MAKUO_HOSTSTATE_SIZE;i++){
       if(t->mflist[i] == m){
         t->mflist[i] = NULL;
         t->state[i]  = 0;
@@ -673,7 +677,7 @@ uint8_t *get_hoststate(mhost *t, mfile *m)
     return(NULL);
   }
   r = -1;
-  for(i=0;i<MAKUO_PARALLEL_MAX;i++){
+  for(i=0;i<MAKUO_HOSTSTATE_SIZE;i++){
     if(t->mflist[i] == m){
       return(&(t->state[i]));
     }else{
@@ -1068,7 +1072,7 @@ int space_escape(char *str)
 mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state)
 {
   mfile *a;
-  if(a = mfins(0)){
+  if(a = mfins(MFSEND)){
     a->mdata.head.opcode = data->head.opcode;
     a->mdata.head.reqid  = data->head.reqid;
     a->mdata.head.seqno  = data->head.seqno;
@@ -1081,7 +1085,7 @@ mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state)
 mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
 {
   mfile *a;
-  for(a=mftop[0];a;a=a->next){
+  for(a=mftop[MFSEND];a;a=a->next){
     if((a->mdata.head.flags & MAKUO_FLAG_ACK)      &&
        (a->mdata.head.opcode == data->head.opcode) &&
        (a->mdata.head.reqid  == data->head.reqid)  &&
@@ -1091,7 +1095,7 @@ mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
       return(a);
     }
   }
-  if(a = mfins(0)){
+  if(a = mfins(MFSEND)){
     a->mdata.head.flags |= MAKUO_FLAG_ACK;
     a->mdata.head.opcode = data->head.opcode;
     a->mdata.head.reqid  = data->head.reqid;

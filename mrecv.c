@@ -26,6 +26,10 @@ static mfile *mrecv_mfdel(mfile *m)
       mremove(moption.base_dir, m->tn);
     }
   }
+  if(m->link){
+    m->link->link = NULL;
+    m->link = NULL;
+  }
   while(m->mark = delmark(m->mark));
   mfdel(m);
   return(r);
@@ -947,7 +951,7 @@ static void mrecv_req_md5(mdata *data, struct sockaddr_in *addr)
   }
 }
 
-static void dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t mod)
+static int dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t mod)
 {
   int r;
   size_t s;
@@ -956,21 +960,31 @@ static void dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t 
   char *p = buff;
 
   if(!loop_flag){
-    return;
+    return(1);
   }
   if(!strcmp(base, ".")){
-    return;
+    return(0);
   }
-  if(!memcmp(base, "./", 2)){
-    base += 2;
-    len  -= 2;
+  while(len >= 2){
+    if(memcmp(base, "./", 2)){
+      break;
+    }else{
+      base += 2;
+      len  -= 2;
+      if(!len){
+        return(0);
+      }
+    }
   }
   while(*base == '/'){
     base++;
     len--;
+    if(!len){
+      return(0);
+    }
   }
 
-  *(uint16_t *)p = len + sizeof(mod); 
+  *(uint16_t *)p = len + sizeof(mod);
   p += sizeof(len);
   *(uint32_t *)p = mod; 
   p += sizeof(mod);
@@ -983,7 +997,7 @@ static void dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t 
     FD_SET(fd,&wfds);
     if(select(1024, NULL, &wfds, NULL, NULL) < 0){
       if(!loop_flag){
-        return;
+        return(1);
       }
       continue;
     }
@@ -993,18 +1007,20 @@ static void dsync_write(int fd, char *base, uint8_t sta, uint16_t len, uint32_t 
         if(errno == EINTR){
           continue;
         }
-        lprintf(0, "[error] %s: write error\n", __func__);
-        return;
+        lprintf(0, "[error] %s: write error %s\n", __func__, base);
+        return(-1);
       }else{
         s -= r;
         p += r;
       }
     }
   }
+  return(0);
 }
 
-static void dsync_scan(int fd, char *base, int recurs, excludeitem *e)
+static int dsync_scan(int fd, char *base, int recurs, excludeitem *e)
 {
+  int r;
   DIR *d;
   uint16_t len;
   struct stat st;
@@ -1012,52 +1028,58 @@ static void dsync_scan(int fd, char *base, int recurs, excludeitem *e)
   char path[PATH_MAX];
 
   if(!loop_flag){
-    return;
+    return(1);
   }
   /*----- exclude -----*/
   if(isexclude(base, e, 0)){
-    return;
+    return(0);
   }
   len = strlen(base);
   if(lstat(base, &st) == -1){
-    dsync_write(fd, base, MAKUO_SENDSTATE_ERROR, len, st.st_mode);
-    return;
+    return(dsync_write(fd, base, MAKUO_SENDSTATE_ERROR, len, st.st_mode));
   }
   if(S_ISLNK(st.st_mode)){
-    dsync_write(fd, base, MAKUO_SENDSTATE_STAT, len, st.st_mode);
-    return;
+    return(dsync_write(fd, base, MAKUO_SENDSTATE_STAT, len, st.st_mode));
   }
   if(!S_ISDIR(st.st_mode)){
-    dsync_write(fd, base, MAKUO_SENDSTATE_STAT, len, st.st_mode);
-    return;
+    return(dsync_write(fd, base, MAKUO_SENDSTATE_STAT, len, st.st_mode));
   }
   /*----- exclude dir -----*/
   if(isexclude(base, e, 1)){
-    return;
+    return(0);
   }
-  d = opendir(base);
-  if(!d){
-    dsync_write(fd, base, MAKUO_SENDSTATE_ERROR, len, st.st_mode);
-  }else{
+
+  /*----- dir scan -----*/
+  if(d = opendir(base)){
     while(dent=readdir(d)){
-      if(!loop_flag)
+      if(!loop_flag){
         break;
-      if(!strcmp(dent->d_name, "."))
+      }
+      if(!strcmp(dent->d_name, ".")){
         continue;
-      if(!strcmp(dent->d_name, ".."))
+      }
+      if(!strcmp(dent->d_name, "..")){
         continue;
+      }
       sprintf(path, "%s/%s", base, dent->d_name);
       if(recurs){
-        dsync_scan(fd, path, recurs, e);
+        if(r = dsync_scan(fd, path, recurs, e)){
+          closedir(d);
+          return(r);
+        }
       }else{
         len = strlen(path);
-        dsync_write(fd, path, MAKUO_SENDSTATE_STAT, len, st.st_mode);
+        if(r = dsync_write(fd, path, MAKUO_SENDSTATE_STAT, len, st.st_mode)){
+          closedir(d);
+          return(r);
+        }
       }
     }
     closedir(d);
     len = strlen(base);
-    dsync_write(fd, base, MAKUO_SENDSTATE_STAT, len, st.st_mode);
+    return(dsync_write(fd, base, MAKUO_SENDSTATE_STAT, len, st.st_mode));
   }
+  return(dsync_write(fd, base, MAKUO_SENDSTATE_ERROR, len, st.st_mode));
 }
 
 static void mrecv_req_dsync_open(mfile *m, mdata *data, struct sockaddr_in *addr)

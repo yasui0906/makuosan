@@ -40,12 +40,13 @@
 #include <openssl/blowfish.h>
 
 /*----- limit -----*/
-#define MAX_COMM             8
-#define MAKUO_BUFFER_SIZE 1024
-#define MAKUO_HOSTNAME_MAX 255
-#define MAKUO_PARALLEL_MAX   8
-#define MAKUO_STATE_MAX    255
-#define MAKUO_OPCODE_MAX   255
+#define MAX_COMM               8
+#define MAKUO_PARALLEL_MAX     8
+#define MAKUO_BUFFER_SIZE   1024
+#define MAKUO_HOSTNAME_MAX   255
+#define MAKUO_STATE_MAX      255
+#define MAKUO_OPCODE_MAX     255
+#define MAKUO_HOSTSTATE_SIZE (MAKUO_PARALLEL_MAX * MAX_COMM * 2)
 
 /*----- default -----*/
 #define MAKUO_LOCAL_ADDR  "127.0.0.1"
@@ -73,6 +74,10 @@
 #define MAKUO_FLAG_DRYRUN 4
 #define MAKUO_FLAG_RECURS 8
 #define MAKUO_FLAG_SYNC   16
+
+/*----- const -----*/
+#define MFSEND 0
+#define MFRECV 1
 
 /*----- sendstatus -----*/
 #define MAKUO_SENDSTATE_STAT       0  /* 更新確認待 */
@@ -225,12 +230,13 @@ typedef struct mfile
   struct mfile *next;
   struct mfile *link;
   excludeitem *exclude;
+  char cmdline[MAKUO_BUFFER_SIZE];
 } mfile;
 
 typedef struct
 {
-  uint8_t state[MAKUO_PARALLEL_MAX * MAX_COMM];
-  mfile *mflist[MAKUO_PARALLEL_MAX * MAX_COMM];
+  uint8_t state[MAKUO_HOSTSTATE_SIZE];
+  mfile *mflist[MAKUO_HOSTSTATE_SIZE];
   char hostname[MAKUO_HOSTNAME_MAX];
   char version[32];
   struct in_addr ad;
