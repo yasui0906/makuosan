@@ -15,7 +15,7 @@ void recv_timeout(mfile *m)
     for(t=members;t;t=t->next){
       r = get_hoststate(t, m);
       if(*r == MAKUO_RECVSTATE_NONE){
-        member_del_message(t, "receive time out");
+        member_del_message(1, t, "receive time out");
         member_del(t);
         break;
       }
@@ -27,7 +27,7 @@ void recv_timeout(mfile *m)
 struct timeval *pingpong(int n)
 {
   static struct timeval tv;
-  mfile *m = mfins(0);
+  mfile *m = mfins(MFSEND);
   mping *p = NULL;
   char buff[MAKUO_HOSTNAME_MAX + 1];
 
@@ -186,6 +186,16 @@ int ismsend(mfile *m, int flag)
   if(!m){
     return(0);
   }
+  if(m->mdata.head.nstate == MAKUO_SENDSTATE_WAIT){
+    return(0);
+  }
+  if(m->mdata.head.flags & MAKUO_FLAG_ACK){
+    if(flag){
+      msend(m);
+    }
+    return(0);
+  }
+
   if(!S_ISLNK(m->fs.st_mode) && S_ISDIR(m->fs.st_mode)){
     if(!mfdirchk(m)){
       return(0);
@@ -238,7 +248,7 @@ void mloop()
 
     /* udp packet send */
     para = 0;
-    m = mftop[0];
+    m = mftop[MFSEND];
     while(m){
       n = m->next;
       para += ismsend(m, 1);
@@ -256,7 +266,7 @@ void mloop()
     FD_ZERO(&wfds);
     FD_SET(moption.mcsocket,  &rfds);
     mcomm_fdset(moption.comm, &rfds);
-    for(m=mftop[0];m;m=m->next){
+    for(m=mftop[MFSEND];m;m=m->next){
       if(ismsend(m, 0)){
         FD_SET(moption.mcsocket, &wfds);
         break;
@@ -265,17 +275,17 @@ void mloop()
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
     if(select(1024, &rfds, &wfds, NULL, &tv) == -1){
+      mrecv_gc();
       continue;
     }
-    moption.sendready = FD_ISSET(moption.mcsocket,&rfds);
-    mcomm_accept(moption.comm, &rfds, moption.lisocket); /* new console  */
-    mcomm_read(moption.comm, &rfds);                     /* command exec */
-    mrecv_gc();
+    moption.sendready = FD_ISSET(moption.mcsocket,&wfds);
+    mcomm_accept(moption.comm, &rfds, moption.lisocket);  /* new console  */
+    mcomm_read(moption.comm, &rfds);                      /* command exec */
   }
 
   /* shutdown notify */
   pingpong(2);
-  msend(mftop[0]);
+  msend(mftop[MFSEND]);
 }
 
 int main(int argc, char *argv[])

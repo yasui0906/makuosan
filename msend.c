@@ -100,7 +100,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
     moption.sendready = 0;
     r = sendto(s, &senddata, szdata, 0, (struct sockaddr*)addr, sizeof(struct sockaddr_in));
     if(r == szdata){
-      return(0); // success
+      return(0); /* success */
     }
     if(r == -1){
       if(errno == EINTR){
@@ -144,51 +144,34 @@ static int msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return(0);
   }
-  /*
-  if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      m->retrycnt--;
-      w = (MAKUO_SEND_RETRYCNT - m->retrycnt) * MAKUO_SEND_TIMEOUT;
-      if(w < 15000){
-        return(0);
-      }else{
-        m->retrycnt = MAKUO_SEND_RETRYCNT;
-      }
-    }
-  }
-  */
-  lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
-    __func__,
-    m->retrycnt, 
-    m->mdata.head.reqid, 
-    stropcode(&(m->mdata)),
-    strmstate(&(m->mdata)), 
-    m->fn);
-  for(t=members;t;t=t->next){
-    r = get_hoststate(t, m);
-    if(!r){
-      lprintf(0, "%s: can't alloc state area %s\n",
-        __func__, 
-        t->hostname);
-      continue;
-    }
-    switch(moption.loglevel){
-      case 2:
-        if(*r == MAKUO_RECVSTATE_NONE){
-          lprintf(0, "%s:   %s %s(%s)\n", 
-            __func__, 
-           strrstate(*r), 
-           inet_ntoa(t->ad), 
-           t->hostname);
-        }
-        break;
-      default:
-        lprintf(3, "%s:   %s %s(%s)\n", 
+  if(moption.loglevel > 1){
+    mprintf(2, __func__, m); 
+    for(t=members;t;t=t->next){
+      r = get_hoststate(t, m);
+      if(!r){
+        lprintf(0, "%s: can't alloc state area %s\n",
           __func__, 
-          strrstate(*r), 
-          inet_ntoa(t->ad), 
           t->hostname);
-        break;
+        continue;
+      }
+      switch(moption.loglevel){
+        case 2:
+          if(*r == MAKUO_RECVSTATE_NONE){
+            lprintf(0, "%s:   %s %s(%s)\n", 
+              __func__, 
+             strrstate(*r), 
+             inet_ntoa(t->ad), 
+             t->hostname);
+          }
+          break;
+        default:
+          lprintf(3, "%s:   %s %s(%s)\n", 
+            __func__, 
+            strrstate(*r), 
+            inet_ntoa(t->ad), 
+            t->hostname);
+          break;
+      }
     }
   }
   m->retrycnt--;
@@ -905,19 +888,29 @@ static int msend_req_del_stat_read_pathcmp(int s, mfile *m)
 
 static void msend_req_del_stat_read(int s, mfile *m)
 {
+  int r;
   mfile *d;
   uint16_t len;
 
-  d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_OPEN);
-  d->mdata.head.flags = m->mdata.head.flags;
-  d->mdata.head.reqid = getrid();
-  d->initstate = 1;
-  d->sendwait  = 0;
-  d->sendto    = 1;
-  d->dryrun    = m->dryrun;
-  d->recurs    = m->recurs;
-  d->link      = m;
-  d->mdata.p   = d->mdata.data;
+  for(d=mftop[MFSEND];d;d=d->next){
+    if(d->link == m){
+      if(d->mdata.head.nstate == MAKUO_SENDSTATE_WAIT){
+        break;
+      }
+    }
+  }
+  if(!d){
+    d = mkreq(&(m->mdata), &(m->addr), MAKUO_SENDSTATE_WAIT);
+    d->mdata.head.flags = m->mdata.head.flags;
+    d->mdata.head.reqid = getrid();
+    d->initstate = 1;
+    d->sendwait  = 0;
+    d->sendto    = 1;
+    d->dryrun    = m->dryrun;
+    d->recurs    = m->recurs;
+    d->link      = m;
+    d->mdata.p   = d->mdata.data;
+  }
 
   if(m->len >= sizeof(m->mod)){
     len = m->len - sizeof(m->mod);
@@ -928,7 +921,14 @@ static void msend_req_del_stat_read(int s, mfile *m)
   }
 
   while(1){
-    if(atomic_read(m->pipe, &(m->len), sizeof(m->len))){
+    if(r = atomic_read(m->pipe, &(m->len), sizeof(m->len), 1)){
+      if(r == -1){
+        if(errno == EAGAIN){
+          return;
+        }else{
+          lprintf(0, "[error] %s: length read error\n", __func__);
+        }
+      }
       break;
     }
     if(m->len <= sizeof(m->mod)){
@@ -936,11 +936,11 @@ static void msend_req_del_stat_read(int s, mfile *m)
       break;
     }
     len = m->len - sizeof(m->mod);
-    if(atomic_read(m->pipe, &(m->mod), sizeof(m->mod))){
+    if(atomic_read(m->pipe, &(m->mod), sizeof(m->mod), 0)){
       lprintf(0, "[error] %s: filemode read error\n", __func__);
       break;
     }
-    if(atomic_read(m->pipe, m->tn, len)){
+    if(atomic_read(m->pipe, m->tn, len, 0)){
       lprintf(0, "[error] %s: filename read error\n", __func__);
       break;
     }
@@ -956,13 +956,17 @@ static void msend_req_del_stat_read(int s, mfile *m)
       continue;
     }
     if(d->mdata.head.szdata + sizeof(m->len) + m->len > MAKUO_BUFFER_SIZE){
-      return; /* packet full */
+      d->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
+    }else{
+      strcpy(d->fn, m->tn);
+      data_safeset16(&(d->mdata), m->len);
+      data_safeset32(&(d->mdata), m->mod);
+      data_safeset(&(d->mdata), m->tn, len);
+      m->len = 0;
     }
-    data_safeset16(&(d->mdata), m->len);
-    data_safeset32(&(d->mdata), m->mod);
-    data_safeset(&(d->mdata), m->tn, len);
-    m->len = 0;
+    return;
   }
+  d->mdata.head.nstate = MAKUO_SENDSTATE_OPEN;
   close(m->pipe);
   m->pipe      = -1;
   m->initstate =  1;
@@ -1011,6 +1015,15 @@ static void msend_req_del_last(int s, mfile *m)
 
 static void msend_req_del_break(int s, mfile *m)
 {
+  mfile *d;
+  for(d=mftop[MFSEND];d;d=d->next){
+    if(d->link == m){
+      if(d->mdata.head.nstate == MAKUO_SENDSTATE_WAIT){
+        msend_mfdel(d);
+        break;
+      }
+    }
+  }
   msend_mfdel(m);
   lprintf(0,"%s: break dsync\n", __func__);
 }
@@ -1136,19 +1149,18 @@ static void msend_req(int s, mfile *m)
 *******************************************************************/
 void msend(mfile *m)
 {
-  if(msend_retry(m)){
-    return;
-  }
-  mtimeget(&m->lastsend);
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
     msend_ack(moption.mcsocket, m); 
   }else{
-    msend_req(moption.mcsocket, m); 
+    if(!msend_retry(m)){
+      msend_req(moption.mcsocket, m); 
+      mtimeget(&m->lastsend);
+    }
   }
 }
 void msend_clean()
 {
-  mfile *m = mftop[0];
+  mfile *m = mftop[MFSEND];
   while(m=msend_mfdel(m));
 }
 

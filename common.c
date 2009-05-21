@@ -284,7 +284,7 @@ void member_del(mhost *t)
   free(t);
 }
 
-void member_del_message(mhost *t, char *mess)
+void member_del_message(int err, mhost *t, char *mess)
 {
   int i;
   mfile *m;
@@ -297,12 +297,14 @@ void member_del_message(mhost *t, char *mess)
       if(m->comm){
         if(m->comm->working){
           cprintf(0, m->comm, "error: %s: %s\n", mess, m->cmdline);
-          lprintf(0, "[error] %s: %s: ST=%s RC=%02d: %s\n", 
-            __func__, 
-            mess, 
-            strmstate(&(m->mdata)),
-            m->retrycnt,
-            m->cmdline);
+          if(err){
+            lprintf(0, "[error] %s: %s: ST=%s RC=%02d: %s\n", 
+              __func__, 
+              mess, 
+              strmstate(&(m->mdata)),
+              m->retrycnt,
+              m->cmdline);
+          }
         }
       }
     }
@@ -312,7 +314,9 @@ void member_del_message(mhost *t, char *mess)
       cprintf(0, &(moption.comm[i]), "error: %s: %s(%s)\n", mess, inet_ntoa(t->ad), t->hostname);
     }
   }
-  lprintf(0, "[error] %s: %s: %s(%s)\n", __func__, mess, inet_ntoa(t->ad), t->hostname);
+  if(err){
+    lprintf(0, "[error] %s: %s: %s(%s)\n", __func__, mess, inet_ntoa(t->ad), t->hostname);
+  }
 }
 
 mmark *markalloc()
@@ -934,24 +938,44 @@ mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
   return(a);
 }
 
-int atomic_read(int fd, char *buff, int size)
+int atomic_read(int fd, void *buff, int size, int nb)
 {
+  int e;
   int r;
+  int s;
+  int f;
+
+  s = size;
+  f = fcntl(fd, F_GETFL, 0);
+  if(nb){
+    fcntl(fd, F_SETFL, f | O_NONBLOCK);
+  }else{
+    fcntl(fd, F_SETFL, f & ~O_NONBLOCK);
+  }
 
   while(size){
     r = read(fd, buff, size);
-    if(r == -1){
-      if(errno == EINTR){
-        continue;
-      }
-      return(-1);
-    }
+    e = errno;
+    /* EOF */
     if(r == 0){
+      fcntl(fd, F_SETFL, f);
       return(1);
     }
+    /* ERROR */
+    if(r == -1){
+      if(e == EINTR){
+        continue;
+      }
+      fcntl(fd, F_SETFL, f);
+      errno = e;
+      return(-1);
+    }
+    /* SUCCESS */
     size -= r;
     buff += r;
+    fcntl(fd, F_SETFL, f & ~O_NONBLOCK);
   }
+  fcntl(fd, F_SETFL, f);
   return(0);
 }
 

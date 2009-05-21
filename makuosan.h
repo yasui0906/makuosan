@@ -88,6 +88,7 @@
 #define MAKUO_SENDSTATE_LAST       5  /* 送信完了   */
 #define MAKUO_SENDSTATE_ERROR      6  /* エラー発生 */
 #define MAKUO_SENDSTATE_BREAK      7  /* 送信中断   */
+#define MAKUO_SENDSTATE_WAIT       8  /* 送信待機   */
 
 /*----- recvstatus -----*/
 #define MAKUO_RECVSTATE_NONE       0
@@ -296,7 +297,7 @@ char *strrstate(uint8_t n);
 char *strmstate(mdata *data);
 char *stropcode(mdata *data);
 char *strackreq(mdata *data);
-void mprintf(const char *func, mfile *m);
+void mprintf(int l, const char *func, mfile *m);
 void lprintf(int l, char *fmt, ...);
 void cprintf(int l, mcomm *c, char *fmt, ...);
 void fdprintf(int s, char *fmt, ...);
@@ -329,6 +330,7 @@ int mremove(char *base, char *name);
 int mcreatedir(char  *base, char *name, mode_t mode);
 int mcreatefile(char *base, char *name, mode_t mode);
 int mcreatelink(char *base, char *name, char *link);
+int atomic_read(int fd, void *buff, int size, int nb);
 void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
 
 /*----- uid/gid -----*/
@@ -339,7 +341,7 @@ int set_gids(char *groups);
 void   member_del(mhost *h);
 mhost *member_get(struct in_addr *addr);
 mhost *member_add(struct in_addr *addr, mdata *recvdata);
-void   member_del_message(mhost *t, char *mess);
+void   member_del_message(int err, mhost *t, char *mess);
 
 /*----- mark operation -----*/
 mmark   *delmark(mmark *mm);

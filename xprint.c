@@ -28,6 +28,7 @@ char *sstatestrlist[]={"SEND_STAT   ",
                        "SEND_LAST   ",
                        "SEND_ERROR  ",
                        "SEND_BREAK  ",
+                       "SEND_WAIT   ",
                        "SEND_UNKNOWN"};
 
 uint8_t sstatenumlist[]={MAKUO_SENDSTATE_STAT,
@@ -38,6 +39,7 @@ uint8_t sstatenumlist[]={MAKUO_SENDSTATE_STAT,
                          MAKUO_SENDSTATE_LAST,
                          MAKUO_SENDSTATE_ERROR,
                          MAKUO_SENDSTATE_BREAK,
+                         MAKUO_SENDSTATE_WAIT,
                          MAKUO_STATE_MAX};
 
 char *rstatestrlist[] = {"RECV_NONE    ",
@@ -182,11 +184,11 @@ void cprintf(int l, mcomm *c, char *fmt, ...)
   }
 }
 
-void mprintf(const char *func, mfile *m)
+void mprintf(int l, const char *func, mfile *m)
 {
   if(!m)
     return;
-  lprintf(9, "%s: rc=%d rid=%d init=%d wait=%d %s %s %s %s\n",
+  lprintf(l, "%s: rc=%d rid=%d init=%d wait=%d %s %s %s %s\n",
     func, 
     m->retrycnt,
     m->mdata.head.reqid, 

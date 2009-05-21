@@ -379,7 +379,7 @@ static void mrecv_ack(mdata *data, struct sockaddr_in *addr)
 *******************************************************************/
 static mfile *mrecv_req_search(mdata *data, struct sockaddr_in *addr)
 {
-  mfile *m = mftop[1];
+  mfile *m = mftop[MFRECV];
   while(m){
     if(!memcmp(&m->addr, addr, sizeof(m->addr)) && m->mdata.head.reqid == data->head.reqid){
       break;
@@ -410,6 +410,7 @@ static void mrecv_req_ping(mdata *data, struct sockaddr_in *addr)
   a->mdata.p += p->versionlen;
   p->hostnamelen = htons(p->hostnamelen);
   p->versionlen  = htons(p->versionlen);
+  msend(a);
 }
 
 static void mrecv_req_exit(mdata *data, struct sockaddr_in *addr)
@@ -418,7 +419,7 @@ static void mrecv_req_exit(mdata *data, struct sockaddr_in *addr)
   if(!t){
     return;
   }
-  member_del_message(t, "member exit");
+  member_del_message(0, t, "member exit");
   member_del(t);
 }
 
@@ -575,11 +576,6 @@ static void mrecv_req_send_mark(mfile *m, mdata *r)
   msend(a);
 }
 
-static void mrecv_req_send_data_write_error(mfile *m, mdata *r)
-{
-  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
-}
-
 static void mrecv_req_send_data_write(mfile *m, mdata *r)
 {
   off_t offset;
@@ -592,7 +588,7 @@ static void mrecv_req_send_data_write(mfile *m, mdata *r)
     m->mdata.head.error  = errno;
     m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
-    mrecv_req_send_data_write_error(m, r);
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
     lprintf(0, "[error] %s: seek error (%s) seq=%u\n",
       __func__,
       strerror(m->mdata.head.error), 
@@ -603,7 +599,7 @@ static void mrecv_req_send_data_write(mfile *m, mdata *r)
     m->mdata.head.error  = errno;
     m->mdata.head.ostate = m->mdata.head.nstate;
     m->mdata.head.nstate = MAKUO_RECVSTATE_WRITEERROR;
-    mrecv_req_send_data_write_error(m, r);
+    msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
     lprintf(0, "[error] %s: write error (%s) seqno=%d size=%d %s\n",
       __func__,
       strerror(m->mdata.head.error), 
@@ -623,18 +619,17 @@ static void mrecv_req_send_data_retry(mfile *m, mdata *r)
     lprintf(0, "%s: out of momory\n", __func__);
     return;
   }
-  if(a->mdata.head.szdata){
-    return;
-  }
-  data_safeset32(&(a->mdata), m->mdata.head.seqno);
-  data_safeset32(&(a->mdata), r->head.seqno);
-  for(mm=m->mark;mm;mm=mm->next){
-    if(data_safeset32(&(a->mdata), mm->l)){
-      break;
-    }
-    if(data_safeset32(&(a->mdata), mm->h)){
-      a->mdata.head.szdata -= sizeof(uint32_t);
-      break;
+  if(a->mdata.head.szdata == 0){
+    data_safeset32(&(a->mdata), m->mdata.head.seqno);
+    data_safeset32(&(a->mdata), r->head.seqno);
+    for(mm=m->mark;mm;mm=mm->next){
+      if(data_safeset32(&(a->mdata), mm->l)){
+        break;
+      }
+      if(data_safeset32(&(a->mdata), mm->h)){
+        a->mdata.head.szdata -= sizeof(uint32_t);
+        break;
+      }
     }
   }
   msend(a);
@@ -884,7 +879,7 @@ static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
     mrecv_req_send_next(m, data);
   }else{
     if(data->head.nstate != MAKUO_SENDSTATE_DATA){
-      mkack(data, addr, MAKUO_RECVSTATE_IGNORE);
+      msend(mkack(data, addr, MAKUO_RECVSTATE_IGNORE));
     }
   }
 }
@@ -929,12 +924,12 @@ static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
     }
   }
   mtimeget(&(m->lastrecv));
-  mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate);
+  msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
 }
 
 static void mrecv_req_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
-  mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
+  msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
   mrecv_mfdel(m);
 }
 
@@ -1089,11 +1084,11 @@ static int dsync_scan(int fd, char *base, int recurs, excludeitem *e)
 
 static void mrecv_req_dsync_open(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
-  mkack(data, addr, MAKUO_RECVSTATE_OPEN);
+  msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
   if(m){
     return;
   }
-  m = mfadd(1);
+  m = mfadd(MFRECV);
   m->mdata.head.opcode = data->head.opcode;
   m->mdata.head.reqid  = data->head.reqid;
   m->mdata.head.flags  = data->head.flags;
@@ -1113,7 +1108,7 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
   char path[PATH_MAX];
   uint16_t len;
 
-  mkack(data, addr, MAKUO_RECVSTATE_OPEN);
+  msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
   if(m->mdata.head.seqno >= data->head.seqno){
     return;
   }
@@ -1178,13 +1173,13 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
 static void mrecv_req_dsync_close(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
   if(!m){
-    mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
+    msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
     return;
   }
   if(m->link){
-    mkack(data, addr, MAKUO_RECVSTATE_OPEN);
+    msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
   }else{
-    mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
+    msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
   }
 }
 
@@ -1209,7 +1204,7 @@ static void mrecv_req_dsync_break(mfile *m, mdata *data, struct sockaddr_in *add
     }
     mrecv_mfdel(m);
   }
-  mkack(data, addr, MAKUO_RECVSTATE_BREAK);
+  msend(mkack(data, addr, MAKUO_RECVSTATE_BREAK));
 }
 
 /*
@@ -1264,6 +1259,7 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
       data_safeset(&(a->mdata), path, len);
     }
   }
+  msend(a);
 }
 
 static void mrecv_req_del_data_report(mfile *m, mcomm *c, uint32_t err, char *hn, char *path)
@@ -1289,17 +1285,18 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
   char *hn = "unknown host";
   mhost *t = member_get(&(addr->sin_addr));
   mcomm *c = NULL;
+  mfile *a = NULL;
   mfile *m = mrecv_req_search(data, addr);
-  mfile *a = mkack(data, addr, MAKUO_RECVSTATE_OPEN);
   char path[PATH_MAX];
 
+  msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
   if(m){
     return;
   }
   if(t){
     hn = t->hostname;
   }
-  m = mfadd(1);
+  m = mfadd(MFRECV);
   m->mdata.head.opcode = data->head.opcode;
   m->mdata.head.reqid  = data->head.reqid;
   m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
@@ -1307,7 +1304,7 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
   if(data->head.flags & MAKUO_FLAG_DRYRUN){
     m->dryrun = 1;
   }
-  for(a=mftop[0];a;a=a->next){
+  for(a=mftop[MFSEND];a;a=a->next){
     if((a->mdata.head.reqid == data->head.seqno) && (a->comm != NULL)){
       c = a->comm;
       break;
@@ -1326,7 +1323,7 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
 static void mrecv_req_del_close(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m = mrecv_req_search(data, addr);
-  mfile *a = mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
+  msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
   mrecv_mfdel(m);
 }
 
@@ -1367,7 +1364,7 @@ static void mrecv_req(mdata *data, struct sockaddr_in *addr)
       mrecv_req_del(data,   addr);
       break;
     default:
-      mkack(data, addr, MAKUO_RECVSTATE_IGNORE);
+      msend(mkack(data, addr, MAKUO_RECVSTATE_IGNORE));
       break;
   }
 }
@@ -1380,13 +1377,12 @@ static void mrecv_req(mdata *data, struct sockaddr_in *addr)
 void mrecv_gc()
 {
   mhost *t = members;
-  mfile *m = mftop[1]; 
+  mfile *m = mftop[MFRECV]; 
 
   /* file timeout */
   while(m){
     if(mtimeout(&(m->lastrecv), MAKUO_RECV_GCWAIT)){
-      lprintf(0,"%s: mfile object GC state=%s %s\n",
-        __func__, strrstate(m->mdata.head.nstate), m->fn);
+      lprintf(0,"%s: mfile object GC state=%s %s\n", __func__, strrstate(m->mdata.head.nstate), m->fn);
       m = mrecv_mfdel(m);
       continue;
     }
@@ -1399,7 +1395,7 @@ void mrecv_gc()
       t = t->next;
     }else{
       lprintf(0,"%s: pong timeout %s\n", __func__, t->hostname);
-      member_del_message(t, "pong time out");
+      member_del_message(1, t, "pong time out");
       if(t->next){
         t = t->next;
         member_del(t->prev);
@@ -1413,7 +1409,7 @@ void mrecv_gc()
 
 void mrecv_clean()
 {
-  mfile *m = mftop[1];
+  mfile *m = mftop[MFRECV];
   while(m=mrecv_mfdel(m));
 }
 
@@ -1424,7 +1420,7 @@ int mrecv()
   mdata data;
   struct sockaddr_in addr;
 
-  m = mftop[0];
+  m = mftop[MFSEND];
   if(mrecv_packet(moption.mcsocket, &data, &addr) == -1){
     return(0);
   }
@@ -1436,6 +1432,6 @@ int mrecv()
   }else{
     mrecv_req(&data, &addr);
   }
-  return(m == mftop[0]);
+  return(m == mftop[MFSEND]);
 }
 
