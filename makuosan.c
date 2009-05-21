@@ -11,18 +11,17 @@ void recv_timeout(mfile *m)
   if(!m){
     return;
   }
-  m->retrycnt = MAKUO_SEND_RETRYCNT;
   do{
     for(t=members;t;t=t->next){
       r = get_hoststate(t, m);
       if(*r == MAKUO_RECVSTATE_NONE){
-        lprintf(0, "[error] %s: %s(%s) > %s\n", __func__, inet_ntoa(t->ad), t->hostname, m->cmdline);
         member_del_message(t, "receive time out");
         member_del(t);
         break;
       }
     }
   }while(t); 
+  m->retrycnt = MAKUO_SEND_RETRYCNT;
 }
 
 struct timeval *pingpong(int n)

@@ -287,6 +287,11 @@ static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
         }
       }
     }
+    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+      if(!set_hoststate(t, m, data->head.nstate)){
+        lprintf(0, "%s: not allocate state area\n", __func__);
+      }
+    }
     return;
   }
 
@@ -824,7 +829,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   }
 
   /* create object */
-  if(!(m = mfadd(1))){
+  if(!(m = mfadd(MFRECV))){
     return(NULL);
   }
 
@@ -1170,6 +1175,19 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
   }  
 }
 
+static void mrecv_req_dsync_close(mfile *m, mdata *data, struct sockaddr_in *addr)
+{
+  if(!m){
+    mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
+    return;
+  }
+  if(m->link){
+    mkack(data, addr, MAKUO_RECVSTATE_OPEN);
+  }else{
+    mkack(data, addr, MAKUO_RECVSTATE_CLOSE);
+  }
+}
+
 static void mrecv_req_dsync_last(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
   if(!m){
@@ -1206,6 +1224,9 @@ static void mrecv_req_dsync(mdata *data, struct sockaddr_in *addr)
       break;
     case MAKUO_SENDSTATE_DATA:
       mrecv_req_dsync_data(m, data, addr);
+      break;
+    case MAKUO_SENDSTATE_CLOSE:
+      mrecv_req_dsync_close(m, data, addr);
       break;
     case MAKUO_SENDSTATE_LAST:
       mrecv_req_dsync_last(m, data, addr);

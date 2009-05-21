@@ -144,6 +144,7 @@ static int msend_retry(mfile *m)
     m->retrycnt = MAKUO_SEND_RETRYCNT;
     return(0);
   }
+  /*
   if(m->mdata.head.opcode == MAKUO_OP_DSYNC){
     if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
       m->retrycnt--;
@@ -155,6 +156,7 @@ static int msend_retry(mfile *m)
       }
     }
   }
+  */
   lprintf(2, "%s: send retry count=%02d rid=%06d op=%s state=%s %s\n", 
     __func__,
     m->retrycnt, 
@@ -817,12 +819,19 @@ static void msend_req_dsync_close(int s, mfile *m)
     m->sendwait  = 1;
     m->initstate = 0;
     ack_clear(m, MAKUO_RECVSTATE_OPEN);
+    msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
   if(m->sendwait){
+    msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  msend_mfdel(m);
+  if(!ack_check(m, MAKUO_RECVSTATE_OPEN)){
+    msend_mfdel(m);
+  }else{
+    m->sendwait  = 0;
+    m->initstate = 1;
+  }
 }
 
 static void msend_req_dsync_break(int s, mfile *m)
@@ -868,35 +877,6 @@ static void msend_req_dsync(int s, mfile *m)
     case MAKUO_SENDSTATE_LAST:
       msend_shot(s, m);
       break;
-  }
-}
-
-static void msend_req_del_mark(int s, mfile *m)
-{
-  mfile *d = m->link; /* dsync object */
-
-  if(!d){
-    m->sendwait = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
-  }else{
-    if(m->initstate){
-      m->initstate = 0;
-      m->sendwait  = 1;
-      ack_clear(m, -1);
-      if(member_get(&(d->addr.sin_addr))){
-        mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
-      }else{
-        d->lastrecv.tv_sec = 1;
-      }
-      return;
-    }
-    if(m->sendwait){
-      if(member_get(&(d->addr.sin_addr))){
-        mkack(&(d->mdata), &(d->addr), MAKUO_RECVSTATE_CLOSE);
-      }else{
-        d->lastrecv.tv_sec = 1;
-      }
-    }
   }
 }
 
@@ -1006,7 +986,7 @@ static void msend_req_del_stat(int s, mfile *m)
     if(msend_req_del_stat_waitcheck(s, m)){
       m->sendwait = 1;
     }else{
-      m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
       m->initstate = 1;
       m->sendwait  = 0;
       ack_clear(m, -1);
@@ -1092,9 +1072,6 @@ static void msend_req_del(int s, mfile *m)
   switch(m->mdata.head.nstate){
     case MAKUO_SENDSTATE_STAT:
       msend_req_del_stat(s, m);
-      break;
-    case MAKUO_SENDSTATE_MARK:
-      msend_req_del_mark(s, m);
       break;
     case MAKUO_SENDSTATE_LAST:
       msend_req_del_last(s, m);
