@@ -442,7 +442,7 @@ int main(int argc, char *argv[])
   char target[256];
 
   /* long option */
-  struct option longopt[8];
+  struct option longopt[9];
   memset(longopt, 0, sizeof(longopt));
   longopt[0].name    = "help";
   longopt[0].has_arg = 0;

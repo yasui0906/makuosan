@@ -1,4 +1,4 @@
-1.1.4:
+1.2.0:
  - log format change. add "[error]" for error log
  - latency improvement.
  - fix: terminate process when file close error.
