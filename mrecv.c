@@ -216,7 +216,7 @@ static void mrecv_ack_send(mdata *data, struct sockaddr_in *addr)
     }
   }
   if(!set_hoststate(t, m, data->head.nstate)){
-    lprintf(0, "%s: hoststate error\n", __func__);
+    lprintf(0, "[error] %s: host state error\n", __func__);
   }
   mrecv_ack_report(m, t, data);
 }
@@ -253,13 +253,10 @@ static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
   mhost *t;
   mfile *m;
 
-  if(data->head.nstate == MAKUO_RECVSTATE_CLOSE){
-    mkreq(data, addr, MAKUO_SENDSTATE_LAST);
-  }
   if(mrecv_ack_search(&t, &m, data, addr)){
     return;
   }
-  for(m=mftop[0];m;m=m->next){
+  for(m=mftop[MFSEND];m;m=m->next){
     if(m->mdata.head.reqid == data->head.reqid){
       if(m->comm){
         break;
@@ -274,29 +271,17 @@ static void mrecv_ack_dsync(mdata *data, struct sockaddr_in *addr)
   }
 
   if(data->head.nstate == MAKUO_RECVSTATE_OPEN){
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_OPEN){
-      if(!set_hoststate(t, m, data->head.nstate)){
-        lprintf(0, "%s: not allocate state area\n", __func__);
-      }
-      return;
-    }
     if(m->mdata.head.nstate == MAKUO_SENDSTATE_DATA){
       if(data->head.seqno == m->mdata.head.seqno){
         if(!set_hoststate(t, m, data->head.nstate)){
-          lprintf(0, "%s: not allocate state area\n", __func__);
+          lprintf(0, "[error] %s: not allocate state area\n", __func__);
         }
       }
+      return;
     }
-    if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
-      if(!set_hoststate(t, m, data->head.nstate)){
-        lprintf(0, "%s: not allocate state area\n", __func__);
-      }
-    }
-    return;
   }
-
   if(!set_hoststate(t, m, data->head.nstate)){
-    lprintf(0, "%s: not allocate state area\n", __func__);
+    lprintf(0, "[error] %s: not allocate state area\n", __func__);
   }
 }
 
@@ -690,7 +675,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
     }else{
       m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
       msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
-      lprintf(0, "%s: close error %s -> %s\n", __func__, m->ln, m->fn);
+      lprintf(0, "[error] %s: close error %s -> %s\n", __func__, m->ln, m->fn);
       mremove(moption.base_dir, m->tn);
     }
     return;
@@ -729,6 +714,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
 
   if(fstat(m->fd, &fs) == -1){
     m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    m->mdata.head.error  = errno;
     msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
     lprintf(0, "[error] %s: %s fstat error %s\n", __func__, strerror(errno), m->fn);
     return; 
@@ -737,6 +723,7 @@ static void mrecv_req_send_close(mfile *m, mdata *r)
   if(close(m->fd) == -1){
     m->fd = -1;
     m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSEERROR;
+    m->mdata.head.error  = errno;
     msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
     lprintf(0, "[error] %s: %s close error %s\n", __func__, strerror(errno), m->fn);
     return; 
@@ -825,6 +812,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
 
   /* create object */
   if(!(m = mfadd(MFRECV))){
+    lprintf(0, "[error] %s: out of momory\n", __func__);
     return(NULL);
   }
 
@@ -891,9 +879,9 @@ static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
   mhash *h;
 
   if(!m){
-    m = mfadd(1);
+    m = mfadd(MFRECV);
     if(!m){
-      lprintf(0,"%s: out of memory\n", __func__);
+      lprintf(0,"[error] %s: out of memory\n", __func__);
       return;
     }
     memcpy(&(m->addr), addr, sizeof(m->addr));
@@ -1124,7 +1112,7 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
     return;
   }
 
-  d = mfins(0);
+  d = mfins(MFSEND);
   d->link = m;
   m->link = d;
   d->initstate = 1;
@@ -1180,19 +1168,8 @@ static void mrecv_req_dsync_close(mfile *m, mdata *data, struct sockaddr_in *add
     msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
   }else{
     msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
+    mrecv_mfdel(m); 
   }
-}
-
-static void mrecv_req_dsync_last(mfile *m, mdata *data, struct sockaddr_in *addr)
-{
-  if(!m){
-    return;
-  }
-  if(m->link){
-    m->link->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
-    m->link->sendwait = 0;
-  }
-  mrecv_mfdel(m); 
 }
 
 static void mrecv_req_dsync_break(mfile *m, mdata *data, struct sockaddr_in *addr)
@@ -1222,9 +1199,6 @@ static void mrecv_req_dsync(mdata *data, struct sockaddr_in *addr)
       break;
     case MAKUO_SENDSTATE_CLOSE:
       mrecv_req_dsync_close(m, data, addr);
-      break;
-    case MAKUO_SENDSTATE_LAST:
-      mrecv_req_dsync_last(m, data, addr);
       break;
     case MAKUO_SENDSTATE_BREAK:
       mrecv_req_dsync_break(m, data, addr);

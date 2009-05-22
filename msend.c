@@ -106,7 +106,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
       if(errno == EINTR){
         continue;
       }
-      lprintf(0,"%s: send error (%s) %s %s rid=%d size=%d seqno=%d\n",
+      lprintf(0,"[error] %s: send error (%s) %s %s rid=%d size=%d seqno=%d\n",
         __func__,
         strerror(errno), 
         stropcode(data), 
@@ -116,7 +116,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
         data->head.seqno);
       break;
     }else{
-      lprintf(0, "%s: send size error %s %s rid=%d datasize=%d sendsize=%d seqno=%d\n",
+      lprintf(0, "[error] %s: send size error %s %s rid=%d datasize=%d sendsize=%d seqno=%d\n",
         __func__,
         stropcode(data), 
         strmstate(data),
@@ -836,12 +836,10 @@ static void msend_req_dsync_break(int s, mfile *m)
 /*----- dsync -----*/
 static void msend_req_dsync(int s, mfile *m)
 {
-  if(m->mdata.head.nstate != MAKUO_SENDSTATE_LAST){
-    if(!m->comm){
-      if(m->mdata.head.nstate != MAKUO_SENDSTATE_BREAK){
-        m->initstate = 1;
-        m->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
-      }
+  if(!m->comm){
+    if(m->mdata.head.nstate != MAKUO_SENDSTATE_BREAK){
+      m->initstate = 1;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
     }
   }
   switch(m->mdata.head.nstate){
@@ -856,9 +854,6 @@ static void msend_req_dsync(int s, mfile *m)
       break;
     case MAKUO_SENDSTATE_BREAK:
       msend_req_dsync_break(s, m);
-      break;
-    case MAKUO_SENDSTATE_LAST:
-      msend_shot(s, m);
       break;
   }
 }
@@ -1149,6 +1144,9 @@ static void msend_req(int s, mfile *m)
 *******************************************************************/
 void msend(mfile *m)
 {
+  if(!m){
+    return;
+  }
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
     msend_ack(moption.mcsocket, m); 
   }else{

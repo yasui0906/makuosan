@@ -864,7 +864,7 @@ int mcreatefile(char *base, char *name, mode_t mode)
   char path[PATH_MAX];
   if(!mcreatedir(base,name,0755)){
     sprintf(path,"%s/%s",base,name);
-    fd = open(path, O_RDWR | O_CREAT | O_TRUNC, mode & 0xFFF);
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, mode & 0xFFF);
   }
   umask(u);
   return(fd);

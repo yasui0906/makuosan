@@ -95,7 +95,7 @@ void mcomm_check(mcomm *c){
   mfile *m;
   for(i=0;i<MAX_COMM;i++){
     if(c[i].working && !c[i].cpid && (c[i].fd[1] == -1)){
-      for(m=mftop[0];m;m=m->next){
+      for(m=mftop[MFSEND];m;m=m->next){
         if(m->comm == &c[i]){
           break; /* working */
         }
@@ -192,10 +192,10 @@ int ismsend(mfile *m, int flag)
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
     if(flag){
       msend(m);
+      return(0);
     }
-    return(0);
+    return(1);
   }
-
   if(!S_ISLNK(m->fs.st_mode) && S_ISDIR(m->fs.st_mode)){
     if(!mfdirchk(m)){
       return(0);
@@ -258,7 +258,7 @@ void mloop()
       }
     }
 
-    /* command read */
+    /* command check */
     mcomm_check(moption.comm);
 
     /* wait */
