@@ -152,23 +152,23 @@ static int msend_retry(mfile *m)
         lprintf(0, "[error] %s: can't alloc state area %s\n", __func__, t->hostname);
         continue;
       }
-      switch(moption.loglevel){
-        case 2:
+      if(m->sendto){
+        if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(t->ad))){
           if(*r == MAKUO_RECVSTATE_NONE){
-            lprintf(2, "%s:   %s %s(%s)\n", 
-              __func__, 
-             strrstate(*r), 
-             inet_ntoa(t->ad), 
-             t->hostname);
+            lprintf(2, "%s:   %s %s(%s)\n", __func__, strrstate(*r), inet_ntoa(t->ad), t->hostname);
           }
-          break;
-        default:
-          lprintf(3, "%s:   %s %s(%s)\n", 
-            __func__, 
-            strrstate(*r), 
-            inet_ntoa(t->ad), 
-            t->hostname);
-          break;
+        }
+      }else{
+        switch(moption.loglevel){
+          case 2:
+            if(*r == MAKUO_RECVSTATE_NONE){
+              lprintf(2, "%s:   %s %s(%s)\n", __func__, strrstate(*r), inet_ntoa(t->ad), t->hostname);
+            }
+            break;
+          default:
+            lprintf(3, "%s:   %s %s(%s)\n", __func__, strrstate(*r), inet_ntoa(t->ad), t->hostname);
+            break;
+        }
       }
     }
   }
