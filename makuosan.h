@@ -5,7 +5,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#define PROTOCOL_VERSION 5
+#define PROTOCOL_VERSION 6
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
 #include <stdio.h>

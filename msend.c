@@ -979,31 +979,23 @@ static int msend_req_del_stat_waitcheck(int s, mfile *m)
 
 static void msend_req_del_stat(int s, mfile *m)
 {
-  if(m->pid == 0){
+  if(m->pipe != -1){
+    msend_req_del_stat_read(s, m);
+  }else{
     if(msend_req_del_stat_waitcheck(s, m)){
       m->sendwait = 1;
     }else{
-      m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;
-      m->initstate = 1;
-      m->sendwait  = 0;
-      ack_clear(m, -1);
+      if(m->link){
+        msend(mkack(&(m->link->mdata), &(m->link->addr), MAKUO_RECVSTATE_CLOSE));
+      }
+      if(waitpid(m->pid, NULL, WNOHANG) != m->pid){
+        m->sendwait = 1;
+      }else{
+        m->pid = 0;
+        msend_mfdel(m);
+      }
     }
-    return;
   }
-  if(m->pipe == -1){
-    if(waitpid(m->pid, NULL, WNOHANG) == m->pid){
-      m->pid = 0;
-    }else{
-      m->sendwait = 1;
-    }
-    return;
-  }
-  msend_req_del_stat_read(s, m);
-}
-
-static void msend_req_del_last(int s, mfile *m)
-{
-  msend_mfdel(m);
 }
 
 static void msend_req_del_break(int s, mfile *m)
@@ -1068,6 +1060,9 @@ static void msend_req_del_close(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
+  if(m->link){
+    m->link->sendwait = 0;
+  }
   m->link = NULL;
   msend_mfdel(m);
 }
@@ -1078,9 +1073,6 @@ static void msend_req_del(int s, mfile *m)
   switch(m->mdata.head.nstate){
     case MAKUO_SENDSTATE_STAT:
       msend_req_del_stat(s, m);
-      break;
-    case MAKUO_SENDSTATE_LAST:
-      msend_req_del_last(s, m);
       break;
     case MAKUO_SENDSTATE_BREAK:
       msend_req_del_break(s, m);
