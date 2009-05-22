@@ -167,7 +167,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 makuosan_SOURCES = makuosan.c common.c mexec.c minit.c mexit.c mrecv.c msend.c xprint.c makuosan.h
 msync_SOURCES = msync.c 
-EXTRA_DIST = support
+EXTRA_DIST = support ChangeLog.ja
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
