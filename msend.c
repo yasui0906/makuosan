@@ -149,15 +149,13 @@ static int msend_retry(mfile *m)
     for(t=members;t;t=t->next){
       r = get_hoststate(t, m);
       if(!r){
-        lprintf(0, "%s: can't alloc state area %s\n",
-          __func__, 
-          t->hostname);
+        lprintf(0, "[error] %s: can't alloc state area %s\n", __func__, t->hostname);
         continue;
       }
       switch(moption.loglevel){
         case 2:
           if(*r == MAKUO_RECVSTATE_NONE){
-            lprintf(0, "%s:   %s %s(%s)\n", 
+            lprintf(2, "%s:   %s %s(%s)\n", 
               __func__, 
              strrstate(*r), 
              inet_ntoa(t->ad), 
