@@ -188,12 +188,13 @@ void mprintf(int l, const char *func, mfile *m)
 {
   if(!m)
     return;
-  lprintf(l, "%s: rc=%d rid=%d init=%d wait=%d %s %s %s %s\n",
+  lprintf(l, "%s: rc=%d id=%d init=%d wait=%d flag=%d %s %s %s %s\n",
     func, 
     m->retrycnt,
     m->mdata.head.reqid, 
     m->initstate, 
     m->sendwait, 
+    m->mdata.head.flags,
     inet_ntoa(m->addr.sin_addr), 
     stropcode(&(m->mdata)),
     strmstate(&(m->mdata)),

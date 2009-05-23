@@ -10,6 +10,7 @@ mfile *mfreeobj = NULL;
 mhost *members  = NULL;
 int loop_flag   = 1;
 struct timeval curtime;
+struct timeval lastpong;
 BF_KEY EncKey;
 
 int md5sum(int fd, unsigned char *digest)
@@ -31,7 +32,7 @@ int md5sum(int fd, unsigned char *digest)
 /*
  *  タイムアウト時間が経過しているかどうかを判断する
  *   - 現在時刻がtfからmsec[ms]経過していれば1を返す
- *   - それ以外は0を返す
+ *   - 経過していなければ0を返す
  */
 int mtimeout(struct timeval *tf, uint32_t msec)
 {
@@ -579,7 +580,7 @@ int ack_check(mfile *m, int state)
     if(!m->sendto){
       s = get_hoststate(t,m);
       if(!s){
-        lprintf(0,"%s: can't get state area host=%s fn=%s\n", 
+        lprintf(0,"[error] %s: can't get state area host=%s fn=%s\n", 
           __func__, t->hostname, m->fn);
       }else{
         if(*s == state){
@@ -590,7 +591,7 @@ int ack_check(mfile *m, int state)
       if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
         s = get_hoststate(t,m);
         if(!s){
-          lprintf(0,"%s: can't get state area host=%s fn=%s\n", 
+          lprintf(0,"[error] %s: can't get state area host=%s fn=%s\n", 
             __func__, t->hostname, m->fn);
         }else{
           if(*s == state){

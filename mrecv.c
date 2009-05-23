@@ -1086,6 +1086,7 @@ static void mrecv_req_dsync_open(mfile *m, mdata *data, struct sockaddr_in *addr
     memcpy(m->fn, data->data, data->head.szdata);
   }
   m->fn[data->head.szdata] = 0;
+  mtimeget(&(m->lastrecv));
 }
 
 static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr)
@@ -1097,6 +1098,11 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
   uint16_t len;
 
   msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
+  if(!m){
+    return;
+  }
+
+  mtimeget(&(m->lastrecv));
   if(m->mdata.head.seqno >= data->head.seqno){
     return;
   }
@@ -1162,18 +1168,20 @@ static void mrecv_req_dsync_close(mfile *m, mdata *data, struct sockaddr_in *add
 {
   if(!m){
     msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
-    return;
-  }
-  if(m->link){
-    msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
   }else{
-    msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
-    mrecv_mfdel(m); 
+    mtimeget(&(m->lastrecv));
+    if(m->link){
+      msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
+    }else{
+      msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
+      mrecv_mfdel(m); 
+    }
   }
 }
 
 static void mrecv_req_dsync_break(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
+  msend(mkack(data, addr, MAKUO_RECVSTATE_BREAK));
   if(m){
     if(m->link){
       m->link->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
@@ -1181,7 +1189,6 @@ static void mrecv_req_dsync_break(mfile *m, mdata *data, struct sockaddr_in *add
     }
     mrecv_mfdel(m);
   }
-  msend(mkack(data, addr, MAKUO_RECVSTATE_BREAK));
 }
 
 /*

@@ -25,7 +25,7 @@ mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
 {
   mfile *m = mfadd(MFSEND);
   if(!m){
-	  lprintf(0, "%s: out of memorry\n", __func__);
+	  lprintf(0, "[error] %s: out of memorry\n", __func__);
 	  cprintf(0, c, "error: out of memorry\n");
     return(m);
 	}
@@ -86,8 +86,7 @@ int mexec_scan_cmd(int fd, char *buff)
         if(errno == EINTR){
           continue;
         }
-        lprintf(0, "%s: commend write error (%s) %s", 
-          __func__, strerror(errno), buff);
+        lprintf(0, "[error] %s: commend write error (%s) %s", __func__, strerror(errno), buff);
         return(-1);
       }
       size -= r;
@@ -416,7 +415,7 @@ int mexec_send(mcomm *c, int n, int sync)
   /*----- send file -----*/
   m = mfadd(MFSEND);
   if(!m){
-	  lprintf(0, "%s: out of memorry\n", __func__);
+	  lprintf(0, "[error] %s: out of memorry\n", __func__);
 	  cprintf(0, c, "error: out of memorry\n");
     return(0);
 	}
@@ -1000,7 +999,7 @@ int mexec(mcomm *c, int n)
     if(r>0){
     }else{
       if(r == -1){
-        lprintf(0, "%s: read error n=%d\n", __func__, n);
+        lprintf(0, "[error] %s: read error n=%d\n", __func__, n);
       }
       mexec_close(c, n);
     }
@@ -1008,7 +1007,7 @@ int mexec(mcomm *c, int n)
   }
 
   if(n == 1){
-    for(m=mftop[0];m;m=m->next){
+    for(m=mftop[MFSEND];m;m=m->next){
       if(m->comm == c){
         count++;
         if(count == MAKUO_PARALLEL_MAX){
@@ -1019,7 +1018,7 @@ int mexec(mcomm *c, int n)
   }
 
   if(!size){
-    lprintf(0, "%s: buffer over fllow n=%d\n", __func__, n);
+    lprintf(0, "[error] %s: buffer over fllow n=%d\n", __func__, n);
     mexec_close(c, n);
     return(-1);
   }

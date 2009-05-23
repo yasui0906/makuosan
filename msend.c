@@ -807,11 +807,12 @@ static void msend_req_dsync_close(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
-  if(!ack_check(m, MAKUO_RECVSTATE_OPEN)){
-    msend_mfdel(m);
-  }else{
+  if(ack_check(m, MAKUO_RECVSTATE_OPEN)){
     m->sendwait  = 0;
     m->initstate = 1;
+  }else{
+    msend_packet(s, &(m->mdata), &(m->addr));
+    msend_mfdel(m);
   }
 }
 

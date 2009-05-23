@@ -289,6 +289,7 @@ extern char *tzname[2];
 extern int daylight;
 extern char TZ[256];
 extern struct timeval curtime;
+extern struct timeval lastpong;
 extern BF_KEY EncKey;
 
 /*----- report -----*/

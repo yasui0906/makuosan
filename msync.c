@@ -144,7 +144,7 @@ int connect_socket(char *target)
     p = strtok(NULL,":");
     return(connect_socket_unix(p));
   }
-  return(-1);
+  return(connect_socket_unix(buff));
 }
 
 int writeline(int s, char *buff)

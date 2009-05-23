@@ -24,30 +24,16 @@ void recv_timeout(mfile *m)
   m->retrycnt = MAKUO_SEND_RETRYCNT;
 }
 
-struct timeval *pingpong(int n)
+void pingpong(int n)
 {
-  static struct timeval tv;
   mfile *m = mfins(MFSEND);
   mping *p = NULL;
   char buff[MAKUO_HOSTNAME_MAX + 1];
 
-  gettimeofday(&tv, NULL);
   if(!m){
-    lprintf(0, "%s: out of memmory\r\n", __func__);
-    return(&tv);
+    lprintf(0, "[error] %s: out of memmory\r\n", __func__);
+    return;
   }
-  switch(n){
-    case 0:
-      m->mdata.head.opcode = MAKUO_OP_PING;
-      break;
-    case 1:
-      m->mdata.head.opcode = MAKUO_OP_PING;
-      m->mdata.head.flags |= MAKUO_FLAG_ACK;
-      break;
-    case 2:
-      m->mdata.head.opcode = MAKUO_OP_EXIT;
-      break;
-  } 
   m->mdata.head.reqid  = getrid();
   m->mdata.head.seqno  = 0;
   m->mdata.head.szdata = 0;
@@ -66,22 +52,41 @@ struct timeval *pingpong(int n)
   m->mdata.p += p->versionlen;
   p->hostnamelen = htons(p->hostnamelen);
   p->versionlen  = htons(p->versionlen);
-  return(&tv);
+  gettimeofday(&lastpong, NULL);
+  switch(n){
+    case 0:
+      m->mdata.head.opcode = MAKUO_OP_PING;
+      break;
+    case 1:
+      m->mdata.head.opcode = MAKUO_OP_PING;
+      m->mdata.head.flags |= MAKUO_FLAG_ACK;
+      break;
+    case 2:
+      m->mdata.head.opcode = MAKUO_OP_EXIT;
+      msend(m);
+      break;
+  } 
 }
 
-int mcomm_accept(mcomm *c, fd_set *fds, int s)
+int mcomm_accept(mcomm *c, fd_set *fds)
 {
   int i;
-  if(s == -1)
+  int s = moption.lisocket;
+  if(s == -1){
     return(0);
-  if(!FD_ISSET(s,fds))
+  }
+  if(!FD_ISSET(s,fds)){
     return(0);
-  for(i=0;i<MAX_COMM;i++)
-    if(c[i].fd[0] == -1)
+  }
+  for(i=0;i<MAX_COMM;i++){
+    if(c[i].fd[0] == -1){
       break;
+    }
+  }
   if(i==MAX_COMM){
     close(accept(s, NULL, 0)); 
-    return(0);
+    lprintf(0, "[error] %s: can't accept reached in the maximum\n");
+    return(1);
   }
   c[i].addrlen = sizeof(c[i].addr);
   c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
@@ -122,22 +127,25 @@ int mcomm_read(mcomm *c, fd_set *fds){
   return(0);
 }
 
-int mcomm_fdset(mcomm *c, fd_set *fds)
+int mcomm_fdset(mcomm *c, fd_set *rfds, fd_set *wfds)
 {
   int i;
 
   /*----- listen socket -----*/
   if(moption.lisocket != -1){
-    FD_SET(moption.lisocket, fds);
+    FD_SET(moption.lisocket, rfds);
   }
 
   /*----- connect socket -----*/
   for(i=0;i<MAX_COMM;i++){
     if(c[i].fd[0] != -1){
-      FD_SET(c[i].fd[0], fds);
+      FD_SET(c[i].fd[0], rfds);
+      if(c[i].working){
+        FD_SET(c[i].fd[0], wfds);
+      }
     }
     if(c[i].fd[1] != -1){
-      FD_SET(c[i].fd[1], fds);
+      FD_SET(c[i].fd[1], rfds);
     }else{
       if(c[i].cpid){
         if(waitpid(c[i].cpid, NULL, WNOHANG) == c[i].cpid){
@@ -180,9 +188,8 @@ int mfdirchk(mfile *d){
   return(1);
 }
 
-int ismsend(mfile *m, int flag)
+int is_send(mfile *m)
 {
-  int r;
   if(!m){
     return(0);
   }
@@ -190,108 +197,126 @@ int ismsend(mfile *m, int flag)
     return(0);
   }
   if(m->mdata.head.flags & MAKUO_FLAG_ACK){
-    if(flag){
-      msend(m);
-      return(0);
-    }
     return(1);
   }
-  if(!S_ISLNK(m->fs.st_mode) && S_ISDIR(m->fs.st_mode)){
-    if(!mfdirchk(m)){
-      return(0);
-    }
+  switch(m->mdata.head.opcode){
+    case MAKUO_OP_SEND:
+    case MAKUO_OP_DEL:
+      if(!S_ISLNK(m->fs.st_mode) && S_ISDIR(m->fs.st_mode)){
+        if(!mfdirchk(m)){
+          return(0);
+        }
+      }
+      break;
   }
-  r = ack_check(m, MAKUO_RECVSTATE_NONE);
-  if(r == -1){
-    m->mdata.head.seqno  = 0;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
-  }
-  if(!r){
+  if(!ack_check(m, MAKUO_RECVSTATE_NONE)){
     m->sendwait = 0;
   }
   if(m->sendwait){
     if(!mtimeout(&(m->lastsend), MAKUO_SEND_TIMEOUT)){
-      return(1);
+      return(0);
     }
     if(!(m->retrycnt)){
       recv_timeout(m);
     }
   }
-  if(flag){
-    msend(m);
-  }
   return(1);
+}
+
+void wfdset(int s, fd_set *fds)
+{
+  mfile *m;
+  for(m=mftop[MFSEND];m;m=m->next){
+    if(is_send(m)){
+      FD_SET(s, fds);
+      return;
+    }
+  }
+}
+
+int do_select(fd_set *rfds, fd_set *wfds)
+{
+  struct timeval tv;
+  tv.tv_sec  = 1;
+  tv.tv_usec = 0;
+  if(select(1024, rfds, wfds, NULL, &tv) <= 0){
+    gettimeofday(&curtime, NULL);
+    moption.sendready = 0;
+    mrecv_gc();
+    return(-1);
+  }
+  gettimeofday(&curtime, NULL);
+  moption.sendready = FD_ISSET(moption.mcsocket, wfds);
+  return(0);
+}
+
+void do_pong()
+{
+  if(mtimeout(&lastpong, MAKUO_PONG_INTERVAL)){
+    pingpong(1);
+  }
+}
+
+void do_recv()
+{
+  while(mrecv());
+}
+
+void do_send()
+{
+  int  i=0;
+  mfile *m;
+  mfile *n;
+
+  for(m=mftop[MFSEND];m;m=n){
+    if(i == moption.parallel){
+      return;
+    }
+    n = m->next;
+    if(m->mdata.head.flags & MAKUO_FLAG_ACK){
+      msend(m);
+      continue;
+    }
+    if(!is_send(m)){
+      if(m->sendwait){
+        i++;
+      }
+      continue;
+    }
+    msend(m);
+    i++;
+  }
 }
 
 void mloop()
 {
-  int para;
-  mfile *n;
-  mfile *m;
   fd_set rfds;
   fd_set wfds;
-  struct timeval *lastpong;
-  struct timeval tv;
-
-  /* multicast ping request */  
-  lastpong = pingpong(0);
-
-  /* main loop */
   while(loop_flag){
-    gettimeofday(&curtime, NULL);
-    if(mtimeout(lastpong, MAKUO_PONG_INTERVAL)){
-      lastpong = pingpong(1);
-    }
-
-    /* udp packet receive */
-    while(mrecv());
-
-    /* udp packet send */
-    para = 0;
-    m = mftop[MFSEND];
-    while(m){
-      n = m->next;
-      para += ismsend(m, 1);
-      m = n;
-      if(para == moption.parallel){
-        break;
-      }
-    }
-
-    /* command check */
-    mcomm_check(moption.comm);
-
-    /* wait */
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
-    FD_SET(moption.mcsocket,  &rfds);
-    mcomm_fdset(moption.comm, &rfds);
-    for(m=mftop[MFSEND];m;m=m->next){
-      if(ismsend(m, 0)){
-        FD_SET(moption.mcsocket, &wfds);
-        break;
-      }
-    }
-    tv.tv_sec  = 1;
-    tv.tv_usec = 0;
-    if(select(1024, &rfds, &wfds, NULL, &tv) == -1){
-      mrecv_gc();
+    FD_SET(moption.mcsocket, &rfds);
+    wfdset(moption.mcsocket, &wfds);
+    mcomm_fdset(moption.comm, &rfds, &wfds);
+    if(do_select(&rfds, &wfds)){
+      do_pong();
       continue;
     }
-    moption.sendready = FD_ISSET(moption.mcsocket,&wfds);
-    mcomm_accept(moption.comm, &rfds, moption.lisocket);  /* new console  */
-    mcomm_read(moption.comm, &rfds);                      /* command exec */
+    do_pong();
+    do_recv();
+    do_send();
+    mcomm_check(moption.comm);         /* exec check   */
+    mcomm_accept(moption.comm, &rfds); /* new console  */
+    mcomm_read(moption.comm, &rfds);   /* command exec */
   }
-
-  /* shutdown notify */
-  pingpong(2);
-  msend(mftop[MFSEND]);
 }
 
 int main(int argc, char *argv[])
 {
   minit(argc,argv);
+  pingpong(0);
   mloop();
+  pingpong(2);
   mexit();
   return(0);
 }

@@ -1,30 +1,35 @@
-1.2.0:
- - log format change. add "[error]" for error log
- - latency improvement.
- - fix: terminate process when file close error.
+1.2.0: 2009/5/25
+ - Improved response.
+ - Added "[error]" to error logging messages.
+ - Added detailed status message in the event of member timeout.
+ - The msync's status option message now includes the command line of current process.
+ - Fixed abnormal behavior when multiple msyncs are invoked simultaneously.
+ - Fixed abnormal termination after file close failure.
+ - Fixed message output when the delete option is used.
+ - Fixed some minor flaws. 
 
-1.1.3:
+1.1.3: 2009/1/14
  - sort msync --members by hostname
  - fix: msync failed for FreeBSD and MacOSX
 
-1.1.2:
+1.1.2: 2008/12/24
  - fix: not send shutdown message 
 
-1.1.1:
+1.1.1: 2008/12/24
  - error message output in detail
 
-1.1.0:
+1.1.0: 2008/12/24
  - file transfer performance tuning
  - remote file delete function for makuosan
  - add --delete option for msync
  - add --sync   option for msync
 
-1.0.1:
+1.0.1: 2008/11/12
  - add spec file   (support/makuosan.spec)
  - add init script (support/makuosan.sysv)
  - support for FreeBSD & MacOSX
 
-1.0.0:
+1.0.0: 2008/11/6
  - stable release
  - change default value -f option. 1 to 3
  - fixed group missmatch

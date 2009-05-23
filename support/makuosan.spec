@@ -1,5 +1,5 @@
 Name:           makuosan
-Version:        1.1.4
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Multicasts All-Kinds of Updating Operation for Servers on Administered Network
 
@@ -83,7 +83,8 @@ rm -rf %{buildroot}
 
 
 %changelog
-* Sat May 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.1.4
+* Mon May 25 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.0
 
 * Thu Nov  6 2008 Naoya Nakazawa <naoya.n@gmail.com> - 1.0.0
 - Initial version
+
