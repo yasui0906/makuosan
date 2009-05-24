@@ -127,36 +127,6 @@ int mcomm_read(mcomm *c, fd_set *fds){
   return(0);
 }
 
-int mcomm_fdset(mcomm *c, fd_set *rfds, fd_set *wfds)
-{
-  int i;
-
-  /*----- listen socket -----*/
-  if(moption.lisocket != -1){
-    FD_SET(moption.lisocket, rfds);
-  }
-
-  /*----- connect socket -----*/
-  for(i=0;i<MAX_COMM;i++){
-    if(c[i].fd[0] != -1){
-      FD_SET(c[i].fd[0], rfds);
-      if(c[i].working){
-        FD_SET(c[i].fd[0], wfds);
-      }
-    }
-    if(c[i].fd[1] != -1){
-      FD_SET(c[i].fd[1], rfds);
-    }else{
-      if(c[i].cpid){
-        if(waitpid(c[i].cpid, NULL, WNOHANG) == c[i].cpid){
-          c[i].cpid = 0;
-        }
-      }
-    }
-  }
-  return(0);
-}
-
 int mfdirchk(mfile *d){
   mfile *m;
   int len = strlen(d->fn);
@@ -223,6 +193,11 @@ int is_send(mfile *m)
   return(1);
 }
 
+void rfdset(int s, fd_set *fds)
+{
+  FD_SET(s, fds);
+}
+
 void wfdset(int s, fd_set *fds)
 {
   mfile *m;
@@ -230,6 +205,35 @@ void wfdset(int s, fd_set *fds)
     if(is_send(m)){
       FD_SET(s, fds);
       return;
+    }
+  }
+}
+
+void cfdset(mcomm *c, fd_set *rfds, fd_set *wfds)
+{
+  int i;
+
+  /*----- listen socket -----*/
+  if(moption.lisocket != -1){
+    FD_SET(moption.lisocket, rfds);
+  }
+
+  /*----- connect socket -----*/
+  for(i=0;i<MAX_COMM;i++){
+    if(c[i].fd[0] != -1){
+      FD_SET(c[i].fd[0], rfds);
+      if(c[i].working){
+        FD_SET(c[i].fd[0], wfds);
+      }
+    }
+    if(c[i].fd[1] != -1){
+      FD_SET(c[i].fd[1], rfds);
+    }else{
+      if(c[i].cpid){
+        if(waitpid(c[i].cpid, NULL, WNOHANG) == c[i].cpid){
+          c[i].cpid = 0;
+        }
+      }
     }
   }
 }
@@ -242,7 +246,6 @@ int do_select(fd_set *rfds, fd_set *wfds)
   if(select(1024, rfds, wfds, NULL, &tv) <= 0){
     gettimeofday(&curtime, NULL);
     moption.sendready = 0;
-    mrecv_gc();
     return(-1);
   }
   gettimeofday(&curtime, NULL);
@@ -255,6 +258,11 @@ void do_pong()
   if(mtimeout(&lastpong, MAKUO_PONG_INTERVAL)){
     pingpong(1);
   }
+}
+
+void do_free()
+{
+  mrecv_gc();
 }
 
 void do_recv()
@@ -295,19 +303,20 @@ void mloop()
   while(loop_flag){
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
-    FD_SET(moption.mcsocket, &rfds);
+    rfdset(moption.mcsocket, &wfds);
     wfdset(moption.mcsocket, &wfds);
-    mcomm_fdset(moption.comm, &rfds, &wfds);
+    cfdset(moption.comm, &rfds, &wfds);
     if(do_select(&rfds, &wfds)){
       do_pong();
-      continue;
+      do_free();
+    }else{
+      do_pong();
+      do_recv();
+      do_send();
+      mcomm_check(moption.comm);         /* exec check   */
+      mcomm_accept(moption.comm, &rfds); /* new console  */
+      mcomm_read(moption.comm, &rfds);   /* command exec */
     }
-    do_pong();
-    do_recv();
-    do_send();
-    mcomm_check(moption.comm);         /* exec check   */
-    mcomm_accept(moption.comm, &rfds); /* new console  */
-    mcomm_read(moption.comm, &rfds);   /* command exec */
   }
 }
 

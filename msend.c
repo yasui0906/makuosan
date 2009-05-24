@@ -201,6 +201,41 @@ static void msend_ack_send(int s, mfile *m)
 
 static void msend_ack_md5(int s, mfile *m)
 {
+  int r;
+  char hash[16];
+  char buff[8192];
+  mfile *d = m->link;
+  if(!d){
+    msend_shot(s, m);
+    return;
+  }
+  r = read(d->fd, buff, sizeof(buff));
+  if(r > 0){
+    MD5_Update(&(d->md5), buff, r);
+    return;
+  }
+  if(r == -1){
+    if(errno == EINTR){
+      return;
+    }
+    d->mdata.head.error  = errno;
+    d->mdata.head.nstate = MAKUO_RECVSTATE_READERROR;
+    lprintf(0, "[error] %s: file read error %s\n", __func__, d->fn);
+    MD5_Final(hash, &(d->md5));
+  }else{
+    MD5_Final(hash, &(d->md5));
+    if(!memcmp(hash, d->mdata.data, 16)){
+      d->mdata.head.nstate = MAKUO_RECVSTATE_MD5OK;
+    }else{
+      d->mdata.head.nstate = MAKUO_RECVSTATE_MD5NG;
+    }
+  }
+  m->mdata.head.error  = d->mdata.head.error;
+  m->mdata.head.nstate = d->mdata.head.nstate;
+  close(d->fd);
+  d->fd = -1;
+  d->link = NULL;
+  m->link = NULL;
   msend_shot(s, m);
 }
 
@@ -674,6 +709,33 @@ static void msend_req_send(int s, mfile *m)
 
 static void msend_req_md5_open_init(int s, mfile *m)
 {
+  int e;
+  int r;
+  mhash *h;
+  char buff[8192];
+
+  h = (mhash *)m->mdata.data;
+  r = read(m->fd, buff, sizeof(buff));
+  if(r > 0){
+    MD5_Update(&(m->md5), buff, r);
+    return;
+  }
+  e = errno;
+  if(r == -1){
+    if(e == EINTR){
+      return;
+    }
+	  lprintf(0, "[error] %s: file read error(%s) %s\n", __func__, strerror(e), m->fn);
+    cprintf(0, m->comm, "error: file read error(%s) %s\n", strerror(e), m->fn);
+    MD5_Final(h->hash, &(m->md5));
+    close(m->fd);
+    m->fd = -1;
+    msend_mfdel(m);
+    return;
+  }
+  MD5_Final(h->hash, &(m->md5));
+  close(m->fd);
+  m->fd = -1;
   m->sendwait  = 1;
   m->initstate = 0;
   ack_clear(m, -1);
@@ -691,7 +753,14 @@ static void msend_req_md5_open(int s, mfile *m)
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
+  if(ack_check(m, MAKUO_RECVSTATE_OPEN) == 1){
+    m->initstate = 0;
+    m->sendwait  = 1;
+    ack_clear(m, MAKUO_RECVSTATE_OPEN);
+    return;
+  }
   m->initstate = 1;
+  m->sendwait  = 0;
   m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
 }
 
@@ -721,6 +790,20 @@ static void msend_req_md5_close(int s, mfile *m)
 /*----- md5 -----*/
 static void msend_req_md5(int s, mfile *m)
 {
+  if(!m->comm){
+    if(m->mdata.head.nstate == MAKUO_SENDSTATE_OPEN){
+      if(m->initstate){
+        MD5_Final(m->mdata.data, &(m->md5));
+        close(m->fd);
+        m->fd = -1;
+        msend_mfdel(m);
+        return;
+      }else{
+        m->initstate = 1;
+        m->mdata.head.nstate = MAKUO_SENDSTATE_CLOSE;
+      }
+    }
+  }
   switch(m->mdata.head.nstate){
     case MAKUO_SENDSTATE_OPEN:
       msend_req_md5_open(s, m);

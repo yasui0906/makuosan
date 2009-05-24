@@ -271,7 +271,7 @@ int mexec_close(mcomm *c, int n)
     while(c->exclude){
       mexec_exclude_del(c, c->exclude);
     }
-    for(m=mftop[0];m;m=m->next){
+    for(m=mftop[MFSEND];m;m=m->next){
       if(m->comm == c){
         m->comm = NULL;
         lprintf(3, "%s: cancel %s\n", __func__, m->fn);
@@ -503,7 +503,6 @@ int mexec_check(mcomm *c, int n)
 {
   int e;
   int i;
-  int r;
   ssize_t size;
   char *argv[9];
   char *fn = NULL;
@@ -593,19 +592,10 @@ int mexec_check(mcomm *c, int n)
   /*----- md5 -----*/
   h = (mhash *)m->mdata.data;
   h->fnlen = strlen(m->fn);
-  r = md5sum(m->fd, h->hash);
-  close(m->fd);
-  m->fd = -1;
-  if(r == -1){
-    e = errno; 
-	  lprintf(0, "[error] %s: %s %s\n", __func__, strerror(e), m->fn);
-    cprintf(0, c, "error: %s %s\n", strerror(e), m->fn);
-    mfdel(m);
-    return(0);
-  }
   memcpy(h->filename, m->fn, h->fnlen);
   m->mdata.head.szdata = sizeof(mhash) + h->fnlen;
   h->fnlen = htons(h->fnlen);
+  MD5_Init(&(m->md5));
 
   /*----- sendto address -----*/
   if(t){

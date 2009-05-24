@@ -874,41 +874,27 @@ static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
-  int    r;
-  int    l;
+  int l;
   mhash *h;
 
   if(!m){
     m = mfadd(MFRECV);
-    if(!m){
-      lprintf(0,"[error] %s: out of memory\n", __func__);
-      return;
-    }
     memcpy(&(m->addr), addr, sizeof(m->addr));
     memcpy(&(m->mdata.head), &(data->head), sizeof(m->mdata.head));
     h = (mhash *)(data->data);
     l = ntohs(h->fnlen);
     memcpy(m->fn, h->filename, l);
     m->fn[l] = 0;
+    memcpy(m->mdata.data, h->hash, 16); 
     m->fd = open(m->fn, O_RDONLY);
     if(m->fd == -1){
       m->mdata.head.error  = errno;
       m->mdata.head.nstate = MAKUO_RECVSTATE_OPENERROR;
     }else{
-      r = md5sum(m->fd, m->mdata.data);
-      close(m->fd);
-      m->fd = -1;
-      if(r == -1){
-	      lprintf(0, "%s: file read error %s\n", __func__, m->fn);
-        m->mdata.head.error  = errno;
-        m->mdata.head.nstate = MAKUO_RECVSTATE_READERROR;
-      }else{
-        if(!memcmp(m->mdata.data, data->data, 16)){
-          m->mdata.head.nstate = MAKUO_RECVSTATE_MD5OK;
-        }else{
-          m->mdata.head.nstate = MAKUO_RECVSTATE_MD5NG;
-        }
-      }
+      m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+      m->link = mkack(&(m->mdata), &(m->addr), MAKUO_RECVSTATE_NONE);
+      m->link->link = m;
+      MD5_Init(&(m->md5));
     }
   }
   mtimeget(&(m->lastrecv));
@@ -917,15 +903,20 @@ static void mrecv_req_md5_open(mfile *m, mdata *data, struct sockaddr_in *addr)
 
 static void mrecv_req_md5_close(mfile *m, mdata *data, struct sockaddr_in *addr)
 {
+  if(m){
+    if(m->link){
+      close(m->fd);
+      m->fd = -1;
+      MD5_Final(m->mdata.data, &(m->md5));
+      m->link->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
+      m->link->link = NULL;
+      m->link = NULL;
+    }
+    mrecv_mfdel(m);
+  }
   msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
-  mrecv_mfdel(m);
 }
 
-/*
- * md5チェック要求を受け取ったときの処理
- * mfileオブジェクトを生成して
- * 対象ファイルのmd5を取得する
- */
 static void mrecv_req_md5(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m = mrecv_req_search(data, addr);

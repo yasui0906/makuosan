@@ -232,6 +232,7 @@ typedef struct mfile
   struct mfile *link;
   excludeitem *exclude;
   char cmdline[MAKUO_BUFFER_SIZE];
+  MD5_CTX md5;
 } mfile;
 
 typedef struct

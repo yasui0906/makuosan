@@ -16,7 +16,7 @@ BF_KEY EncKey;
 int md5sum(int fd, unsigned char *digest)
 {
   int  rd;
-  char buff[1024];
+  char buff[8192];
   MD5_CTX ctx;
   MD5_Init(&ctx);
   while(rd = read(fd, buff, sizeof(buff))){
