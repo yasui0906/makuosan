@@ -303,7 +303,7 @@ void mloop()
   while(loop_flag){
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
-    rfdset(moption.mcsocket, &wfds);
+    rfdset(moption.mcsocket, &rfds);
     wfdset(moption.mcsocket, &wfds);
     cfdset(moption.comm, &rfds, &wfds);
     if(do_select(&rfds, &wfds)){
