@@ -405,11 +405,11 @@ static void msend_req_send_stat_update_report(mfile *m)
       }
       if(*r == MAKUO_RECVSTATE_SKIP){
         cprintf(2, m->comm, "%sskip   %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(3, "%sskip   %s:%s\n", dryrun, t->hostname, m->fn);
+        lprintf(5, "%sskip   %s:%s\n", dryrun, t->hostname, m->fn);
       }
       if(*r == MAKUO_RECVSTATE_READONLY){
-        cprintf(2, m->comm, "%sskipro %s:%s\r\n", dryrun, t->hostname, m->fn);
-        lprintf(3, "%sskipro %s:%s\n", dryrun, t->hostname, m->fn);
+        cprintf(3, m->comm, "%sskipro %s:%s\r\n", dryrun, t->hostname, m->fn);
+        lprintf(6, "%sskipro %s:%s\n", dryrun, t->hostname, m->fn);
       }
     }
   }

@@ -68,65 +68,6 @@ void pingpong(int n)
   } 
 }
 
-int mcomm_accept(mcomm *c, fd_set *fds)
-{
-  int i;
-  int s = moption.lisocket;
-  if(s == -1){
-    return(0);
-  }
-  if(!FD_ISSET(s,fds)){
-    return(0);
-  }
-  for(i=0;i<MAX_COMM;i++){
-    if(c[i].fd[0] == -1){
-      break;
-    }
-  }
-  if(i==MAX_COMM){
-    close(accept(s, NULL, 0)); 
-    lprintf(0, "[error] %s: can't accept reached in the maximum\n");
-    return(1);
-  }
-  c[i].addrlen = sizeof(c[i].addr);
-  c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
-  lprintf(1, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
-  c[i].working = 1;
-  return(0);
-}
-
-void mcomm_check(mcomm *c){
-  int    i;
-  mfile *m;
-  for(i=0;i<MAX_COMM;i++){
-    if(c[i].working && !c[i].cpid && (c[i].fd[1] == -1)){
-      for(m=mftop[MFSEND];m;m=m->next){
-        if(m->comm == &c[i]){
-          break; /* working */
-        }
-      }
-      if(!m){
-        workend(&c[i]);
-      }
-    }
-  }
-}
-
-int mcomm_read(mcomm *c, fd_set *fds){
-  int i, j;
-  mfile *m;
-  for(i=0;i<MAX_COMM;i++){
-    for(j=0;j<2;j++){
-      if(c[i].fd[j] != -1){
-        if(FD_ISSET(c[i].fd[j], fds) || c[i].check[j]){
-          mexec(&c[i], j);
-        }
-      }
-    }
-  }
-  return(0);
-}
-
 int mfdirchk(mfile *d){
   mfile *m;
   int len = strlen(d->fn);
@@ -296,6 +237,65 @@ void do_send()
   }
 }
 
+void do_exechk(mcomm *c){
+  int    i;
+  mfile *m;
+  for(i=0;i<MAX_COMM;i++){
+    if(c[i].working && !c[i].cpid && (c[i].fd[1] == -1)){
+      for(m=mftop[MFSEND];m;m=m->next){
+        if(m->comm == &c[i]){
+          break; /* working */
+        }
+      }
+      if(!m){
+        workend(&c[i]);
+      }
+    }
+  }
+}
+
+int do_accept(mcomm *c, fd_set *fds)
+{
+  int i;
+  int s = moption.lisocket;
+  if(s == -1){
+    return(0);
+  }
+  if(!FD_ISSET(s,fds)){
+    return(0);
+  }
+  for(i=0;i<MAX_COMM;i++){
+    if(c[i].fd[0] == -1){
+      break;
+    }
+  }
+  if(i==MAX_COMM){
+    close(accept(s, NULL, 0)); 
+    lprintf(0, "[error] %s: can't accept reached in the maximum\n");
+    return(1);
+  }
+  c[i].addrlen = sizeof(c[i].addr);
+  c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
+  lprintf(1, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
+  c[i].working = 1;
+  return(0);
+}
+
+int do_comexe(mcomm *c, fd_set *fds){
+  int i, j;
+  mfile *m;
+  for(i=0;i<MAX_COMM;i++){
+    for(j=0;j<2;j++){
+      if(c[i].fd[j] != -1){
+        if(FD_ISSET(c[i].fd[j], fds) || c[i].check[j]){
+          mexec(&c[i], j);
+        }
+      }
+    }
+  }
+  return(0);
+}
+
 void mloop()
 {
   fd_set rfds;
@@ -313,9 +313,9 @@ void mloop()
       do_pong();
       do_recv();
       do_send();
-      mcomm_check(moption.comm);         /* exec check   */
-      mcomm_accept(moption.comm, &rfds); /* new console  */
-      mcomm_read(moption.comm, &rfds);   /* command exec */
+      do_exechk(moption.comm);
+      do_accept(moption.comm, &rfds);
+      do_comexe(moption.comm, &rfds);
     }
   }
 }
