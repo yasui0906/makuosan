@@ -13,22 +13,6 @@ struct timeval curtime;
 struct timeval lastpong;
 BF_KEY EncKey;
 
-int md5sum(int fd, unsigned char *digest)
-{
-  int  rd;
-  char buff[8192];
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  while(rd = read(fd, buff, sizeof(buff))){
-    if(rd == -1){
-      return(-1);
-    }
-    MD5_Update(&ctx, buff, rd);
-  }
-  MD5_Final(digest, &ctx);
-  return(0);
-}
-
 /*
  *  タイムアウト時間が経過しているかどうかを判断する
  *   - 現在時刻がtfからmsec[ms]経過していれば1を返す

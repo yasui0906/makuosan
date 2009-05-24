@@ -278,6 +278,7 @@ typedef struct
 } mopt;
 
 extern mfile *mftop[2];
+extern mfile *mfreeobj;
 extern mhost *members;
 extern mopt moption;
 extern char *optarg;

@@ -838,6 +838,19 @@ int mexec_status(mcomm *c, int n)
     cprintf(0, c, "basedir: %s/\n", moption.base_dir);
   }
 
+  /*----- mfalloc -----*/
+  count = 0;
+  for(m=mftop[MFSEND];m;m=m->next){
+    count++;
+  }
+  for(m=mftop[MFRECV];m;m=m->next){
+    count++;
+  }
+  for(m=mfreeobj;m;m=m->next){
+    count++;
+  }
+  cprintf(0, c, "mfalloc: %d\n", count);
+
   /*----- command -----*/
   count = 0;
   for(i=0;i<MAX_COMM;i++){
