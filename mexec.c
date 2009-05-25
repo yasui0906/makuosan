@@ -5,21 +5,21 @@
 
 #include "makuosan.h"
 
-char *command_list[]={"quit",     /*  */
-                      "exit",     /*  */
-                      "bye",      /*  */
-                      "send",     /*  */
-                      "sync",     /*  */
-                      "dsync",    /*  */
-                      "members",  /*  */
-                      "status",   /*  */
-                      "md5",      /*  */
-                      "check",    /*  */
-                      "echo",     /*  */
-                      "exclude",  /*  */
-                      "loglevel", /*  */
-                      "help",     /*  */
-                      NULL};      /*  */
+char *command_list[]={"quit",
+                      "exit",
+                      "bye",
+                      "send",
+                      "sync",
+                      "dsync",
+                      "members",
+                      "status",
+                      "md5",
+                      "check",
+                      "echo",
+                      "exclude",
+                      "loglevel",
+                      "help",
+                      NULL};
 
 mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
 {
@@ -254,11 +254,22 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
 
 int mexec_close(mcomm *c, int n)
 {
+  int i;
   mfile *m;
 
-  lprintf(1 + n * 7, "%s: fd=%d n=%d\n", __func__, c->fd[n], n);
-  if(c->fd[n] != -1)
+  if(c->fd[n] != -1){
     close(c->fd[n]);
+    for(i=0;i<MAX_COMM;i++){
+      if(c == &(moption.comm[i])){
+        break;
+      }
+    }
+    if(n){
+      lprintf(8, "%s: socket[%d] (backend)\n", __func__, i);
+    }else{
+      lprintf(1, "%s: socket[%d]\n", __func__, i);
+    }
+  }
   c->fd[n]  = -1;
   c->size[n] = 0;
   if(!n){
@@ -274,7 +285,7 @@ int mexec_close(mcomm *c, int n)
     for(m=mftop[MFSEND];m;m=m->next){
       if(m->comm == c){
         m->comm = NULL;
-        lprintf(3, "%s: cancel %s\n", __func__, m->fn);
+        lprintf(3, "%s: cancel> %s\n", __func__, m->cmdline);
       }
     }
   }
@@ -831,7 +842,13 @@ int mexec_status(mcomm *c, int n)
   mfile  *m;
   struct tm *t;
 
+  /*----- pid -----*/
+  cprintf(0, c, "process: %d\n", getpid());
+
+  /*----- version -----*/
   cprintf(0,c,"version: %s\n", PACKAGE_VERSION);
+
+  /*----- basedir -----*/
   if(moption.chroot){
     cprintf(0, c, "chroot : %s/\n", moption.real_dir);
   }else{

@@ -80,7 +80,7 @@ int mfdirchk(mfile *d){
   if(d->mdata.head.flags & MAKUO_FLAG_ACK){
     return(1);
   }
-  for(m=mftop[0];m;m=m->next){
+  for(m=mftop[MFSEND];m;m=m->next){
     if(m == d){
       continue;
     }
@@ -276,7 +276,7 @@ int do_accept(mcomm *c, fd_set *fds)
   }
   c[i].addrlen = sizeof(c[i].addr);
   c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
-  lprintf(1, "%s: accept from %s i=%d fd=%d\n", __func__, inet_ntoa(c[i].addr.sin_addr), i, c[i].fd[0]);
+  lprintf(1, "%s: socket[%d] from %s\n", __func__, i, inet_ntoa(c[i].addr.sin_addr));
   c[i].working = 1;
   return(0);
 }
@@ -313,9 +313,9 @@ void mloop()
       do_pong();
       do_recv();
       do_send();
-      do_exechk(moption.comm);
       do_accept(moption.comm, &rfds);
       do_comexe(moption.comm, &rfds);
+      do_exechk(moption.comm);
     }
   }
 }
