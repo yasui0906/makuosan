@@ -186,8 +186,6 @@ typedef struct
   char cmdline[2][MAKUO_BUFFER_SIZE];
   char parse[2][8][MAKUO_BUFFER_SIZE];
   char readbuff[2][MAKUO_BUFFER_SIZE];
-  struct sockaddr_in addr;
-  socklen_t addrlen;
   excludeitem *exclude;
 } mcomm;
 

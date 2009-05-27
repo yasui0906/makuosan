@@ -258,6 +258,10 @@ int do_accept(mcomm *c, fd_set *fds)
 {
   int i;
   int s = moption.lisocket;
+  struct sockaddr_storage ss;
+  socklen_t sslen = sizeof(ss);
+  char buff[1024];
+
   if(s == -1){
     return(0);
   }
@@ -274,9 +278,18 @@ int do_accept(mcomm *c, fd_set *fds)
     lprintf(0, "[error] %s: can't accept reached in the maximum\n");
     return(1);
   }
-  c[i].addrlen = sizeof(c[i].addr);
-  c[i].fd[0] = accept(s, (struct sockaddr *)(&c[i].addr), &(c[i].addrlen));
-  lprintf(1, "%s: socket[%d] from %s\n", __func__, i, inet_ntoa(c[i].addr.sin_addr));
+  c[i].fd[0] = accept(s, (struct sockaddr *)&ss, &sslen);
+  switch(ss.ss_family){
+    case AF_UNIX:
+      lprintf(1, "%s: socket[%d]\n", __func__, i);
+      break;
+    case AF_INET:
+    case AF_INET6:
+      buff[0]=0;
+      getnameinfo((const struct sockaddr*)&ss, sizeof(ss), buff, sizeof(buff), NULL, NULL, NI_NUMERICHOST);
+      lprintf(1, "%s: socket[%d] from %s\n", __func__, i, buff);
+      break;
+  }
   c[i].working = 1;
   return(0);
 }
