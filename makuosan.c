@@ -241,14 +241,22 @@ void do_exechk(mcomm *c){
   int    i;
   mfile *m;
   for(i=0;i<MAX_COMM;i++){
-    if(c[i].working && !c[i].cpid && (c[i].fd[1] == -1)){
-      for(m=mftop[MFSEND];m;m=m->next){
-        if(m->comm == &c[i]){
-          break; /* working */
+    if(c[i].working){
+      if(c[i].isalive){
+        if(mtimeout(&(c[i].tv), (uint32_t)1000)){
+          cprintf(0, &(c[i]), "alive\n");
+          mtimeget(&(c[i].tv));
         }
       }
-      if(!m){
-        workend(&c[i]);
+      if((c[i].cpid == 0) && (c[i].fd[1] == -1)){
+        for(m=mftop[MFSEND];m;m=m->next){
+          if(m->comm == &c[i]){
+            break; /* working */
+          }
+        }
+        if(!m){
+          workend(&c[i]);
+        }
       }
     }
   }
@@ -281,13 +289,13 @@ int do_accept(mcomm *c, fd_set *fds)
   c[i].fd[0] = accept(s, (struct sockaddr *)&ss, &sslen);
   switch(ss.ss_family){
     case AF_UNIX:
-      lprintf(1, "%s: socket[%d]\n", __func__, i);
+      lprintf(5, "%s: socket=%d\n", __func__, i);
       break;
     case AF_INET:
     case AF_INET6:
       buff[0]=0;
-      getnameinfo((const struct sockaddr*)&ss, sizeof(ss), buff, sizeof(buff), NULL, NULL, NI_NUMERICHOST);
-      lprintf(1, "%s: socket[%d] from %s\n", __func__, i, buff);
+      getnameinfo((const struct sockaddr *)&ss, sizeof(ss), buff, sizeof(buff), NULL, 0, NI_NUMERICHOST);
+      lprintf(5, "%s: socket=%d from %s\n", __func__, i, buff);
       break;
   }
   c[i].working = 1;

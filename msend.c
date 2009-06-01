@@ -554,7 +554,7 @@ static void msend_req_send_filedata(int s, mfile *m)
       cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
     }else{
       /* eof */
-      lprintf(4, "%s: block send count=%d %s\n", __func__, m->mdata.head.seqno, m->fn);
+      lprintf(9, "%s: block send count=%d %s\n", __func__, m->mdata.head.seqno, m->fn);
       m->mdata.head.seqno  = 0;
       m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
       m->initstate = 1;
@@ -638,7 +638,7 @@ static void msend_req_send_close(int s, mfile *m)
   if(m->mdata.head.ostate == MAKUO_SENDSTATE_MARK || 
      m->mdata.head.ostate == MAKUO_SENDSTATE_DATA ||
      m->mdata.head.ostate == MAKUO_SENDSTATE_OPEN){
-    lprintf(6,"%s: update complate %s \n", __func__, m->fn);
+    lprintf(4, "update complate %s\n", m->fn);
   }
   m->initstate = 1;
   m->mdata.head.nstate = MAKUO_SENDSTATE_LAST;

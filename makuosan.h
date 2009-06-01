@@ -175,6 +175,7 @@ typedef struct excludeitem
 
 typedef struct
 {
+  int no;
   int cpid;
   int fd[2];
   int size[2];
@@ -183,10 +184,13 @@ typedef struct
   int loglevel;
   int working;
   int authchk;
+  int isalive;
+  int logflag;
   char cmdline[2][MAKUO_BUFFER_SIZE];
   char parse[2][8][MAKUO_BUFFER_SIZE];
   char readbuff[2][MAKUO_BUFFER_SIZE];
   excludeitem *exclude;
+  struct timeval tv;
 } mcomm;
 
 typedef struct mmark
@@ -268,6 +272,7 @@ typedef struct
   uid_t uid;
   gid_t gid;
   gid_t *gids;
+  size_t gidn;
   char group_name[64];
   char user_name[64];
   char grnames[32][64];
@@ -335,7 +340,7 @@ int atomic_read(int fd, void *buff, int size, int nb);
 void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
 
 /*----- uid/gid -----*/
-int set_guid(uid_t uid, gid_t gid, gid_t *gids);
+int set_guid(uid_t uid, gid_t gid, size_t gidn, gid_t *gids);
 int set_gids(char *groups);
 
 /*----- member operation -----*/

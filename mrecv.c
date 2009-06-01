@@ -1242,11 +1242,11 @@ static void mrecv_req_del_data_report(mfile *m, mcomm *c, uint32_t err, char *hn
     dryrun = "(dryrun) ";
   }
   if(err){
-    cprintf(0, c,  "(%s) delete error %s:%s\n", strerror(err), hn, path);
-    lprintf(1, "%s: (%s) delete error %s:%s\n", __func__, strerror(err), hn, path);
+    cprintf(0, c,  "delete error (%s) %s:%s\n", strerror(err), hn, path);
+    lprintf(1, "delete error (%s) %s:%s\n", strerror(err), hn, path);
   }else{
     cprintf(0, c,  "%sdelete %s:%s\n", dryrun, hn, path);
-    lprintf(1, "%s: %sdelete %s:%s\n", __func__, dryrun, hn, path);
+    lprintf(1, "%sdelete %s:%s\n", dryrun, hn, path);
   }
 }
 

@@ -108,7 +108,6 @@ int workend(mcomm *c)
         cprintf(0, c, "password: \x1b]E");
       }else{
         cprintf(0,c,"> ");
-        lprintf(1,"mexec: ======= separator =======\n");
       }
     }
   }
@@ -564,8 +563,7 @@ int ack_check(mfile *m, int state)
     if(!m->sendto){
       s = get_hoststate(t,m);
       if(!s){
-        lprintf(0,"[error] %s: can't get state area host=%s fn=%s\n", 
-          __func__, t->hostname, m->fn);
+        lprintf(0,"[error] %s: can't get state area host=%s fn=%s\n", __func__, t->hostname, m->fn);
       }else{
         if(*s == state){
           return(1);
@@ -575,8 +573,7 @@ int ack_check(mfile *m, int state)
       if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
         s = get_hoststate(t,m);
         if(!s){
-          lprintf(0,"[error] %s: can't get state area host=%s fn=%s\n", 
-            __func__, t->hostname, m->fn);
+          lprintf(0,"[error] %s: can't get state area host=%s fn=%s\n", __func__, t->hostname, m->fn);
         }else{
           if(*s == state){
             return(1);
@@ -660,17 +657,12 @@ int is_reg(char *path)
   return(0);
 }
 
-int set_guid(uid_t uid, gid_t gid, gid_t *gids)
+int set_guid(uid_t uid, gid_t gid, size_t gidn, gid_t *gids)
 {
-  size_t num;
-
   /*----- setgids -----*/
-  if(gids){
-    for(num=0;gids[num];num++);
-    if(num){
-      if(setgroups(num, gids) == -1){
-        return(-1);
-      }
+  if(gidn && gids){
+    if(setgroups(gidn, gids) == -1){
+      return(-1);
     }
   }else{
     if(gid != getegid()){
@@ -699,9 +691,24 @@ int set_guid(uid_t uid, gid_t gid, gid_t *gids)
 int set_gids(char *groups)
 {
   char *p;
+  gid_t gid;
   size_t num;
   struct group *g;
   char buff[1024];
+
+  if(moption.gids){
+    free(moption.gids);
+  }
+  moption.gids = NULL;
+  moption.gidn = 0;
+
+  if(!groups){
+    return(0);
+  }
+
+  if(strlen(groups) >= sizeof(buff)){
+    return(-1);
+  }
 
   num = 0;
   strcpy(buff, groups);
@@ -710,30 +717,35 @@ int set_gids(char *groups)
     p = strtok(NULL,",");
     num++;
   }
-  if(moption.gids){
-    free(moption.gids);
+  if(!num){
+    return(0);
   }
-  moption.gids = malloc(sizeof(gid_t) * (num + 1));
+  moption.gidn = num;
+  moption.gids = malloc(sizeof(gid_t) * num);
  
   num = 0; 
   strcpy(buff, groups);
   p = strtok(buff,",");
   while(p){
     if(*p >= '0' && *p <= '9'){
-      moption.gids[num] = atoi(p);
-      if(g = getgrgid(moption.gids[num])){
+      gid = atoi(p);
+      if(g = getgrgid(gid)){
+        moption.gids[num] = gid;
         strcpy(moption.grnames[num], g->gr_name);
+      }else{
+        return(-1);
       }
     }else{
       if(g = getgrnam(p)){
         moption.gids[num] = g->gr_gid;
         strcpy(moption.grnames[num], p);
+      }else{
+        return(-1);
       }
     }
     p = strtok(NULL,",");
     num++;
   }
-  moption.gids[num] = 0;
   return(0);
 }
 

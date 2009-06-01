@@ -82,6 +82,7 @@ static void minit_option_setdefault()
   moption.gids                  = NULL;
   getcwd(moption.base_dir, PATH_MAX);
   for(i=0;i<MAX_COMM;i++){
+    moption.comm[i].no = i;
     moption.comm[i].fd[0] = -1;
     moption.comm[i].fd[1] = -1;
   }
@@ -93,6 +94,9 @@ static void minit_option_getenv()
   struct passwd *pw;
   struct group  *gr;
 
+  if(env=getenv("MAKUOSAN_BASE")){
+    realpath(env, moption.base_dir);
+  }
   if(env=getenv("MAKUOSAN_PORT")){
     moption.maddr.sin_port = htons(atoi(env));
     moption.laddr.sin_port = htons(atoi(env));
@@ -247,6 +251,9 @@ static void minit_getopt(int argc, char *argv[])
           if(pw = getpwnam(optarg)){
             moption.uid = pw->pw_uid;
             moption.gid = pw->pw_gid;
+          }else{
+            lprintf(0, "%s: not found user %s\n", __func__, optarg);
+            exit(1);
           }
         }
         break;
@@ -257,13 +264,16 @@ static void minit_getopt(int argc, char *argv[])
         }else{
          if(gr = getgrnam(optarg)){
             moption.gid = gr->gr_gid;
+          }else{
+            lprintf(0, "%s: not found group %s\n", __func__, optarg);
+            exit(1);
           }
         }
         break;
 
       case 'G':
         if(set_gids(optarg) == -1){
-          lprintf(0, "%s: set gids error\n", __func__);
+          lprintf(0, "%s: can't set gids %s\n", __func__, optarg);
           exit(1);
         }
         break;
@@ -448,10 +458,10 @@ static void minit_chroot()
 static void minit_setguid()
 {
   size_t num;
-  if(set_guid(moption.uid, moption.gid, moption.gids) == -1){
+  if(set_guid(moption.uid, moption.gid, moption.gidn, moption.gids) == -1){
     fprintf(stderr, "%s: can't setguid %d:%d", __func__, moption.uid, moption.gid);
-    if(moption.gids){
-      for(num=0;moption.gids[num];num++){
+    if(moption.gidn){
+      for(num=0;num<moption.gidn;num++){
         fprintf(stderr, ",%d", moption.gids[num]);
       }
     }

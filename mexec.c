@@ -18,6 +18,7 @@ char *command_list[]={"quit",
                       "echo",
                       "exclude",
                       "loglevel",
+                      "alive",
                       "help",
                       NULL};
 
@@ -241,6 +242,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
     close(p[1]);
     c->cpid  = pid;
     c->fd[1] = p[0];
+    lprintf(9, "  %d: open\n", c->no);
     return(0);
   }else{
     /* child */
@@ -252,29 +254,48 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
   return(0);
 }
 
+int mexec_open(int l, mcomm *c, int n)
+{
+  if(n){
+    lprintf(9, "  %d> %s\n", c->no, c->cmdline[n]);
+    return(0);
+  }
+  if(c->logflag == 0){
+    if(l <= moption.loglevel){
+      lprintf(1, "======= separator =======\n");
+      lprintf(1, "%d: open\n", c->no);
+      c->logflag = 1;
+    }
+  }
+  if(c->logflag){
+    lprintf(1, "-------------------------\n");
+    lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
+  }
+  return(0);
+}
+
 int mexec_close(mcomm *c, int n)
 {
-  int i;
   mfile *m;
 
   if(c->fd[n] != -1){
     close(c->fd[n]);
-    for(i=0;i<MAX_COMM;i++){
-      if(c == &(moption.comm[i])){
-        break;
-      }
-    }
     if(n){
-      lprintf(8, "%s: socket[%d] (backend)\n", __func__, i);
+      lprintf(9, "  %d: close\n", c->no);
     }else{
-      lprintf(1, "%s: socket[%d]\n", __func__, i);
+      if(c->logflag){
+        lprintf(1, "-------------------------\n");
+        lprintf(1, "%d: close\n", c->no);
+      }
     }
   }
   c->fd[n]  = -1;
   c->size[n] = 0;
   if(!n){
     c->authchk  = 0;
+    c->logflag  = 0;
     c->loglevel = 0;
+    c->isalive  = 0;
     if(c->cpid){
       kill(c->cpid, SIGTERM);
       mexec_close(c, 1);
@@ -310,6 +331,7 @@ int mexec_help(mcomm *c, int n)
   cprintf(0, c, "  sync  [-r] [-t host] [-n] [path]\n");
   cprintf(0, c, "  dsync [-r] [-t host] [-n] [path]\n");
   cprintf(0, c, "  check [-r] [-t host] [path]\n");
+  cprintf(0, c, "  alive on|off\n");
   cprintf(0, c, "  loglevel num (0-9)\n");
   cprintf(0, c, "  members\n");
   cprintf(0, c, "  help\n");
@@ -358,13 +380,15 @@ int mexec_send(mcomm *c, int n, int sync)
         if(*optarg >= '0' && *optarg <='9'){
           gid = atoi(optarg);
         }else{
-          if(moption.gids){
-            for(j=0;moption.gids[j];j++){
-              if(!strcmp(optarg, moption.grnames[j])){
-                gid = moption.gids[j];
-                break;
-              }
+          for(j=0;j<moption.gidn;j++){
+            if(!strcmp(optarg, moption.grnames[j])){
+              gid = moption.gids[j];
+              break;
             }
+          }
+          if(gid == -1){
+            cprintf(0, c, "nou found %s group\n", optarg);
+            return(0);
           }
         }
         break;
@@ -501,7 +525,8 @@ int mexec_send(mcomm *c, int n, int sync)
   if((m->dryrun == 0) && (gid != -1)){
     if(m->fs.st_gid != gid){
       if(lchown(m->fn, -1, gid) == -1){
-        lprintf(0, "%s: chgrp error (%s) [%d->%d] %s\n", __func__, strerror(errno),  m->fs.st_gid, gid, m->fn);
+        cprintf(0, c,   "error: can't chgrp (%s) [%d->%d] %s\n", strerror(errno),  m->fs.st_gid, gid, m->fn);
+        lprintf(0, "[error] %s: can't chgrp (%s) [%d->%d] %s\n", __func__, strerror(errno),  m->fs.st_gid, gid, m->fn);
       }else{
         m->fs.st_gid = gid;
       }
@@ -926,6 +951,22 @@ int mexec_status(mcomm *c, int n)
   return(0);
 }
 
+int mexec_alive(mcomm *c, int n)
+{
+  if(c->argc[n] != 2){
+    return(mexec_help(c, n));
+  }
+  if(!strcmp("on", c->parse[n][1])){
+    c->isalive = 1;
+    return(0);
+  }
+  if(!strcmp("off", c->parse[n][1])){
+    c->isalive = 0;
+    return(0);
+  }
+  return(mexec_help(c, n));
+}
+
 int mexec_password(char *password)
 {
   unsigned char digest[16];
@@ -1013,17 +1054,20 @@ int mexec(mcomm *c, int n)
   mfile *m   = NULL;
   int count  = 0;
 
-  if(n == 0 && c->working){
-    c->size[n] = 0;
-    r = read(c->fd[n], buff, size);
-    if(r>0){
-    }else{
-      if(r == -1){
-        lprintf(0, "[error] %s: read error n=%d\n", __func__, n);
+  if(n == 0){
+    mtimeget(&(c->tv));
+    if(c->working){
+      c->size[n] = 0;
+      r = read(c->fd[n], buff, size);
+      if(r>0){
+      }else{
+        if(r == -1){
+          lprintf(0, "[error] %s: read error n=%d fd=%d\n", __func__, n, c->fd[n]);
+        }
+        mexec_close(c, n);
       }
-      mexec_close(c, n);
+      return(-1);
     }
-    return(-1);
   }
 
   if(n == 1){
@@ -1049,7 +1093,7 @@ int mexec(mcomm *c, int n)
       c->size[n] += r;
     }else{
       if(r < 0){
-        lprintf(0, "%s: read error n=%d\n", __func__, n);
+        lprintf(0, "[error] %s: read error(%s) n=%d fd=%d\n", __func__, strerror(errno), n, c->fd[n]);
       }
       mexec_close(c, n);
       return(-1);
@@ -1069,51 +1113,67 @@ int mexec(mcomm *c, int n)
       cprintf(0, c, "> ");
     }
   }else{
-    lprintf(1 + n * 7, "%s: %s\n", __func__, c->cmdline[n]);
     c->working = 1;
-
-    if(!strcmp("help",command_list[r]))
-      return(mexec_help(c,n));
-
-    if(!strcmp("quit",command_list[r]))
-      return(mexec_quit(c,n));
-
-    if(!strcmp("exit",command_list[r]))
-      return(mexec_quit(c,n));
-
-    if(!strcmp("bye",command_list[r]))
-      return(mexec_quit(c,n));
-
-    if(!strcmp("send",command_list[r]))
-      return(mexec_send(c,n,0));
-
-    if(!strcmp("sync",command_list[r]))
-      return(mexec_send(c,n,1));
-
-    if(!strcmp("md5",command_list[r]))
-      return(mexec_check(c,n));
-
-    if(!strcmp("check",command_list[r]))
-      return(mexec_check(c,n));
-
-    if(!strcmp("dsync",command_list[r]))
-      return(mexec_dsync(c,n));
-
-    if(!strcmp("members",command_list[r]))
-      return(mexec_members(c,n));
-
-    if(!strcmp("echo",command_list[r]))
-      return(mexec_echo(c,n));
-
-    if(!strcmp("loglevel",command_list[r]))
-      return(mexec_loglevel(c,n));
-
-    if(!strcmp("exclude",command_list[r]))
-      return(mexec_exclude(c,n));
-
-    if(!strcmp("status",command_list[r]))
-      return(mexec_status(c,n));
-
+    if(!strcmp("help", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_help(c, n));
+    }
+    if(!strcmp("quit", command_list[r])){
+      mexec_open(8, c, n);
+      return(mexec_quit(c, n));
+    }
+    if(!strcmp("exit", command_list[r])){
+      mexec_open(8, c, n);
+      return(mexec_quit(c, n));
+    }
+    if(!strcmp("bye", command_list[r])){
+      mexec_open(8, c, n);
+      return(mexec_quit(c, n));
+    }
+    if(!strcmp("send", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_send(c, n, 0));
+    }
+    if(!strcmp("sync", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_send(c, n, 1));
+    }
+    if(!strcmp("md5", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_check(c, n));
+    }
+    if(!strcmp("check", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_check(c, n));
+    }
+    if(!strcmp("dsync", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_dsync(c, n));
+    }
+    if(!strcmp("members", command_list[r])){
+      mexec_open(5, c, n);
+      return(mexec_members(c, n));
+    }
+    if(!strcmp("echo", command_list[r])){
+      mexec_open(5, c, n);
+      return(mexec_echo(c, n));
+    }
+    if(!strcmp("loglevel", command_list[r])){
+      mexec_open(5, c, n);
+      return(mexec_loglevel(c, n));
+    }
+    if(!strcmp("exclude", command_list[r])){
+      mexec_open(1, c, n);
+      return(mexec_exclude(c, n));
+    }
+    if(!strcmp("status", command_list[r])){
+      mexec_open(5, c, n);
+      return(mexec_status(c, n));
+    }
+    if(!strcmp("alive", command_list[r])){
+      mexec_open(8, c, n);
+      return(mexec_alive(c, n));
+    }
     c->working = 0;
   }
   return(r);
