@@ -688,67 +688,6 @@ int set_guid(uid_t uid, gid_t gid, size_t gidn, gid_t *gids)
   return(0);
 }
 
-int set_gids(char *groups)
-{
-  char *p;
-  gid_t gid;
-  size_t num;
-  struct group *g;
-  char buff[1024];
-
-  if(moption.gids){
-    free(moption.gids);
-  }
-  moption.gids = NULL;
-  moption.gidn = 0;
-
-  if(!groups){
-    return(0);
-  }
-
-  if(strlen(groups) >= sizeof(buff)){
-    return(-1);
-  }
-
-  num = 0;
-  strcpy(buff, groups);
-  p = strtok(buff,",");
-  while(p){
-    p = strtok(NULL,",");
-    num++;
-  }
-  if(!num){
-    return(0);
-  }
-  moption.gidn = num;
-  moption.gids = malloc(sizeof(gid_t) * num);
- 
-  num = 0; 
-  strcpy(buff, groups);
-  p = strtok(buff,",");
-  while(p){
-    if(*p >= '0' && *p <= '9'){
-      gid = atoi(p);
-      if(g = getgrgid(gid)){
-        moption.gids[num] = gid;
-        strcpy(moption.grnames[num], g->gr_name);
-      }else{
-        return(-1);
-      }
-    }else{
-      if(g = getgrnam(p)){
-        moption.gids[num] = g->gr_gid;
-        strcpy(moption.grnames[num], p);
-      }else{
-        return(-1);
-      }
-    }
-    p = strtok(NULL,",");
-    num++;
-  }
-  return(0);
-}
-
 void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode)
 {
   struct stat fs;

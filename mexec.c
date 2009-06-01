@@ -387,7 +387,7 @@ int mexec_send(mcomm *c, int n, int sync)
             }
           }
           if(gid == -1){
-            cprintf(0, c, "nou found %s group\n", optarg);
+            cprintf(0, c, "not found group %s\n", optarg);
             return(0);
           }
         }
@@ -953,8 +953,16 @@ int mexec_status(mcomm *c, int n)
 
 int mexec_alive(mcomm *c, int n)
 {
-  if(c->argc[n] != 2){
+  if(c->argc[n] > 2){
     return(mexec_help(c, n));
+  }
+  if(c->argc[n] == 1){
+    if(c->isalive){
+      cprintf(0, c, "alive on\n");
+    }else{
+      cprintf(0, c, "alive off\n");
+    }
+    return(0);
   }
   if(!strcmp("on", c->parse[n][1])){
     c->isalive = 1;

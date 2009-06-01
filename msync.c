@@ -2,22 +2,6 @@
  * msync.c
  * Copyright (C) 2008 KLab Inc. 
  */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <getopt.h>
-#include <netdb.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include "makuosan.h"
 
 typedef struct msyncdata
@@ -244,7 +228,7 @@ int wait_prompt(int s, char *passwd, int view, int *line){
       r = 1;
       break;
     }
-    if(!memcmp(buff, "alive", 5)){
+    if(!strcmp(buff, "alive")){
       continue;
     }
     if(line){
@@ -476,12 +460,16 @@ int loadpass(char *filename, char *passwd, int size)
   return(0);
 }
 
-void defaulttarget(msyncdata *md)
+void get_envopt(msyncdata *md)
 {
-  char *p = getenv("MSYNC_TARGET");
-  strcpy(md->target, "tcp:127.0.0.1:5000");
-  if(p && (strlen(p) < sizeof(md->target))){
-    strcpy(md->target, p);
+  char *p;
+  if(p = getenv("MSYNC_TARGET")){
+    if(strlen(p) < sizeof(md->target)){
+      strcpy(md->target, p);
+    }else{
+      fprintf(stderr, "MSYNC_TARGET too long. %s\n");
+      exit(1);
+    }
   }
 }
 
@@ -679,7 +667,7 @@ void msync_init(msyncdata *md)
   md->loopflag = 1;
   md->sendflag = 1;
   strcpy(md->mcmd, "send");
-  defaulttarget(md);
+  strcpy(md->target, "tcp:127.0.0.1:5000");
 }
 
 int main(int argc, char *argv[])
@@ -693,6 +681,7 @@ int main(int argc, char *argv[])
   }
 
   msync_init(&md);
+  get_envopt(&md);
   parse_opt(argc, argv, optinit(), &md);
   connect_target(&md);
 

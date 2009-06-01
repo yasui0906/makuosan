@@ -341,7 +341,6 @@ void set_filestat(char *path, uid_t uid, gid_t gid, mode_t mode);
 
 /*----- uid/gid -----*/
 int set_guid(uid_t uid, gid_t gid, size_t gidn, gid_t *gids);
-int set_gids(char *groups);
 
 /*----- member operation -----*/
 void   member_del(mhost *h);

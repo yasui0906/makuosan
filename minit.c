@@ -88,6 +88,103 @@ static void minit_option_setdefault()
   }
 }
 
+static int minit_option_setuid(char *name)
+{
+  struct passwd *pw;
+  if(*name >= '0' && *name <= '9'){
+    moption.uid = atoi(name);
+  }else{
+    if(pw = getpwnam(name)){
+      moption.uid = pw->pw_uid;
+      moption.gid = pw->pw_gid;
+    }else{
+      lprintf(0,"[error] %s: not found user %s\n", __func__, name);
+      return(1);
+    }
+  }
+  return(0);
+}
+
+static int minit_option_setgid(char *name)
+{
+  struct group *gr;
+  if(*name >= '0' && *name <='9'){
+    moption.gid = atoi(name);
+  }else{
+    if(gr = getgrnam(name)){
+      moption.gid = gr->gr_gid;
+    }else{
+      lprintf(0,"[error] %s: not found group %s\n", __func__, name);
+      return(1);
+    }
+  }
+  return(0);
+}
+
+static int minit_option_setgids(char *name)
+{
+  char *p;
+  gid_t gid;
+  size_t num;
+  struct group *g;
+  char buff[1024];
+
+  if(moption.gids){
+    free(moption.gids);
+  }
+  moption.gids = NULL;
+  moption.gidn = 0;
+
+  if(!name){
+    return(0);
+  }
+
+  if(strlen(name) >= sizeof(buff)){
+    lprintf(0, "[error] %s: gids too long %s\n", __func__, name);
+    return(1);
+  }
+
+  num = 0;
+  strcpy(buff, name);
+  p = strtok(buff,",");
+  while(p){
+    p = strtok(NULL,",");
+    num++;
+  }
+  if(!num){
+    return(0);
+  }
+  moption.gidn = num;
+  moption.gids = malloc(sizeof(gid_t) * num);
+ 
+  num = 0; 
+  strcpy(buff, name);
+  p = strtok(buff,",");
+  while(p){
+    if(*p >= '0' && *p <= '9'){
+      gid = atoi(p);
+      if(g = getgrgid(gid)){
+        moption.gids[num] = gid;
+        strcpy(moption.grnames[num], g->gr_name);
+      }else{
+        lprintf(0, "[error] %s: not found group %s\n", __func__, p);
+        return(1);
+      }
+    }else{
+      if(g = getgrnam(p)){
+        moption.gids[num] = g->gr_gid;
+        strcpy(moption.grnames[num], p);
+      }else{
+        lprintf(0, "[error] %s: not found group %s\n", __func__, p);
+        return(1);
+      }
+    }
+    p = strtok(NULL,",");
+    num++;
+  }
+  return(0);
+}
+
 static void minit_option_getenv()
 {
   char *env;
@@ -102,32 +199,19 @@ static void minit_option_getenv()
     moption.laddr.sin_port = htons(atoi(env));
   }
   if(env=getenv("MAKUOSAN_USER")){
-    if(*env >= '0' && *env <='9'){
-      moption.uid = atoi(env);
-    }else{
-      if(pw = getpwnam(env)){
-        moption.uid = pw->pw_uid;
-        moption.gid = pw->pw_gid;
-      }else{
-        lprintf(0,"%s: getpwnam error %s\n", __func__, env);
-        exit(1);
-      }
+    if(minit_option_setuid(env)){
+      exit(1);
     }
   }
   if(env=getenv("MAKUOSAN_GROUP")){
-    if(*env >= '0' && *env <='9'){
-      moption.gid = atoi(env);
-    }else{
-      if(gr = getgrnam(env)){
-        moption.gid = gr->gr_gid;
-      }else{
-        lprintf(0,"%s: getgrnam error %s\n", __func__, env);
-        exit(1);
-      }
+    if(minit_option_setgid(env)){
+      exit(1);
     }
   }
   if(env=getenv("MAKUOSAN_GROUPS")){
-    set_gids(env);
+    if(minit_option_setgids(env)){
+      exit(1);
+    }
   }
   if(env=getenv("MAKUOSAN_SOCK")){
     strcpy(moption.uaddr.sun_path, env);
@@ -170,17 +254,17 @@ static void minit_password(char *filename, int n)
 
   f = open(filename, O_RDONLY);
   if(f == -1){
-    lprintf(0, "%s: file open error %s\n", __func__, optarg);
+    lprintf(0, "[error] %s: file open error %s\n", __func__, filename);
     exit(1);
   }
   memset(buff, 0, sizeof(buff));
   i = read(f, buff, sizeof(buff) - 1);
   if(i == -1){
-    lprintf(0, "%s: file read error %s\n", __func__, optarg);
+    lprintf(0, "[error] %s: file read error %s\n", __func__, filename);
     exit(1);
   }
   if(i < 4){
-    lprintf(0, "%s: password too short %s\n", __func__, optarg);
+    lprintf(0, "[error] %s: password too short %s\n", __func__, filename);
     exit(1);
   }
   while(i--){
@@ -193,7 +277,7 @@ static void minit_password(char *filename, int n)
   MD5_Update(&ctx, buff, strlen(buff));
   MD5_Final((unsigned char *)(moption.password[n]), &ctx);
   if(read(f, buff, sizeof(buff))){
-    lprintf(0, "%s: password too long %s\n", __func__, optarg);
+    lprintf(0, "[error] %s: password too long %s\n", __func__, filename);
     exit(1);
   }
   close(f);
@@ -202,8 +286,6 @@ static void minit_password(char *filename, int n)
 static void minit_getopt(int argc, char *argv[])
 {
   int r;
-  struct passwd *pw;
-  struct group  *gr;
 
   while((r=getopt(argc, argv, "f:u:g:G:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
     switch(r){
@@ -245,35 +327,19 @@ static void minit_getopt(int argc, char *argv[])
         break;
 
       case 'u':
-        if(*optarg >= '0' && *optarg <='9'){
-          moption.uid = atoi(optarg);
-        }else{
-          if(pw = getpwnam(optarg)){
-            moption.uid = pw->pw_uid;
-            moption.gid = pw->pw_gid;
-          }else{
-            lprintf(0, "%s: not found user %s\n", __func__, optarg);
-            exit(1);
-          }
+        if(minit_option_setuid(optarg)){
+          exit(1);
         }
         break;
 
       case 'g':
-        if(*optarg >= '0' && *optarg <='9'){
-          moption.gid = atoi(optarg);
-        }else{
-         if(gr = getgrnam(optarg)){
-            moption.gid = gr->gr_gid;
-          }else{
-            lprintf(0, "%s: not found group %s\n", __func__, optarg);
-            exit(1);
-          }
+        if(minit_option_setgid(optarg)){
+          exit(1);
         }
         break;
 
       case 'G':
-        if(set_gids(optarg) == -1){
-          lprintf(0, "%s: can't set gids %s\n", __func__, optarg);
+        if(minit_option_setgids(optarg)){
           exit(1);
         }
         break;
@@ -316,12 +382,6 @@ static void minit_getopt(int argc, char *argv[])
       case '?':
         exit(1);
     }
-  }
-  if(pw=getpwuid(moption.uid)){
-    strcpy(moption.user_name, pw->pw_name);
-  }
-  if(gr=getgrgid(moption.gid)){
-    strcpy(moption.group_name,gr->gr_name);
   }
 }
 
@@ -449,7 +509,7 @@ static void minit_chroot()
     setenv("TZ", tz, 0);
     if(chroot(moption.base_dir) == -1){
       fprintf(stderr, "%s: can't chroot %s\n", __func__, moption.base_dir);
-      exit(0);
+      exit(1);
     }
   }
   getcwd(moption.base_dir, PATH_MAX);
@@ -458,6 +518,14 @@ static void minit_chroot()
 static void minit_setguid()
 {
   size_t num;
+  struct passwd *pw;
+  struct group  *gr;
+  if(pw = getpwuid(moption.uid)){
+    strcpy(moption.user_name, pw->pw_name);
+  }
+  if(gr = getgrgid(moption.gid)){
+    strcpy(moption.group_name,gr->gr_name);
+  }
   if(set_guid(moption.uid, moption.gid, moption.gidn, moption.gids) == -1){
     fprintf(stderr, "%s: can't setguid %d:%d", __func__, moption.uid, moption.gid);
     if(moption.gidn){
@@ -466,7 +534,7 @@ static void minit_setguid()
       }
     }
     fprintf(stderr, "\n");
-    exit(0);
+    exit(1);
   }
 }
 
@@ -520,7 +588,7 @@ static void minit_bootlog()
   lprintf(0, "uid       : %d\n", geteuid());
   sprintf(gids, "gid       : %d"  , getegid());
   if(moption.gids){
-    for(i=0;moption.gids[i];i++){
+    for(i=0;i<moption.gidn;i++){
       sprintf(gid, ",%d", moption.gids[i]);
       strcat(gids, gid);
     }
