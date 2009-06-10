@@ -237,31 +237,6 @@ void do_send()
   }
 }
 
-void do_exechk(mcomm *c){
-  int    i;
-  mfile *m;
-  for(i=0;i<MAX_COMM;i++){
-    if(c[i].working){
-      if(c[i].isalive){
-        if(mtimeout(&(c[i].tv), (uint32_t)1000)){
-          cprintf(0, &(c[i]), "alive\n");
-          mtimeget(&(c[i].tv));
-        }
-      }
-      if((c[i].cpid == 0) && (c[i].fd[1] == -1)){
-        for(m=mftop[MFSEND];m;m=m->next){
-          if(m->comm == &c[i]){
-            break; /* working */
-          }
-        }
-        if(!m){
-          workend(&c[i]);
-        }
-      }
-    }
-  }
-}
-
 int do_accept(mcomm *c, fd_set *fds)
 {
   int i;
@@ -315,6 +290,31 @@ int do_comexe(mcomm *c, fd_set *fds){
     }
   }
   return(0);
+}
+
+void do_exechk(mcomm *c){
+  int    i;
+  mfile *m;
+  for(i=0;i<MAX_COMM;i++){
+    if(c[i].working){
+      if(c[i].isalive){
+        if(mtimeout(&(c[i].tv), (uint32_t)1000)){
+          cprintf(0, &(c[i]), "alive\n");
+          mtimeget(&(c[i].tv));
+        }
+      }
+      if((c[i].cpid == 0) && (c[i].fd[1] == -1)){
+        for(m=mftop[MFSEND];m;m=m->next){
+          if(m->comm == &c[i]){
+            break; /* working */
+          }
+        }
+        if(!m){
+          workend(&c[i]);
+        }
+      }
+    }
+  }
 }
 
 void mloop()

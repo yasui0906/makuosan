@@ -242,7 +242,7 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
     close(p[1]);
     c->cpid  = pid;
     c->fd[1] = p[0];
-    lprintf(9, "  %d: open\n", c->no);
+    lprintf(9, "%d$ (connect)\n", c->no);
     return(0);
   }else{
     /* child */
@@ -257,13 +257,13 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
 int mexec_open(int l, mcomm *c, int n)
 {
   if(n){
-    lprintf(9, "  %d> %s\n", c->no, c->cmdline[n]);
+    lprintf(9, "%d$ %s\n", c->no, c->cmdline[n]);
     return(0);
   }
   if(c->logflag == 0){
     if(l <= moption.loglevel){
       lprintf(1, "======= separator =======\n");
-      lprintf(1, "%d: open\n", c->no);
+      lprintf(1, "%d> [connect]\n", c->no);
       c->logflag = 1;
     }
   }
@@ -281,12 +281,13 @@ int mexec_close(mcomm *c, int n)
   if(c->fd[n] != -1){
     close(c->fd[n]);
     if(n){
-      lprintf(9, "  %d: close\n", c->no);
+      lprintf(9, "%d$ (disconnect)\n", c->no);
     }else{
       if(c->logflag){
         lprintf(1, "-------------------------\n");
-        lprintf(1, "%d: close\n", c->no);
+        lprintf(1, "%d> [disconnect]\n", c->no);
       }
+      lprintf(5, "%s: socket=%d\n", __func__, c->no);
     }
   }
   c->fd[n]  = -1;
@@ -524,11 +525,12 @@ int mexec_send(mcomm *c, int n, int sync)
   /*----- chgrp -----*/
   if((m->dryrun == 0) && (gid != -1)){
     if(m->fs.st_gid != gid){
-      if(lchown(m->fn, -1, gid) == -1){
-        cprintf(0, c,   "error: can't chgrp (%s) [%d->%d] %s\n", strerror(errno),  m->fs.st_gid, gid, m->fn);
-        lprintf(0, "[error] %s: can't chgrp (%s) [%d->%d] %s\n", __func__, strerror(errno),  m->fs.st_gid, gid, m->fn);
-      }else{
+      if(!lchown(m->fn, -1, gid)){
         m->fs.st_gid = gid;
+      }else{
+        e = errno;
+        cprintf(0, c,   "error: can't chgrp (%s) [%d->%d] %s\n", strerror(e),  m->fs.st_gid, gid, m->fn);
+        lprintf(0, "[error] %s: can't chgrp (%s) [%d->%d] %s\n", __func__, strerror(e),  m->fs.st_gid, gid, m->fn);
       }
     }
   }
