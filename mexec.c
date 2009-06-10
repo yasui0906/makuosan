@@ -381,10 +381,14 @@ int mexec_send(mcomm *c, int n, int sync)
         if(*optarg >= '0' && *optarg <='9'){
           gid = atoi(optarg);
         }else{
-          for(j=0;j<moption.gidn;j++){
-            if(!strcmp(optarg, moption.grnames[j])){
-              gid = moption.gids[j];
-              break;
+          if(!strcmp(optarg, moption.group_name)){
+            gid = moption.gid;
+          }else{
+            for(j=0;j<moption.gidn;j++){
+              if(!strcmp(optarg, moption.grnames[j])){
+                gid = moption.gids[j];
+                break;
+              }
             }
           }
           if(gid == -1){
