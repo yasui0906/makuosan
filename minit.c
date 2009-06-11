@@ -515,9 +515,8 @@ static void minit_chroot()
   getcwd(moption.base_dir, PATH_MAX);
 }
 
-static void minit_setguid()
+static void minit_getguid()
 {
-  size_t num;
   struct passwd *pw;
   struct group  *gr;
   if(pw = getpwuid(moption.uid)){
@@ -526,6 +525,13 @@ static void minit_setguid()
   if(gr = getgrgid(moption.gid)){
     strcpy(moption.group_name,gr->gr_name);
   }
+}
+
+static void minit_setguid()
+{
+  size_t num;
+  struct passwd *pw;
+  struct group  *gr;
   if(set_guid(moption.uid, moption.gid, moption.gidn, moption.gids) == -1){
     fprintf(stderr, "%s: can't setguid %d:%d", __func__, moption.uid, moption.gid);
     if(moption.gidn){
@@ -585,11 +591,11 @@ static void minit_bootlog()
   }
   lprintf(0, "multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
   lprintf(0, "port      : %d\n", ntohs(moption.maddr.sin_port));
-  lprintf(0, "uid       : %d\n", geteuid());
-  sprintf(gids, "gid       : %d"  , getegid());
+  lprintf(0, "uid       : %d(%s)\n", moption.uid, moption.user_name);
+  sprintf(gids, "gid       : %d(%s)"  , moption.gid, moption.group_name);
   if(moption.gids){
     for(i=0;i<moption.gidn;i++){
-      sprintf(gid, ",%d", moption.gids[i]);
+      sprintf(gid, ", %d(%s)", moption.gids[i], moption.grnames[i]);
       strcat(gids, gid);
     }
   }
@@ -628,6 +634,7 @@ void minit(int argc, char *argv[])
   minit_console();           /* コンソールソケットの初期化         */
   minit_signal();            /* シグナルハンドラを設定             */
   minit_chdir();             /* カレントディレクトリを変更         */
+  minit_getguid();           /*                                    */
   minit_chroot();            /*                                    */
   minit_setguid();           /*                                    */
   minit_bootlog();           /* ブートメッセージを出力する         */

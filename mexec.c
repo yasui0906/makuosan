@@ -260,16 +260,15 @@ int mexec_open(int l, mcomm *c, int n)
     lprintf(9, "%d$ %s\n", c->no, c->cmdline[n]);
     return(0);
   }
-  if(c->logflag == 0){
+  if(c->logflag){
+    lprintf(1, "%d>-----------------------\n", c->no);
+    lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
+  }else{
     if(l <= moption.loglevel){
-      lprintf(1, "======= separator =======\n");
-      lprintf(1, "%d> [connect]\n", c->no);
+      lprintf(1, "%d>======= connect =======\n", c->no);
+      lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
       c->logflag = 1;
     }
-  }
-  if(c->logflag){
-    lprintf(1, "-------------------------\n");
-    lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
   }
   return(0);
 }
@@ -284,8 +283,7 @@ int mexec_close(mcomm *c, int n)
       lprintf(9, "%d$ (disconnect)\n", c->no);
     }else{
       if(c->logflag){
-        lprintf(1, "-------------------------\n");
-        lprintf(1, "%d> [disconnect]\n", c->no);
+        lprintf(1, "%d>---- disconnect -------\n", c->no);
       }
       lprintf(5, "%s: socket=%d\n", __func__, c->no);
     }
@@ -392,7 +390,8 @@ int mexec_send(mcomm *c, int n, int sync)
             }
           }
           if(gid == -1){
-            cprintf(0, c, "not found group %s\n", optarg);
+            lprintf(0, "[error] %s: not found group %s\n", __func__, optarg);
+            cprintf(0, c, "error: not found group %s\n", optarg);
             return(0);
           }
         }
