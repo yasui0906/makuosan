@@ -337,6 +337,23 @@ int mexec_help(mcomm *c, int n)
   return(0);
 }
 
+int mexec_send_help(mcomm *c, int n, int sync)
+{
+  if(sync){
+    cprintf(0, c, "sync [-n] [-r] [-t host] [path]\n");
+    cprintf(0, c, "  -n  # dryrun\n");
+    cprintf(0, c, "  -r  # recursive\n");
+    cprintf(0, c, "  -t  # target host\n");
+  }else{
+    cprintf(0, c, "send [-n] [-r] [-t host] [path]\n");
+    cprintf(0, c, "  -n  # dryrun\n");
+    cprintf(0, c, "  -r  # recursive\n");
+    cprintf(0, c, "  -D  # with delete\n");
+    cprintf(0, c, "  -t  # target host\n");
+  }
+  return(0);
+}
+
 int mexec_send(mcomm *c, int n, int sync)
 {
   int e;
@@ -436,18 +453,7 @@ int mexec_send(mcomm *c, int n, int sync)
 
   /*----- help -----*/
   if(!fn){
-    if(sync){
-      cprintf(0, c, "sync [-n] [-r] [-t host] [path]\n");
-      cprintf(0, c, "  -n  # dryrun\n");
-      cprintf(0, c, "  -r  # recursive\n");
-      cprintf(0, c, "  -t  # target host\n");
-    }else{
-      cprintf(0, c, "send [-n] [-r] [-t host] [path]\n");
-      cprintf(0, c, "  -n  # dryrun\n");
-      cprintf(0, c, "  -r  # recursive\n");
-      cprintf(0, c, "  -D  # with delete\n");
-      cprintf(0, c, "  -t  # target host\n");
-    }
+    mexec_send_help(c, n, sync);
     return(0);
   }
 

@@ -13,6 +13,16 @@ struct timeval curtime;
 struct timeval lastpong;
 BF_KEY EncKey;
 
+char *yesno(int n)
+{
+  static char *YES="yes";
+  static char *NO="no";
+  if(n){
+    return(YES);
+  }
+  return(NO);
+}
+
 /*
  *  タイムアウト時間が経過しているかどうかを判断する
  *   - 現在時刻がtfからmsec[ms]経過していれば1を返す

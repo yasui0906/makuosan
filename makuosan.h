@@ -376,4 +376,5 @@ int mtimeout(struct timeval *tf, uint32_t msec);
 uint32_t getrid();
 int space_escape(char *str);
 int workend(mcomm *c);
+char *yesno(int n);
 

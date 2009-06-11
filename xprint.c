@@ -150,20 +150,31 @@ void lprintf(int l, char *fmt, ...)
 {
   va_list arg;
   struct timeval tv;
-  char m[2048];
-  if(moption.loglevel >= l){
-    va_start(arg, fmt);
-    vsnprintf(m, sizeof(m), fmt, arg);
-    va_end(arg);
-    m[sizeof(m) - 1] = 0;
-#ifdef MAKUO_DEBUG
-    gettimeofday(&tv, NULL);
-    fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, m);
-#else
-    fprintf(stderr, "%s", m);
-#endif
-    syslog(LOG_ERR, "%s: %s", moption.user_name, m);
+  char b[1024];
+  char d[2048];
+  static char m[2048];
+  if(moption.loglevel < l){
+    return;
   }
+  strcpy(d, m);
+  va_start(arg, fmt);
+  vsnprintf(b, sizeof(b), fmt, arg);
+  va_end(arg);
+  b[sizeof(b) - 1] = 0;
+  snprintf(m, sizeof(m), "%s%s", d, b);
+  m[sizeof(m) - 1] = 0;
+  m[sizeof(m) - 2] = '\n';
+  if(!strchr(m, '\n')){
+    return;
+  }
+#ifdef MAKUO_DEBUG
+  gettimeofday(&tv, NULL);
+  fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, m);
+#else
+  fprintf(stderr, "%s", m);
+#endif
+  syslog(LOG_ERR, "%s: %s", moption.user_name, m);
+  m[0] = 0;
 }
 
 void cprintf(int l, mcomm *c, char *fmt, ...)

@@ -578,9 +578,6 @@ static void minit_daemonize()
 static void minit_bootlog()
 {
   int i;
-  char gid[8];
-  char gids[512];
-  char *yesno[2]={"No","Yes"};
 
   lprintf(0, "makuosan version %s\n", PACKAGE_VERSION);
   lprintf(0, "loglevel  : %d\n", moption.loglevel);
@@ -592,22 +589,21 @@ static void minit_bootlog()
   lprintf(0, "multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
   lprintf(0, "port      : %d\n", ntohs(moption.maddr.sin_port));
   lprintf(0, "uid       : %d(%s)\n", moption.uid, moption.user_name);
-  sprintf(gids, "gid       : %d(%s)"  , moption.gid, moption.group_name);
+  lprintf(0, "gid       : %d(%s)"  , moption.gid, moption.group_name);
   if(moption.gids){
     for(i=0;i<moption.gidn;i++){
-      sprintf(gid, ", %d(%s)", moption.gids[i], moption.grnames[i]);
-      strcat(gids, gid);
+      lprintf(0, ", %d(%s)", moption.gids[i], moption.grnames[i]);
     }
   }
-  lprintf(0, "%s\n", gids);
+  lprintf(0, "\n");
   lprintf(0, "parallel  : %d\n", moption.parallel);
-  lprintf(0, "don't recv: %s\n", yesno[moption.dontrecv]);
-  lprintf(0, "don't send: %s\n", yesno[moption.dontsend]);
-  lprintf(0, "don't fork: %s\n", yesno[moption.dontfork]);
-  lprintf(0, "encrypt   : %s\n", yesno[moption.cryptena]);
-  lprintf(0, "console   : %s\n", yesno[moption.comm_ena]);
-  lprintf(0, "passwoed  : %s\n", yesno[moption.commpass]);
-  lprintf(0, "ownermatch: %s\n", yesno[moption.ownmatch]);
+  lprintf(0, "don't recv: %s\n", yesno(moption.dontrecv));
+  lprintf(0, "don't send: %s\n", yesno(moption.dontsend));
+  lprintf(0, "don't fork: %s\n", yesno(moption.dontfork));
+  lprintf(0, "encrypt   : %s\n", yesno(moption.cryptena));
+  lprintf(0, "console   : %s\n", yesno(moption.comm_ena));
+  lprintf(0, "passwoed  : %s\n", yesno(moption.commpass));
+  lprintf(0, "ownermatch: %s\n", yesno(moption.ownmatch));
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);
