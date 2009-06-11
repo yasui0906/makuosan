@@ -261,12 +261,12 @@ int mexec_open(int l, mcomm *c, int n)
     return(0);
   }
   if(c->logflag){
-    lprintf(1, "%d>-----------------------\n", c->no);
-    lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
+    lprintf(l, "%d>-----------------------\n", c->no);
+    lprintf(l, "%d> %s\n", c->no, c->cmdline[n]);
   }else{
     if(l <= moption.loglevel){
-      lprintf(1, "%d>======= connect =======\n", c->no);
-      lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
+      lprintf(l, "%d>======= connect =======\n", c->no);
+      lprintf(l, "%d> %s\n", c->no, c->cmdline[n]);
       c->logflag = 1;
     }
   }
@@ -314,6 +314,10 @@ int mexec_close(mcomm *c, int n)
 
 int mexec_quit(mcomm *c, int n)
 {
+  if(c->logflag){
+    lprintf(1, "%d>-----------------------\n", c->no);
+    lprintf(1, "%d> %s\n", c->no, c->cmdline[n]);
+  }
   mexec_close(c, n);
   return(0);
 }
@@ -1138,15 +1142,12 @@ int mexec(mcomm *c, int n)
       return(mexec_help(c, n));
     }
     if(!strcmp("quit", command_list[r])){
-      mexec_open(8, c, n);
       return(mexec_quit(c, n));
     }
     if(!strcmp("exit", command_list[r])){
-      mexec_open(8, c, n);
       return(mexec_quit(c, n));
     }
     if(!strcmp("bye", command_list[r])){
-      mexec_open(8, c, n);
       return(mexec_quit(c, n));
     }
     if(!strcmp("send", command_list[r])){
@@ -1170,27 +1171,27 @@ int mexec(mcomm *c, int n)
       return(mexec_dsync(c, n));
     }
     if(!strcmp("members", command_list[r])){
-      mexec_open(5, c, n);
+      mexec_open(4, c, n);
       return(mexec_members(c, n));
     }
     if(!strcmp("echo", command_list[r])){
-      mexec_open(5, c, n);
+      mexec_open(4, c, n);
       return(mexec_echo(c, n));
     }
     if(!strcmp("loglevel", command_list[r])){
-      mexec_open(5, c, n);
+      mexec_open(4, c, n);
       return(mexec_loglevel(c, n));
     }
     if(!strcmp("exclude", command_list[r])){
-      mexec_open(1, c, n);
+      mexec_open(4, c, n);
       return(mexec_exclude(c, n));
     }
     if(!strcmp("status", command_list[r])){
-      mexec_open(5, c, n);
+      mexec_open(4, c, n);
       return(mexec_status(c, n));
     }
     if(!strcmp("alive", command_list[r])){
-      mexec_open(8, c, n);
+      mexec_open(4, c, n);
       return(mexec_alive(c, n));
     }
     c->working = 0;
