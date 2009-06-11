@@ -22,9 +22,14 @@ typedef struct msyncdata
   excludeitem *exclude; /* */
 } msyncdata;
 
-void usage()
+void version()
 {
   printf("msync version %s (CLI for makuosan)\n", PACKAGE_VERSION);
+}
+
+void usage()
+{
+  version();
   printf("usage: msync [OPTION] [FILENAME]\n");
   printf("\n");
   printf("  OPTION\n");
@@ -475,7 +480,7 @@ void get_envopt(msyncdata *md)
 
 struct option *optinit()
 {
-  static struct option longopt[9];
+  static struct option longopt[10];
   longopt[0].name    = "help";
   longopt[0].has_arg = 0;
   longopt[0].flag    = NULL;
@@ -508,20 +513,28 @@ struct option *optinit()
   longopt[7].has_arg = 0;
   longopt[7].flag    = NULL;
   longopt[7].val     = 'd';
-  longopt[8].name    = NULL;
+  longopt[8].name    = "version";
   longopt[8].has_arg = 0;
   longopt[8].flag    = NULL;
-  longopt[8].val     = 0;
+  longopt[8].val     = 'V';
+  longopt[9].name    = NULL;
+  longopt[9].has_arg = 0;
+  longopt[9].flag    = NULL;
+  longopt[9].val     = 0;
   return(longopt);
 }
 
 void parse_opt(int argc, char *argv[], struct option *opt, msyncdata *md)
 {
   int r;
-  while((r = getopt_long(argc, argv, "g:c:f:t:K:l:hvrn", opt, NULL)) != -1){
+  while((r = getopt_long(argc, argv, "g:c:f:t:K:l:hvrnV", opt, NULL)) != -1){
     switch(r){
       case 'h':
         usage();
+        exit(0);
+
+      case 'V':
+        version();
         exit(0);
 
       case 'D':
