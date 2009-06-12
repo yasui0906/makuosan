@@ -4,10 +4,15 @@
  */
 #include "makuosan.h"
 
+static void version_print()
+{
+  printf("makuosan version %s\n", PACKAGE_VERSION);
+}
+
 static void usage()
 {
-  printf("makuosan version %s\n\n", PACKAGE_VERSION);
-  printf("(Multicasts All-Kinds of Updating Operation for Servers on Administered Network)\n");
+  version_print();
+  printf("(Multicasts All-Kinds of Updating Operation for Servers on Administered Network)\n\n");
   printf("usage: makuosan [OPTION]\n");
   printf("  -d num   # loglevel(0-9)\n");
   printf("  -u uid   # user\n");
@@ -287,10 +292,15 @@ static void minit_getopt(int argc, char *argv[])
 {
   int r;
 
-  while((r=getopt(argc, argv, "f:u:g:G:d:b:p:m:l:U:k:K:hnsroOc")) != -1){
+  while((r=getopt(argc, argv, "f:u:g:G:d:b:p:m:l:U:k:K:VhnsroOc")) != -1){
     switch(r){
+      case 'V':
+        version_print();
+        exit(0);
+
       case 'h':
-        usage(); /* and exit */
+        usage();
+        exit(0);
 
       case 'f':
         moption.parallel = atoi(optarg);
