@@ -1,3 +1,7 @@
+1.2.1: 2009/6/16
+ - refactoring for msync.
+ - log format change. 
+
 1.2.0: 2009/5/25
  - Improved response.
  - Added "[error]" to error logging messages.
