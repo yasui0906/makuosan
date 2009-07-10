@@ -115,6 +115,20 @@
 #define MAKUO_MEXEC_DRY  1
 #define MAKUO_MEXEC_MD5  2
 
+/*----- macro -----*/
+#ifndef timeradd
+#define timeradd(a, b, r)                       \
+  do {                                          \
+    (r)->tv_sec  = (a)->tv_sec  + (b)->tv_sec;  \
+    (r)->tv_usec = (a)->tv_usec + (b)->tv_usec; \
+    if ((r)->tv_usec >= 1000000)                \
+    {                                           \
+      (r)->tv_sec  += 1;                        \
+      (r)->tv_usec -= 1000000;                  \
+    }                                           \
+  }while(0)
+#endif
+
 /*----- struct -----*/
 typedef struct
 {

@@ -1,3 +1,6 @@
+1.2.2:
+ - Support for solaris.
+
 1.2.1: 2009/6/16
  - refactoring for msync.
  - log format change. 

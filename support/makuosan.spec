@@ -83,6 +83,8 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Jun 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.1
+
 * Mon May 25 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.0
 
 * Thu Nov  6 2008 Naoya Nakazawa <naoya.n@gmail.com> - 1.0.0

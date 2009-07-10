@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
-AC_INIT(makuosan, 1.2.1, info-makuosan@klab.jp)
+AC_INIT(makuosan, 1.2.2, info-makuosan@klab.jp)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([makuosan.c])
 AC_CONFIG_HEADER([config.h])
@@ -18,6 +18,8 @@ AC_PROG_INSTALL
 
 # Checks for libraries.
 AC_CHECK_LIB(crypto, MD5_Init)
+AC_CHECK_LIB(socket, socket)
+AC_CHECK_LIB(nls, inet_addr)
 
 # Checks for header files.
 AC_HEADER_DIRENT
@@ -58,5 +60,4 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
 fi
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-
 
