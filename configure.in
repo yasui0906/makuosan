@@ -19,7 +19,7 @@ AC_PROG_INSTALL
 # Checks for libraries.
 AC_CHECK_LIB(crypto, MD5_Init)
 AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(nls, inet_addr)
+AC_CHECK_LIB(nsl, inet_addr)
 
 # Checks for header files.
 AC_HEADER_DIRENT

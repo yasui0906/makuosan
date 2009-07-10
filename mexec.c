@@ -385,7 +385,7 @@ int mexec_send(mcomm *c, int n, int sync)
   optind   = 1;
   optreset = 1;
 #else
-  optind = 0;
+  optind   = 1;
 #endif
   while((i=getopt(c->argc[n], argv, "g:t:nr")) != -1){
     switch(i){
