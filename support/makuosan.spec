@@ -1,5 +1,5 @@
 Name:           makuosan
-Version:        1.2.1
+Version:        1.2.2
 Release:        1%{?dist}
 Summary:        Multicasts All-Kinds of Updating Operation for Servers on Administered Network
 
@@ -41,7 +41,6 @@ also alive. Therefore, it never stalls waiting for a dead server, or timeouts.
 %prep
 %setup -q
 
-
 %build
 %configure --prefix=/usr
 
@@ -51,11 +50,8 @@ make %{?_smp_mflags}
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 
-# remove memcached-debug
-rm -f %{buildroot}/%{_bindir}/makuosan-debug
-
 # Init script
-install -Dp -m0755 makuosan.sysv %{buildroot}%{_initrddir}/makuosan
+install -Dp -m0755 support/makuosan.sysv %{buildroot}%{_initrddir}/makuosan
 
 # Default configs
 mkdir -p %{buildroot}/%{_sysconfdir}/sysconfig
@@ -83,10 +79,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Jun 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.2
 * Mon Jun 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.1
-
 * Mon May 25 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.0
-
 * Thu Nov  6 2008 Naoya Nakazawa <naoya.n@gmail.com> - 1.0.0
 - Initial version
 

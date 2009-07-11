@@ -264,7 +264,7 @@ int do_accept(mcomm *c, fd_set *fds)
   c[i].fd[0] = accept(s, (struct sockaddr *)&ss, &sslen);
   switch(ss.ss_family){
     case AF_UNIX:
-      lprintf(5, "%s: socket=%d\n", __func__, i);
+      lprintf(5, "%s: socket=%d from %s\n", __func__, i, moption.uaddr.sun_path);
       break;
     case AF_INET:
     case AF_INET6:

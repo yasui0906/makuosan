@@ -1225,11 +1225,20 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
     len -= sizeof(uint32_t);
     data_safeget(data, path, len);
     path[len] =  0;
+#ifdef MAKUO_DEBUG
+    lprintf(9, "%s: %s", __func__, path);
+#endif
     if(lstat(path, &(a->fs)) == -1 && errno == ENOENT){
+#ifdef MAKUO_DEBUG
+      lprintf(9, " [DELETE]");
+#endif
       data_safeset16(&(a->mdata), len + sizeof(uint32_t));
       data_safeset32(&(a->mdata), 0);
       data_safeset(&(a->mdata), path, len);
     }
+#ifdef MAKUO_DEBUG
+    lprintf(9, "\n");
+#endif
   }
   msend(a);
 }
