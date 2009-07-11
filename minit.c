@@ -200,8 +200,10 @@ static void minit_option_getenv()
     realpath(env, moption.base_dir);
   }
   if(env=getenv("MAKUOSAN_PORT")){
-    moption.maddr.sin_port = htons(atoi(env));
-    moption.laddr.sin_port = htons(atoi(env));
+    if(atoi(env)){
+      moption.maddr.sin_port = htons(atoi(env));
+      moption.laddr.sin_port = htons(atoi(env));
+    }
   }
   if(env=getenv("MAKUOSAN_USER")){
     if(minit_option_setuid(env)){
@@ -388,7 +390,7 @@ static void minit_getopt(int argc, char *argv[])
       case 'O':
         moption.ownmatch = 1;
         break;
-
+  
       case '?':
         exit(1);
     }
@@ -643,4 +645,3 @@ void minit(int argc, char *argv[])
   minit_bootlog();           /* ブートメッセージを出力する         */
   minit_daemonize();         /*                                    */
 }
-
