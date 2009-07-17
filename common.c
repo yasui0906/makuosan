@@ -968,7 +968,8 @@ int data_safeset16(mdata *data, uint16_t val)
   if(data->head.szdata + sizeof(uint16_t) > MAKUO_BUFFER_SIZE){
     return(-1);
   }
-  *(uint16_t *)(data->data + data->head.szdata) = htons(val);
+  val = htons(val);
+  memcpy((void *)(data->data + data->head.szdata), (void *)(&val), sizeof(val));
   data->head.szdata += sizeof(uint16_t);
   return(0);
 }
@@ -978,7 +979,8 @@ int data_safeset32(mdata *data, uint32_t val)
   if(data->head.szdata + sizeof(uint32_t) > MAKUO_BUFFER_SIZE){
     return(-1);
   }
-  *(uint32_t *)(data->data + data->head.szdata) = htonl(val);
+  val = htonl(val);
+  memcpy((void *)(data->data + data->head.szdata), (void *)(&val), sizeof(val));
   data->head.szdata += sizeof(uint32_t);
   return(0);
 }

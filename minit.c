@@ -197,26 +197,28 @@ static void minit_option_getenv()
   struct group  *gr;
 
   if(env=getenv("MAKUOSAN_BASE")){
-    realpath(env, moption.base_dir);
+    if(*env){
+      realpath(env, moption.base_dir);
+    }
   }
   if(env=getenv("MAKUOSAN_PORT")){
-    if(atoi(env)){
+    if(*env && atoi(env)){
       moption.maddr.sin_port = htons(atoi(env));
       moption.laddr.sin_port = htons(atoi(env));
     }
   }
   if(env=getenv("MAKUOSAN_USER")){
-    if(minit_option_setuid(env)){
+    if(*env && minit_option_setuid(env)){
       exit(1);
     }
   }
   if(env=getenv("MAKUOSAN_GROUP")){
-    if(minit_option_setgid(env)){
+    if(*env && minit_option_setgid(env)){
       exit(1);
     }
   }
   if(env=getenv("MAKUOSAN_GROUPS")){
-    if(minit_option_setgids(env)){
+    if(*env && minit_option_setgids(env)){
       exit(1);
     }
   }
@@ -556,8 +558,10 @@ static void minit_setguid()
 static void minit_daemonize()
 {
   int pid;
-  if(moption.dontfork)
+  if(moption.dontfork){
+    lprintf(0, "pid       : %d\n", getpid());
     return;
+  }
 
   pid = fork();
   if(pid == -1){
@@ -572,8 +576,10 @@ static void minit_daemonize()
     fprintf(stderr, "%s: can't fork()\n", __func__);
     exit(1); 
   }
-  if(pid)
+  if(pid){
+    lprintf(0, "pid       : %d\n",pid);
     _exit(0);
+  }
 
   /*----- daemon process -----*/
   close(2);

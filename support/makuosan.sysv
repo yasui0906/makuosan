@@ -18,44 +18,62 @@
 
 PATH=/sbin:/bin:/usr/bin:/usr/sbin
 
-BASE_DIR=""
-PORT="5000"
-IP_ADDRESS="127.0.0.1"
-SOCKET=""
-
 # Source function library.
 . /etc/init.d/functions
 
-# Get config.
-test -f /etc/sysconfig/network && . /etc/sysconfig/network
-test -f /etc/sysconfig/makuosan && . /etc/sysconfig/makuosan
+export MAKUOSAN_USER
+export MAKUOSAN_GROUP
+export MAKUOSAN_GROUPS
+export MAKUOSAN_BASE
+export MAKUOSAN_PORT
+export MAKUOSAN_SOCK
 
+# Get config.
+test -f /etc/sysconfig/network  && . /etc/sysconfig/network
+test -f /etc/sysconfig/makuosan && . /etc/sysconfig/makuosan
+[ -n "$BASE_DIR" ] && MAKUOSAN_BASE=$BASE_DIR;
+[ -n "$PORT"     ] && MAKUOSAN_PORT=$PORT
+[ -n "$SOCKET"   ] && MAKUOSAN_SOCK=$SOCKET
 
 # Check that networking is up.
 [ "${NETWORKING}" = "yes" ] || exit 0
-[ -n "${SOCKET}"] || SOCKET="-U ${SOCKET}"
-
-[ -f /usr/sbin/makuosan ] || exit 1
+[ -x /usr/sbin/makuosan ]   || exit 1
 
 RETVAL=0
-
 prog="makuosan"
 
 start(){
     # Check config.
-    if [ -z "${BASE_DIR}" ]; then
-        echo "base directory setting (BASE_DIR) is empty."
+    if [ -z "${MAKUOSAN_BASE}" ]; then
+        echo "base directory setting (MAKUOSAN_BASE) is empty."
         exit 1
     fi
-    if [ ! -d "${BASE_DIR}" ]; then
-        echo "${BASE_DIR} is not exists."
+    if [ ! -d "${MAKUOSAN_BASE}" ]; then
+        echo "${MAKUOSAN_BASE} is not exists."
         exit 1
     fi
-
+    if [ -z "$LOGLEVEL" ]; then
+      LOGLEVEL=1
+    fi
+    if [ -n "$MCAST_ADDRESS" ]; then
+      OPTIONS="-m $MCAST_ADDRESS $OPTIONS"
+    fi
+    if [ -n "$IP_ADDRESS" ]; then
+      OPTIONS="-l $IP_ADDRESS $OPTIONS"
+    fi
+    OPTIONS="-d $LOGLEVEL $OPTIONS"
     echo -n $"Starting $prog: "
-    $prog -b "$BASE_DIR" -p "$PORT" -l "$IP_ADDRESS" "$SOCKET"
+    $prog $OPTIONS 2>/tmp/makuosan.$$
     RETVAL=$?
-    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/$prog
+    if [ $RETVAL -eq 0 ]; then
+      touch /var/lock/subsys/$prog
+      p=`egrep '^pid ' /tmp/makuosan.$$ | cut -f 2 -d:`
+      echo $p > /var/run/${prog}.pid
+      echo_success
+    else
+      echo_failure
+    fi
+    rm -f /tmp/makuosan.$$
     echo
     return $RETVAL
 }
@@ -66,29 +84,24 @@ stop(){
     RETVAL=$?
     if [ $RETVAL -eq 0 ] ; then
         rm -f /var/lock/subsys/$prog
+        rm -f /var/run/${prog}.pid
     fi
     echo
     return $RETVAL
 }
 
-reload(){
-    echo -n $"Reloading configuration: "	
-    killproc $prog -HUP
-    RETVAL=$?
-    echo
-    return $RETVAL
+status(){
+  OPT="-c tcp:127.0.0.1:5000"
+  [ -z "$PORT"          ] && PORT=5000
+  [ -n "$IP_ADDRESS"    ] && OPT="-c tcp:$IPADDRESS:$PORT"
+  [ -n "$MAKUOSAN_SOCK" ] && OPT="-c $MAKUOSAN_SOCK"
+  msync $OPT --status
 }
 
 restart(){
     stop
     start
 }
-
-condrestart(){
-    [ -e /var/lock/subsys/$prog ] && restart
-    return 0
-}
-
 
 # See how we were called.
 case "$1" in
@@ -99,19 +112,13 @@ case "$1" in
 	stop
 	;;
     status)
-	status $prog
+	status
 	;;
     restart)
 	restart
 	;;
-    reload)
-	reload
-	;;
-    condrestart)
-	condrestart
-	;;
     *)
-	echo $"Usage: $0 {start|stop|status|restart|condrestart|reload}"
+	echo $"Usage: $0 {start|stop|status|restart}"
 	RETVAL=1
 esac
 

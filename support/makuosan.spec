@@ -56,10 +56,19 @@ install -Dp -m0755 support/makuosan.sysv %{buildroot}%{_initrddir}/makuosan
 # Default configs
 mkdir -p %{buildroot}/%{_sysconfdir}/sysconfig
 cat <<EOF >%{buildroot}/%{_sysconfdir}/sysconfig/%{name}
+# Base Directory (Necessity)
 BASE_DIR=""
+
+# Other
 PORT="5000"
+MCAST_ADDRESS="224.0.0.108"
 IP_ADDRESS="127.0.0.1"
 SOCKET=""
+LOGLEVEL="1"
+MAKUOSAN_USER=""   
+MAKUOSAN_GROUP=""  
+MAKUOSAN_GROUPS=""
+OPTIONS=""
 EOF
 
 %clean

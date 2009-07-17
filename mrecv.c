@@ -97,8 +97,8 @@ static int mrecv_packet(int s, mdata *data, struct sockaddr_in *addr)
     data->head.flags  = ntohs(data->head.flags);
     data->head.reqid  = ntohl(data->head.reqid);
     data->head.seqno  = ntohl(data->head.seqno);
-    data->head.maddr  = ntohl(data->head.maddr);
-    data->head.mport  = ntohs(data->head.mport);
+    data->head.maddr  = data->head.maddr;
+    data->head.mport  = data->head.mport;
     data->head.error  = ntohl(data->head.error);
     if(data->head.maddr != moption.maddr.sin_addr.s_addr){
       continue; /* other group packet */

@@ -91,8 +91,8 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
   senddata.head.flags  = htons(senddata.head.flags);
   senddata.head.reqid  = htonl(senddata.head.reqid);
   senddata.head.seqno  = htonl(senddata.head.seqno);
-  senddata.head.maddr  = htonl(senddata.head.maddr);
-  senddata.head.mport  = htons(senddata.head.mport);
+  senddata.head.maddr  = senddata.head.maddr;
+  senddata.head.mport  = senddata.head.mport;
   senddata.head.error  = htonl(senddata.head.error);
   szdata += sizeof(mhead);
  
@@ -1230,6 +1230,7 @@ void msend(mfile *m)
     }
   }
 }
+
 void msend_clean()
 {
   mfile *m = mftop[MFSEND];

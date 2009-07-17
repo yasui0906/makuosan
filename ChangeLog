@@ -1,5 +1,6 @@
 1.2.2:
- - Support for solaris.
+ - Support for solaris10(Intel).
+ - makuosan.sysv 'status' and 'stop' option implement.
 
 1.2.1: 2009/6/16
  - refactoring for msync.
