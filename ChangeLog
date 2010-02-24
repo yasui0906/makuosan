@@ -1,6 +1,6 @@
 1.2.2:
- - Support for solaris10(Intel).
  - makuosan.sysv 'status' and 'stop' option implement.
+ - fix: recv timeout error when send file open.
 
 1.2.1: 2009/6/16
  - refactoring for msync.
