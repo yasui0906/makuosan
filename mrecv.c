@@ -456,6 +456,9 @@ static void mrecv_req_send_open(mfile *m, mdata *r)
   char tpath[PATH_MAX];
 
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_UPDATE){
+    if(m->mdata.head.ostate == MAKUO_RECVSTATE_UPDATE){
+      msend(mkack(&(m->mdata), &(m->addr), m->mdata.head.nstate));
+    }
     return;
   }
 
