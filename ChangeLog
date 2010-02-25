@@ -1,4 +1,7 @@
-1.2.2:
+1.3.0:
+
+
+1.2.2: 2010/2/25
  - makuosan.sysv 'status' and 'stop' option implement.
  - fix: recv timeout error when send file open.
 

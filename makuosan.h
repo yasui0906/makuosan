@@ -5,7 +5,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#define PROTOCOL_VERSION 6
+#define PROTOCOL_VERSION 7
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
 #include <stdio.h>
@@ -277,9 +277,9 @@ typedef struct
   int commpass;
   int ownmatch;
   int parallel;
+  int recvsize;
+  int sendsize;
   int sendready;
-  int rbuffsize;
-  int sbuffsize;
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;

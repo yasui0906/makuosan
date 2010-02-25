@@ -26,8 +26,8 @@ static void usage()
   printf("  -k file  # key file (encrypt password)\n");
   printf("  -K file  # key file (console password)\n");
   printf("  -f num   # parallel send count(default: 5) \n");
-  printf("  -R size  # recv buffer size\n");
-  printf("  -S size  # send buffer size\n");
+  printf("  -R num   # recv buffer size [bytes]\n");
+  printf("  -S num   # send buffer size [bytes]\n");
   printf("  -c       # chroot to base dir\n");
   printf("  -n       # don't fork\n");
   printf("  -r       # don't recv\n");
@@ -83,8 +83,8 @@ static void minit_option_setdefault()
   moption.commpass              = 0;
   moption.ownmatch              = 0;
   moption.parallel              = 5;
-  moption.rbuffsize             = 0;
-  moption.sbuffsize             = 0;
+  moption.recvsize              = 0;
+  moption.sendsize              = 0;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
@@ -230,10 +230,10 @@ static void minit_option_getenv()
     strcpy(moption.uaddr.sun_path, env);
   }
   if(env=getenv("MAKUOSAN_RCVBUF")){
-    moption.rbuffsize = atoi(env);
+    moption.recvsize = atoi(env);
   }
   if(env=getenv("MAKUOSAN_SNDBUF")){
-    moption.sbuffsize = atoi(env);
+    moption.sendsize = atoi(env);
   }
 }
 
@@ -317,11 +317,11 @@ static void minit_getopt(int argc, char *argv[])
         exit(0);
 
       case 'R':
-        moption.rbuffsize = atoi(optarg);
+        moption.recvsize = atoi(optarg);
         break;
 
       case 'S':
-        moption.sbuffsize = atoi(optarg);
+        moption.sendsize = atoi(optarg);
         break;
 
       case 'f':
@@ -442,29 +442,27 @@ static void minit_socket()
     lprintf(0, "%s: can't create multicast socket\n", __func__);
     exit(1);
   }
-  if(!moption.rbuffsize){
-    slen=sizeof(moption.rbuffsize);
-    if(getsockopt(s, SOL_SOCKET, SO_RCVBUF, (void *)&(moption.rbuffsize), &slen) == -1){
-      lprintf(0, "%s: getsockopt SO_RCVBUF error\n", __func__);
-      exit(1);
-    }
-  }else{
-    if(setsockopt(s, SOL_SOCKET, SO_RCVBUF, (void *)&(moption.rbuffsize), sizeof(moption.rbuffsize)) == -1){
+  if(moption.recvsize){
+    if(setsockopt(s, SOL_SOCKET, SO_RCVBUF, (void *)&(moption.recvsize), sizeof(moption.recvsize)) == -1){
       lprintf(0, "%s: setsockopt SO_RCVBUF error\n", __func__);
       exit(1);
     }
   }
-  if(!moption.sbuffsize){
-    slen=sizeof(moption.sbuffsize);
-    if(getsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sbuffsize), &slen) == -1){
-      lprintf(0, "%s: getsockopt SO_SNDBUF error\n", __func__);
-      exit(1);
-    }
-  }else{
-    if(setsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sbuffsize), sizeof(moption.sbuffsize)) == -1){
+  slen=sizeof(moption.recvsize);
+  if(getsockopt(s, SOL_SOCKET, SO_RCVBUF, (void *)&(moption.recvsize), &slen) == -1){
+    lprintf(0, "%s: getsockopt SO_RCVBUF error\n", __func__);
+    exit(1);
+  }
+  if(moption.sendsize){
+    if(setsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sendsize), sizeof(moption.sendsize)) == -1){
       lprintf(0, "%s: setsockopt SO_SNDBUF error\n", __func__);
       exit(1);
     }
+  }
+  slen=sizeof(moption.sendsize);
+  if(getsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sendsize), &slen) == -1){
+    lprintf(0, "%s: getsockopt SO_SNDBUF error\n", __func__);
+    exit(1);
   }
   if(fcntl(s, F_SETFL , O_NONBLOCK)){
     lprintf(0, "%s: fcntl error\n", __func__);
@@ -654,6 +652,8 @@ static void minit_bootlog()
     }
   }
   lprintf(0, "\n");
+  lprintf(0, "rcvbuf    : %d\n", moption.recvsize);
+  lprintf(0, "sndbuf    : %d\n", moption.sendsize);
   lprintf(0, "parallel  : %d\n", moption.parallel);
   lprintf(0, "don't recv: %s\n", yesno(moption.dontrecv));
   lprintf(0, "don't send: %s\n", yesno(moption.dontsend));
@@ -662,8 +662,6 @@ static void minit_bootlog()
   lprintf(0, "console   : %s\n", yesno(moption.comm_ena));
   lprintf(0, "passwoed  : %s\n", yesno(moption.commpass));
   lprintf(0, "ownermatch: %s\n", yesno(moption.ownmatch));
-  lprintf(0, "rcvbuf    : %d\n", moption.rbuffsize);
-  lprintf(0, "sndbuf    : %d\n", moption.sbuffsize);
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);
