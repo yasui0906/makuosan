@@ -278,6 +278,8 @@ typedef struct
   int ownmatch;
   int parallel;
   int sendready;
+  int rbuffsize;
+  int sbuffsize;
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;

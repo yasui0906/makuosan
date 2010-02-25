@@ -26,6 +26,8 @@ static void usage()
   printf("  -k file  # key file (encrypt password)\n");
   printf("  -K file  # key file (console password)\n");
   printf("  -f num   # parallel send count(default: 5) \n");
+  printf("  -R size  # recv buffer size\n");
+  printf("  -S size  # send buffer size\n");
   printf("  -c       # chroot to base dir\n");
   printf("  -n       # don't fork\n");
   printf("  -r       # don't recv\n");
@@ -81,6 +83,8 @@ static void minit_option_setdefault()
   moption.commpass              = 0;
   moption.ownmatch              = 0;
   moption.parallel              = 5;
+  moption.rbuffsize             = 0;
+  moption.sbuffsize             = 0;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
@@ -225,6 +229,12 @@ static void minit_option_getenv()
   if(env=getenv("MAKUOSAN_SOCK")){
     strcpy(moption.uaddr.sun_path, env);
   }
+  if(env=getenv("MAKUOSAN_RCVBUF")){
+    moption.rbuffsize = atoi(env);
+  }
+  if(env=getenv("MAKUOSAN_SNDBUF")){
+    moption.sbuffsize = atoi(env);
+  }
 }
 
 static void minit_signal()
@@ -296,7 +306,7 @@ static void minit_getopt(int argc, char *argv[])
 {
   int r;
 
-  while((r=getopt(argc, argv, "f:u:g:G:d:b:p:m:l:U:k:K:VhnsroOc")) != -1){
+  while((r=getopt(argc, argv, "R:S:f:u:g:G:d:b:p:m:l:U:k:K:VhnsroOc")) != -1){
     switch(r){
       case 'V':
         version_print();
@@ -305,6 +315,14 @@ static void minit_getopt(int argc, char *argv[])
       case 'h':
         usage();
         exit(0);
+
+      case 'R':
+        moption.rbuffsize = atoi(optarg);
+        break;
+
+      case 'S':
+        moption.sbuffsize = atoi(optarg);
+        break;
 
       case 'f':
         moption.parallel = atoi(optarg);
@@ -410,6 +428,7 @@ static void minit_socket()
   int  reuse =  1;
   char lpen  =  0;
   char mttl  =  1;
+  socklen_t slen;
   struct ip_mreq mg;
   struct sockaddr_in addr;
   mg.imr_multiaddr.s_addr = moption.maddr.sin_addr.s_addr;
@@ -422,6 +441,30 @@ static void minit_socket()
   if(s == -1){
     lprintf(0, "%s: can't create multicast socket\n", __func__);
     exit(1);
+  }
+  if(!moption.rbuffsize){
+    slen=sizeof(moption.rbuffsize);
+    if(getsockopt(s, SOL_SOCKET, SO_RCVBUF, (void *)&(moption.rbuffsize), &slen) == -1){
+      lprintf(0, "%s: getsockopt SO_RCVBUF error\n", __func__);
+      exit(1);
+    }
+  }else{
+    if(setsockopt(s, SOL_SOCKET, SO_RCVBUF, (void *)&(moption.rbuffsize), sizeof(moption.rbuffsize)) == -1){
+      lprintf(0, "%s: setsockopt SO_RCVBUF error\n", __func__);
+      exit(1);
+    }
+  }
+  if(!moption.sbuffsize){
+    slen=sizeof(moption.sbuffsize);
+    if(getsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sbuffsize), &slen) == -1){
+      lprintf(0, "%s: getsockopt SO_SNDBUF error\n", __func__);
+      exit(1);
+    }
+  }else{
+    if(setsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sbuffsize), sizeof(moption.sbuffsize)) == -1){
+      lprintf(0, "%s: setsockopt SO_SNDBUF error\n", __func__);
+      exit(1);
+    }
   }
   if(fcntl(s, F_SETFL , O_NONBLOCK)){
     lprintf(0, "%s: fcntl error\n", __func__);
@@ -619,6 +662,8 @@ static void minit_bootlog()
   lprintf(0, "console   : %s\n", yesno(moption.comm_ena));
   lprintf(0, "passwoed  : %s\n", yesno(moption.commpass));
   lprintf(0, "ownermatch: %s\n", yesno(moption.ownmatch));
+  lprintf(0, "rcvbuf    : %d\n", moption.rbuffsize);
+  lprintf(0, "sndbuf    : %d\n", moption.sbuffsize);
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);
