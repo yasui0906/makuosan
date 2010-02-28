@@ -877,16 +877,16 @@ int mexec_status(mcomm *c, int n)
   struct tm *t;
 
   /*----- pid -----*/
-  cprintf(0, c, "process: %d\n", getpid());
+  cprintf(0, c, "process : %d\n", getpid());
 
   /*----- version -----*/
-  cprintf(0,c,"version: %s\n", PACKAGE_VERSION);
+  cprintf(0,c,"version : %s\n", PACKAGE_VERSION);
 
   /*----- basedir -----*/
   if(moption.chroot){
-    cprintf(0, c, "chroot : %s/\n", moption.real_dir);
+    cprintf(0, c, "chroot  : %s/\n", moption.real_dir);
   }else{
-    cprintf(0, c, "basedir: %s/\n", moption.base_dir);
+    cprintf(0, c, "basedir : %s/\n", moption.base_dir);
   }
 
   /*----- mfalloc -----*/
@@ -900,7 +900,11 @@ int mexec_status(mcomm *c, int n)
   for(m=mfreeobj;m;m=m->next){
     count++;
   }
-  cprintf(0, c, "mfalloc: %d\n", count);
+  cprintf(0, c, "mfalloc : %d\n", count);
+
+  /*----- RCVBUF/SNDBUF -----*/
+  cprintf(0, c, "recvsize: %d\n", moption.recvsize);
+  cprintf(0, c, "sendsize: %d\n", moption.sendsize);
 
   /*----- command -----*/
   count = 0;
@@ -909,7 +913,7 @@ int mexec_status(mcomm *c, int n)
       count++;
     }
   }
-  cprintf(0, c, "command: %d\n", count);
+  cprintf(0, c, "command : %d\n", count);
   for(i=0;i<MAX_COMM;i++){
     if(moption.comm[i].working && (c != &(moption.comm[i]))){
       cprintf(0, c, "  %d> %s\n", i, moption.comm[i].cmdline[0]);
@@ -921,7 +925,7 @@ int mexec_status(mcomm *c, int n)
   for(m=mftop[MFSEND];m;m=m->next){
     count++;
   }
-  cprintf(0,c,"send op: %d\n", count);
+  cprintf(0,c,"send op : %d\n", count);
   for(m=mftop[MFSEND];m;m=m->next){
     uint32_t snow = m->seqnonow;
     uint32_t smax = m->seqnomax;
@@ -944,7 +948,7 @@ int mexec_status(mcomm *c, int n)
   count = 0;
   for(m=mftop[MFRECV];m;m=m->next)
     count++;
-  cprintf(0, c, "recv op: %d\n", count);
+  cprintf(0, c, "recv op : %d\n", count);
   for(m=mftop[MFRECV];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
     cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d rid=%d\n",

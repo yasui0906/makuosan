@@ -453,6 +453,7 @@ static void minit_socket()
     lprintf(0, "%s: getsockopt SO_RCVBUF error\n", __func__);
     exit(1);
   }
+  moption.recvsize /= 2;
   if(moption.sendsize){
     if(setsockopt(s, SOL_SOCKET, SO_SNDBUF, (void *)&(moption.sendsize), sizeof(moption.sendsize)) == -1){
       lprintf(0, "%s: setsockopt SO_SNDBUF error\n", __func__);
@@ -464,6 +465,7 @@ static void minit_socket()
     lprintf(0, "%s: getsockopt SO_SNDBUF error\n", __func__);
     exit(1);
   }
+  moption.sendsize /= 2;
   if(fcntl(s, F_SETFL , O_NONBLOCK)){
     lprintf(0, "%s: fcntl error\n", __func__);
     exit(1);
