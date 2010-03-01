@@ -1,5 +1,5 @@
 Name:           makuosan
-Version:        1.2.2
+Version:        1.3.0
 Release:        1%{?dist}
 Summary:        Multicasts All-Kinds of Updating Operation for Servers on Administered Network
 
@@ -88,6 +88,7 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Mar  1 2010 Masanobu Yasui <yasui0906@gmail.com> - 1.3.0
 * Mon Jun 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.2
 * Mon Jun 16 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.1
 * Mon May 25 2009 Masanobu Yasui <yasui0906@gmail.com> - 1.2.0
