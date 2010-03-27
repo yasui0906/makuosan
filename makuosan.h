@@ -280,6 +280,7 @@ typedef struct
   int recvsize;
   int sendsize;
   int sendready;
+  int sendrate;
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;
@@ -306,6 +307,7 @@ extern int opterr;
 extern int optopt;
 extern int optreset;
 extern int loop_flag;
+extern int send_rate;
 extern char *tzname[2];
 extern int daylight;
 extern char TZ[256];

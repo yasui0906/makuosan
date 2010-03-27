@@ -9,6 +9,7 @@ mfile *mftop[2] = {NULL,NULL};
 mfile *mfreeobj = NULL;
 mhost *members  = NULL;
 int loop_flag   = 1;
+int send_rate   = 0;
 struct timeval curtime;
 struct timeval lastpong;
 BF_KEY EncKey;

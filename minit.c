@@ -85,6 +85,7 @@ static void minit_option_setdefault()
   moption.parallel              = 5;
   moption.recvsize              = 0;
   moption.sendsize              = 0;
+  moption.sendrate              = 0;
   moption.chroot                = 0;
   moption.uid                   = geteuid();
   moption.gid                   = getegid();
@@ -306,7 +307,7 @@ static void minit_getopt(int argc, char *argv[])
 {
   int r;
 
-  while((r=getopt(argc, argv, "R:S:f:u:g:G:d:b:p:m:l:U:k:K:VhnsroOc")) != -1){
+  while((r=getopt(argc, argv, "T:R:S:f:u:g:G:d:b:p:m:l:U:k:K:VhnsroOc")) != -1){
     switch(r){
       case 'V':
         version_print();
@@ -315,6 +316,10 @@ static void minit_getopt(int argc, char *argv[])
       case 'h':
         usage();
         exit(0);
+
+      case 'T':
+        moption.sendrate = atoi(optarg);
+        break;
 
       case 'R':
         moption.recvsize = atoi(optarg);
@@ -664,6 +669,9 @@ static void minit_bootlog()
   lprintf(0, "console   : %s\n", yesno(moption.comm_ena));
   lprintf(0, "passwoed  : %s\n", yesno(moption.commpass));
   lprintf(0, "ownermatch: %s\n", yesno(moption.ownmatch));
+  if(moption.sendrate){
+    lprintf(0, "rate      : %d[Mbps]\n", moption.sendrate);
+  }
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){
       lprintf(0,"listen    : %s\n", moption.uaddr.sun_path);
