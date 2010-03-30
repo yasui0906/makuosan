@@ -910,7 +910,11 @@ int mexec_status(mcomm *c, int n)
   cprintf(0, c, "sendsize: %d\n", moption.sendsize);
   
   /*----- send rate -----*/
-  cprintf(0, c, "sendrate: %d/%d\n", view_rate * 8 / 1024 / 1024, moption.sendrate * 8 / 1024 / 1024);
+  if(moption.sendrate){
+    cprintf(0, c, "sendrate: %d/%d\n", 
+      view_rate        * 8 / 1024 / 1024, 
+      moption.sendrate * 8 / 1024 / 1024);
+  }
 
   /*----- command -----*/
   count = 0;

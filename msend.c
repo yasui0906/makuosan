@@ -62,18 +62,20 @@ static int msend_readywait()
   time_t tm;
   struct timeval tv;
 
-  tm = time(NULL);
-  while(tm == send_time){
-    if(moption.sendrate > send_rate){
-      break;
-    }
-    usleep(1000);
+  if(moption.sendrate){
     tm = time(NULL);
-  }
-  if(tm != send_time){
-    view_rate = send_rate;
-    send_rate =  0;
-    send_time = tm;
+    while(tm == send_time){
+      if(moption.sendrate > send_rate){
+        break;
+      }
+      usleep(1000);
+      tm = time(NULL);
+    }
+    if(tm != send_time){
+      view_rate = send_rate;
+      send_rate =  0;
+      send_time = tm;
+    }
   }
   while(!moption.sendready){
     FD_ZERO(&fds);
