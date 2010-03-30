@@ -59,7 +59,22 @@ static int msend_encrypt(mdata *data)
 static int msend_readywait()
 {
   fd_set fds;
+  time_t tm;
   struct timeval tv;
+
+  tm = time(NULL);
+  while(tm == send_time){
+    if(moption.sendrate > send_rate){
+      break;
+    }
+    usleep(1000);
+    tm = time(NULL);
+  }
+  if(tm != send_time){
+    view_rate = send_rate;
+    send_rate =  0;
+    send_time = tm;
+  }
   while(!moption.sendready){
     FD_ZERO(&fds);
     FD_SET(moption.mcsocket, &fds);
@@ -100,6 +115,7 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
     moption.sendready = 0;
     r = sendto(s, &senddata, szdata, 0, (struct sockaddr*)addr, sizeof(struct sockaddr_in));
     if(r == szdata){
+      send_rate += r;
       return(0); /* success */
     }
     if(r == -1){

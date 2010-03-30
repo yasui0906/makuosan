@@ -28,6 +28,7 @@ static void usage()
   printf("  -f num   # parallel send count(default: 5) \n");
   printf("  -R num   # recv buffer size [bytes]\n");
   printf("  -S num   # send buffer size [bytes]\n");
+  printf("  -T num   # traffic rate     [Mbps]\n");
   printf("  -c       # chroot to base dir\n");
   printf("  -n       # don't fork\n");
   printf("  -r       # don't recv\n");
@@ -318,7 +319,7 @@ static void minit_getopt(int argc, char *argv[])
         exit(0);
 
       case 'T':
-        moption.sendrate = atoi(optarg);
+        moption.sendrate = atoi(optarg) * 1024 * 1024 / 8;
         break;
 
       case 'R':
@@ -670,7 +671,7 @@ static void minit_bootlog()
   lprintf(0, "passwoed  : %s\n", yesno(moption.commpass));
   lprintf(0, "ownermatch: %s\n", yesno(moption.ownmatch));
   if(moption.sendrate){
-    lprintf(0, "rate      : %d[Mbps]\n", moption.sendrate);
+    lprintf(0, "rate      : %d[Mbps]\n", moption.sendrate * 8 / 1024 / 1024);
   }
   if(moption.comm_ena){
     if(moption.uaddr.sun_path[0]){

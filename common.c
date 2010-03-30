@@ -5,11 +5,13 @@
 #include "makuosan.h"
 
 mopt moption;
-mfile *mftop[2] = {NULL,NULL};
-mfile *mfreeobj = NULL;
-mhost *members  = NULL;
-int loop_flag   = 1;
-int send_rate   = 0;
+mfile *mftop[2]  = {NULL,NULL};
+mfile *mfreeobj  = NULL;
+mhost *members   = NULL;
+int loop_flag    = 1;
+int send_rate    = 0;
+int view_rate    = 0;
+time_t send_time = 0;
 struct timeval curtime;
 struct timeval lastpong;
 BF_KEY EncKey;

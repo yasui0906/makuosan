@@ -382,6 +382,7 @@ int mexec_send(mcomm *c, int n, int sync)
   }
   argv[i] = NULL;
   optind  = 1;
+  opterr  = 1;
 #ifdef HAVE_GETOPT_OPTRESET
   optreset = 1;
 #endif
@@ -564,6 +565,7 @@ int mexec_check(mcomm *c, int n)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
   optind  = 1;
+  opterr  = 1;
 #ifdef HAVE_GETOPT_OPTRESET
   optreset = 1;
 #endif
@@ -670,6 +672,7 @@ int mexec_dsync(mcomm *c, int n)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
   optind  = 1;
+  opterr  = 1;
 #ifdef HAVE_GETOPT_OPTRESET
   optreset = 1;
 #endif
@@ -905,6 +908,9 @@ int mexec_status(mcomm *c, int n)
   /*----- RCVBUF/SNDBUF -----*/
   cprintf(0, c, "recvsize: %d\n", moption.recvsize);
   cprintf(0, c, "sendsize: %d\n", moption.sendsize);
+  
+  /*----- send rate -----*/
+  cprintf(0, c, "sendrate: %d/%d\n", view_rate * 8 / 1024 / 1024, moption.sendrate * 8 / 1024 / 1024);
 
   /*----- command -----*/
   count = 0;

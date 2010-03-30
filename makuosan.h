@@ -308,6 +308,8 @@ extern int optopt;
 extern int optreset;
 extern int loop_flag;
 extern int send_rate;
+extern int view_rate;
+extern time_t send_time;
 extern char *tzname[2];
 extern int daylight;
 extern char TZ[256];
