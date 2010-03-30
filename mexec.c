@@ -381,7 +381,7 @@ int mexec_send(mcomm *c, int n, int sync)
     argv[i] = c->parse[n][i];
   }
   argv[i] = NULL;
-  optind  = 1;
+  optind  = 0;
   opterr  = 1;
 #ifdef HAVE_GETOPT_OPTRESET
   optreset = 1;
@@ -564,7 +564,7 @@ int mexec_check(mcomm *c, int n)
   for(i=0;i<c->argc[n];i++)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
-  optind  = 1;
+  optind  = 0;
   opterr  = 1;
 #ifdef HAVE_GETOPT_OPTRESET
   optreset = 1;
@@ -671,7 +671,7 @@ int mexec_dsync(mcomm *c, int n)
   for(i=0;i<c->argc[n];i++)
     argv[i] = c->parse[n][i];
   argv[i] = NULL;
-  optind  = 1;
+  optind  = 0;
   opterr  = 1;
 #ifdef HAVE_GETOPT_OPTRESET
   optreset = 1;
