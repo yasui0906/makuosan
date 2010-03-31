@@ -281,6 +281,7 @@ typedef struct
   int sendsize;
   int sendready;
   int sendrate;
+  struct utsname uts;  
   struct sockaddr_in maddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;

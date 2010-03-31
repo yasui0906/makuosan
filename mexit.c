@@ -6,13 +6,9 @@
 
 static void chexit()
 {
-  struct utsname uts;
   char cwd[PATH_MAX];
   if(moption.chroot){
-    if(uname(&uts) == -1){
-      return;
-    }
-    if(strcmp("Linux", uts.sysname)){
+    if(strcmp("Linux", moption.uts.sysname)){
       return;
     }
     /*----- chroot exit(linux only) -----*/

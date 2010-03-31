@@ -97,6 +97,7 @@ static void minit_option_setdefault()
     moption.comm[i].fd[0] = -1;
     moption.comm[i].fd[1] = -1;
   }
+  uname(&moption.uts);
 }
 
 static int minit_option_setuid(char *name)
@@ -644,6 +645,7 @@ static void minit_bootlog()
   int i;
 
   lprintf(0, "makuosan version %s\n", PACKAGE_VERSION);
+  lprintf(0, "sysname   : %s\n", moption.uts.sysname);
   lprintf(0, "loglevel  : %d\n", moption.loglevel);
   if(moption.chroot){
     lprintf(0, "chroot    : %s\n", moption.real_dir);
@@ -705,3 +707,4 @@ void minit(int argc, char *argv[])
   minit_bootlog();           /* ブートメッセージを出力する         */
   minit_daemonize();         /*                                    */
 }
+
