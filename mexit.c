@@ -6,6 +6,7 @@
 
 static void chexit()
 {
+  int retrycnt = 256;
   char cwd[PATH_MAX];
   if(moption.chroot){
     if(strcmp("Linux", moption.uts.sysname)){
@@ -18,9 +19,10 @@ static void chexit()
     rmdir(cwd);
     chdir("..");
     getcwd(cwd,PATH_MAX);
-    while(strcmp("/", cwd)){
+    while(retrycnt && strcmp("/", cwd) && strcmp("(unreachable)/", cwd)){
       chdir("..");
       getcwd(cwd,PATH_MAX);
+      retrycnt--;
     }
     chroot(".");
   }
