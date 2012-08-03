@@ -293,6 +293,7 @@ int mexec_close(mcomm *c, int n)
   if(!n){
     c->authchk  = 0;
     c->logflag  = 0;
+    c->logover  = 0;
     c->loglevel = 0;
     c->isalive  = 0;
     if(c->cpid){

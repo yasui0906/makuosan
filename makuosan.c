@@ -208,7 +208,14 @@ void do_free()
 
 void do_recv()
 {
-  mrecv();
+  mhost *t = members;
+  while(mrecv()){
+    if(t){
+      t=t->next;
+    }else{
+      break;
+    }
+  }
 }
 
 void do_send()
@@ -274,6 +281,9 @@ int do_accept(mcomm *c, fd_set *fds)
       break;
   }
   c[i].working = 1;
+  if(fcntl(c[i].fd[0], F_SETFL , O_NONBLOCK)){
+    lprintf(0, "[error] %s: fcntl: %s\n", __func__, strerror(errno));
+  }
   return(0);
 }
 

@@ -200,6 +200,7 @@ typedef struct
   int authchk;
   int isalive;
   int logflag;
+  int logover;
   char cmdline[2][MAKUO_BUFFER_SIZE];
   char parse[2][8][MAKUO_BUFFER_SIZE];
   char readbuff[2][MAKUO_BUFFER_SIZE];
