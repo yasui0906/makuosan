@@ -1,20 +1,14 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
-AC_PREREQ(2.61)
-AC_INIT(makuosan, 1.3.2, info-makuosan@klab.jp)
+
+AC_PREREQ([2.67])
+AC_INIT(makuosan, 1.3.3, info-makuosan@klab.jp)
 AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([makuosan.c])
-AC_CONFIG_HEADER([config.h])
-AC_ARG_ENABLE(debug, [  --enable-debug	enable debuging], 
-                     [CFLAGS="$CFLAGS -g"
-                      CPPFLAGS="$CPPFLAGS -DMAKUO_DEBUG"])
-AC_SUBST(CFLAGS)
-AC_SUBST(CPPFLAGS)
-CFLAGS="-O3 $CFLAGS"
+AC_CONFIG_SRCDIR([common.c])
+AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_INSTALL
 
 # Checks for libraries.
 AC_CHECK_LIB(crypto, MD5_Init)
@@ -22,23 +16,23 @@ AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(nsl, inet_addr)
 
 # Checks for header files.
-AC_HEADER_DIRENT
-AC_HEADER_STDC
-AC_CHECK_HEADERS(openssl/md5.h openssl/blowfish.h,,[AC_MSG_ERROR([Can't found openssl header file])])
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h sys/timeb.h syslog.h unistd.h utime.h])
+AC_CHECK_HEADERS(openssl/md5.h openssl/blowfish.h,,[AC_MSG_ERROR([Can't found openssl header file])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_UID_T
 AC_TYPE_MODE_T
 AC_TYPE_OFF_T
+AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
-AC_HEADER_TIME
-AC_STRUCT_TM
+AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_TYPE_UINT16_T
 AC_TYPE_UINT32_T
+AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
+
 AC_FUNC_CHOWN
 AC_FUNC_CLOSEDIR_VOID
 AC_REPLACE_FNMATCH
@@ -51,7 +45,7 @@ AC_FUNC_REALLOC
 AC_FUNC_SELECT_ARGTYPES
 AC_FUNC_UTIME_NULL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([ftime getcwd gethostname gettimeofday inet_ntoa memmove memset mkdir realpath rmdir select setenv socket tzset utime])
+AC_CHECK_FUNCS([getcwd gethostname gettimeofday inet_ntoa lchown memmove memset mkdir realpath rmdir select setenv socket strchr strerror tzset uname utime])
 AC_CACHE_CHECK([whether getopt has optreset support], ac_cv_have_getopt_optreset,[
 	AC_TRY_LINK([#include <unistd.h>], extern int optreset; optreset = 0;, [ ac_cv_have_getopt_optreset="yes" ], [ ac_cv_have_getopt_optreset="no" ])
 ])
@@ -60,4 +54,3 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
 fi
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-
