@@ -208,7 +208,7 @@ void do_free()
 
 void do_recv()
 {
-  while(mrecv());
+  mrecv();
 }
 
 void do_send()
