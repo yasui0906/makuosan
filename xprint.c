@@ -177,49 +177,34 @@ void lprintf(int l, char *fmt, ...)
   m[0] = 0;
 }
 
-void cprintf(int l, mcomm *c, char *fmt, ...)
+int cprintf(int l, mcomm *c, char *fmt, ...)
 {
   int r;
   int n;
-  fd_set wfds;
-  struct timeval tv;
   char m[2048];
   va_list arg;
   if(!c){
-    return;
+    return(0);
   }
   if(c->fd[0] == -1){
-    return;
+    return(0);
   }
   if(c->loglevel < l){
-    return;
+    return(0);
   }
   va_start(arg, fmt);
   vsnprintf(m, sizeof(m), fmt, arg);
   va_end(arg);
   m[sizeof(m) - 1] = 0;
-  FD_ZERO(&wfds);
-  FD_SET(c->fd[0], &wfds);
-  tv.tv_sec  = 0;
-  tv.tv_usec = 100000;
-  if(select(1024, NULL, &wfds, NULL, &tv) <= 0){
-    c->logover++;
-    lprintf(0, "[error] %s: client busy: %s", __func__, m);
+  n = strlen(m);
+  if(write(c->fd[0], m, n) == n){
+    fsync(c->fd[0]);
   }else{
-    n = strlen(m);
-    r = write(c->fd[0], m, n);
-    if(r == -1){
-      c->logover++;
-      lprintf(0, "[error] %s: write: %s fd=%d", __func__, strerror(errno), c->fd[0]);
-    }else{
-      if(r < n){
-        c->logover++;
-        lprintf(0, "[error] %s: over fllow: %s", __func__, m);
-      }else{
-        fsync(c->fd[0]);
-      }
-    }
+    c->logover++;
+    lprintf(0, "[error] %s: Resource temporarily unavailable: %s", __func__, m);
+    return(-1);
   }
+  return(0);
 }
 
 void mprintf(int l, const char *func, mfile *m)

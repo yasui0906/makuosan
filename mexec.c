@@ -276,7 +276,6 @@ int mexec_open(int l, mcomm *c, int n)
 int mexec_close(mcomm *c, int n)
 {
   mfile *m;
-
   if(c->fd[n] != -1){
     close(c->fd[n]);
     if(n){

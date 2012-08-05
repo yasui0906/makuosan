@@ -114,15 +114,28 @@ uint32_t getrid()
 
 int workend(mcomm *c)
 {
-  if(c){
-    if(c->working && !c->cpid){
-      c->working = 0;
-      if(moption.commpass && !c->authchk){
-        cprintf(0, c, "password: \x1b]E");
-      }else{
-        cprintf(0,c,"> ");
+  char *m;
+  if(!c){
+    return(0);
+  }
+  if(!c->working){
+    return(0);
+  }
+  if(c->cpid){
+    return(0);
+  }
+  if(moption.commpass && !c->authchk){
+    m = "password: \x1b]E";
+  }else{
+    m = "> ";
+    if(c->logover && strcmp("dsync", c->parse[0][0])){
+      if(cprintf(0, c, "[error] Log lost: %d line\n", c->logover) == 0){
+        c->logover = 0;
       }
     }
+  }
+  if(cprintf(0, c, m) == 0){
+    c->working = 0;
   }
   return(0);
 }

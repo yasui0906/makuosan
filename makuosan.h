@@ -327,7 +327,7 @@ char *stropcode(mdata *data);
 char *strackreq(mdata *data);
 void mprintf(int l, const char *func, mfile *m);
 void lprintf(int l, char *fmt, ...);
-void cprintf(int l, mcomm *c, char *fmt, ...);
+int  cprintf(int l, mcomm *c, char *fmt, ...);
 void fdprintf(int s, char *fmt, ...);
 
 /*----- packet data access -----*/
