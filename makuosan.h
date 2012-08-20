@@ -284,6 +284,7 @@ typedef struct
   int sendrate;
   struct utsname uts;  
   struct sockaddr_in maddr;
+  struct sockaddr_in iaddr;
   struct sockaddr_in laddr;
   struct sockaddr_un uaddr;
   char base_dir[PATH_MAX];

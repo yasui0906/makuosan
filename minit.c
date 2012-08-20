@@ -14,28 +14,30 @@ static void usage()
   version_print();
   printf("(Multicasts All-Kinds of Updating Operation for Servers on Administered Network)\n\n");
   printf("usage: makuosan [OPTION]\n");
-  printf("  -d num   # loglevel(0-9)\n");
-  printf("  -u uid   # user\n");
-  printf("  -g gid   # group\n");
-  printf("  -G gid,..# groups\n");
-  printf("  -b dir   # base dir\n");
-  printf("  -p port  # port number       (default: 5000)\n");
-  printf("  -m addr  # multicast address (default: 224.0.0.108)\n");
-  printf("  -l addr  # listen address    (default: 127.0.0.1)\n");
-  printf("  -U path  # unix domain socket\n");
-  printf("  -k file  # key file (encrypt password)\n");
-  printf("  -K file  # key file (console password)\n");
-  printf("  -f num   # parallel send count(default: 5) \n");
-  printf("  -R num   # recv buffer size [bytes]\n");
-  printf("  -S num   # send buffer size [bytes]\n");
-  printf("  -T num   # traffic rate     [Mbps]\n");
-  printf("  -c       # chroot to base dir\n");
-  printf("  -n       # don't fork\n");
-  printf("  -r       # don't recv\n");
-  printf("  -s       # don't send\n");
-  printf("  -o       # don't listen (console off mode)\n");
-  printf("  -O       # owner match limitation mode\n");
-  printf("  -h       # help\n\n"); 
+  printf("  -d num       # loglevel(0-9)\n");
+  printf("  -u uid       # user\n");
+  printf("  -g gid       # group\n");
+  printf("  -G gid,..    # groups\n");
+  printf("  -b dir       # base dir\n");
+  printf("  -p port      # port number       (default: 5000)\n");
+  printf("  -m addr      # multicast address (default: 224.0.0.108)\n");
+  printf("  -i addr      # interface address (default: 0.0.0.0)\n");
+  printf("  -l addr      # listen address    (default: 127.0.0.1)\n");
+  printf("  -U path      # unix domain socket\n");
+  printf("  -k file      # key file (encrypt password)\n");
+  printf("  -K file      # key file (console password)\n");
+  printf("  -f num       # parallel send count(default: 5) \n");
+  printf("  -R num       # recv buffer size [bytes]\n");
+  printf("  -S num       # send buffer size [bytes]\n");
+  printf("  -T num       # traffic rate     [Mbps]\n");
+  printf("  -n           # don't fork\n");
+  printf("  -r           # don't recv\n");
+  printf("  -s           # don't send\n");
+  printf("  -o           # don't listen (console off mode)\n");
+  printf("  -O           # owner match limitation mode\n");
+  printf("  -c --chroot  # chroot to base dir\n");
+  printf("  -V --version # version\n"); 
+  printf("  -h --help    # help\n\n"); 
   exit(0);
 }
 
@@ -70,6 +72,9 @@ static void minit_option_setdefault()
   moption.maddr.sin_family      = AF_INET;
   moption.maddr.sin_addr.s_addr = inet_addr(MAKUO_MCAST_ADDR);
   moption.maddr.sin_port        = htons(MAKUO_MCAST_PORT);
+  moption.iaddr.sin_family      = AF_INET;
+  moption.iaddr.sin_addr.s_addr = INADDR_ANY;
+  moption.iaddr.sin_port        = htons(MAKUO_MCAST_PORT);
   moption.laddr.sin_family      = AF_INET;
   moption.laddr.sin_addr.s_addr = inet_addr(MAKUO_LOCAL_ADDR);
   moption.laddr.sin_port        = htons(MAKUO_MCAST_PORT);
@@ -308,8 +313,14 @@ static void minit_password(char *filename, int n)
 static void minit_getopt(int argc, char *argv[])
 {
   int r;
+  struct option opt[]={
+    "chroot",  0, NULL, 'c',
+    "help",    0, NULL, 'h',
+    "version", 0, NULL, 'V',
+    0, 0, 0, 0
+  };
 
-  while((r=getopt(argc, argv, "T:R:S:f:u:g:G:d:b:p:m:l:U:k:K:VhnsroOc")) != -1){
+  while((r=getopt_long(argc, argv, "T:R:S:f:u:g:G:d:b:p:m:i:l:U:k:K:VhnsroOc", opt, NULL)) != -1){
     switch(r){
       case 'V':
         version_print();
@@ -391,6 +402,10 @@ static void minit_getopt(int argc, char *argv[])
         moption.maddr.sin_addr.s_addr = inet_addr(optarg);
         break;
 
+      case 'i':
+        moption.iaddr.sin_addr.s_addr = inet_addr(optarg);
+        break;
+
       case 'l':
         moption.laddr.sin_addr.s_addr = inet_addr(optarg);
         break;
@@ -439,7 +454,7 @@ static void minit_socket()
   struct ip_mreq mg;
   struct sockaddr_in addr;
   mg.imr_multiaddr.s_addr = moption.maddr.sin_addr.s_addr;
-  mg.imr_interface.s_addr = INADDR_ANY;
+  mg.imr_interface.s_addr = moption.iaddr.sin_addr.s_addr;
   addr.sin_family         = AF_INET;
   addr.sin_port           = moption.maddr.sin_port; 
   addr.sin_addr.s_addr    = INADDR_ANY;
@@ -653,6 +668,7 @@ static void minit_bootlog()
     lprintf(0, "base dir  : %s\n", moption.base_dir);
   }
   lprintf(0, "multicast : %s\n", inet_ntoa(moption.maddr.sin_addr));
+  lprintf(0, "interface : %s\n", inet_ntoa(moption.iaddr.sin_addr));
   lprintf(0, "port      : %d\n", ntohs(moption.maddr.sin_port));
   lprintf(0, "uid       : %d(%s)\n", moption.uid, moption.user_name);
   lprintf(0, "gid       : %d(%s)"  , moption.gid, moption.group_name);
