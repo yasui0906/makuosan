@@ -128,9 +128,9 @@ int workend(mcomm *c)
   if(moption.commpass && !c->authchk){
     m = "password: \x1b]E";
   }else{
-    m = "> ";
+    m = "\n> ";
     if(c->logover && strcmp("dsync", c->parse[0][0])){
-      if(cprintf(0, c, "[error] Log lost: %d line\n", c->logover) == 0){
+      if(cprintf(0, c, "[error] Log lost: %d lines\n", c->logover) == 0){
         c->logover = 0;
       }
     }
