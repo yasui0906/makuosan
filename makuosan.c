@@ -1,6 +1,6 @@
 /*
  * makuosan.c
- * Copyright (C) 2008 KLab Inc.
+ * Copyright (C) 2008-2012 KLab Inc.
  */
 #include "makuosan.h"
 
@@ -332,6 +332,10 @@ void mloop()
   fd_set rfds;
   fd_set wfds;
   while(loop_flag){
+    if(log_level != moption.loglevel){
+      lprintf(0,"%s: loglevel set %d to %d\n", __func__, moption.loglevel, log_level);
+      moption.loglevel = log_level;
+    }
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
     rfdset(moption.mcsocket, &rfds);

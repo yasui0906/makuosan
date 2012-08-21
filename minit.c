@@ -1,6 +1,6 @@
 /*
  * minit.c
- * Copyright (C) 2008 KLab Inc.
+ * Copyright (C) 2008-2012 KLab Inc.
  */
 #include "makuosan.h"
 
@@ -51,15 +51,13 @@ static void signal_handler(int n)
     case SIGPIPE:
       break;
     case SIGUSR1:
-      if(moption.loglevel<9){
-        moption.loglevel++;
-        lprintf(0,"%s: loglevel=%d\n", __func__, moption.loglevel);
+      if(log_level<9){
+        log_level++;
       }
       break;
     case SIGUSR2:
-      if(moption.loglevel>0){
-        moption.loglevel--;
-        lprintf(0,"%s: loglevel=%d\n", __func__, moption.loglevel);
+      if(log_level>0){
+        log_level--;
       }
       break;
   }
@@ -437,6 +435,7 @@ static void minit_getopt(int argc, char *argv[])
         exit(1);
     }
   }
+  log_level = moption.loglevel;
 }
 
 static void minit_syslog()

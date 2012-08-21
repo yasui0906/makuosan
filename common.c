@@ -1,6 +1,6 @@
 /*
  * common.c
- * Copyright (C) 2008 KLab Inc.
+ * Copyright (C) 2008-2012 KLab Inc.
  */
 #include "makuosan.h"
 
@@ -8,13 +8,14 @@ mopt moption;
 mfile *mftop[2]  = {NULL,NULL};
 mfile *mfreeobj  = NULL;
 mhost *members   = NULL;
-int loop_flag    = 1;
 int send_rate    = 0;
 int view_rate    = 0;
 time_t send_time = 0;
 struct timeval curtime;
 struct timeval lastpong;
 BF_KEY EncKey;
+volatile sig_atomic_t log_level = 0;
+volatile sig_atomic_t loop_flag = 1;
 
 char *yesno(int n)
 {
