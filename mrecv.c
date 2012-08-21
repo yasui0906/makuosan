@@ -30,7 +30,7 @@ static mfile *mrecv_mfdel(mfile *m)
     m->link->link = NULL;
     m->link = NULL;
   }
-  while(m->mark = delmark(m->mark));
+  while((m->mark = delmark(m->mark)));
   mfdel(m);
   return(r);
 }
@@ -417,7 +417,6 @@ static void mrecv_req_send_break(mfile *m, mdata *r)
 static void mrecv_req_send_stat(mfile *m, mdata *r)
 {
   struct stat fs;
-  struct utimbuf mftime;
 
   if(moption.dontrecv){
     m->mdata.head.nstate = MAKUO_RECVSTATE_READONLY;
@@ -805,7 +804,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
   uint32_t  hdev;
   uint64_t  rdev;
 
-  if(m = mrecv_req_search(data, addr)){
+  if((m = mrecv_req_search(data, addr))){
     return(m);
   }
 
@@ -865,7 +864,7 @@ static mfile *mrecv_req_send_create(mdata *data, struct sockaddr_in *addr)
 static void mrecv_req_send(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m;
-  if(m = mrecv_req_send_create(data, addr)){
+  if((m = mrecv_req_send_create(data, addr))){
     mtimeget(&(m->lastrecv));
     mrecv_req_send_next(m, data);
   }else{
@@ -1032,8 +1031,8 @@ static int dsync_scan(int fd, char *base, int recurs, excludeitem *e)
   }
 
   /*----- dir scan -----*/
-  if(d = opendir(base)){
-    while(dent=readdir(d)){
+  if((d = opendir(base))){
+    while((dent=readdir(d))){
       if(!loop_flag){
         break;
       }
@@ -1045,13 +1044,13 @@ static int dsync_scan(int fd, char *base, int recurs, excludeitem *e)
       }
       sprintf(path, "%s/%s", base, dent->d_name);
       if(recurs){
-        if(r = dsync_scan(fd, path, recurs, e)){
+        if((r = dsync_scan(fd, path, recurs, e))){
           closedir(d);
           return(r);
         }
       }else{
         len = strlen(path);
-        if(r = dsync_write(fd, path, MAKUO_SENDSTATE_STAT, len, st.st_mode)){
+        if((r = dsync_write(fd, path, MAKUO_SENDSTATE_STAT, len, st.st_mode))){
           closedir(d);
           return(r);
         }
@@ -1148,7 +1147,7 @@ static void mrecv_req_dsync_data(mfile *m, mdata *data, struct sockaddr_in *addr
     d->pid  = pid;
     d->pipe = p[0];
     close(p[1]); /* write close */
-    while(d->exclude = exclude_del(d->exclude));
+    while((d->exclude = exclude_del(d->exclude)));
   }else{
     /* child */
     close(p[0]); /* read close */
@@ -1214,7 +1213,6 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
 {
   uint16_t len;
   uint32_t mod;
-  mhost *t = member_get(&(addr->sin_addr));
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_OPEN);
   char path[PATH_MAX];
 
@@ -1394,7 +1392,7 @@ void mrecv_gc()
 void mrecv_clean()
 {
   mfile *m = mftop[MFRECV];
-  while(m=mrecv_mfdel(m));
+  while((m = mrecv_mfdel(m)));
 }
 
 int mrecv()
@@ -1408,7 +1406,7 @@ int mrecv()
   if(mrecv_packet(moption.mcsocket, &data, &addr) == -1){
     return(0);
   }
-  if(t = member_get(&addr.sin_addr)){
+  if((t = member_get(&addr.sin_addr))){
     mtimeget(&(t->lastrecv));
   }
   if(data.head.flags & MAKUO_FLAG_ACK){

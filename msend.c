@@ -30,7 +30,7 @@ static mfile *msend_mfdel(mfile *m)
     m->link->link = NULL;
     m->link = NULL;
   }
-  while(m->mark = delmark(m->mark));
+  while((m->mark = delmark(m->mark)));
   clr_hoststate(m);
   mfdel(m);
   return(r);
@@ -151,7 +151,6 @@ static int msend_packet(int s, mdata *data, struct sockaddr_in *addr)
 /* retry */
 static int msend_retry(mfile *m)
 {
-  uint32_t w;
   uint8_t *r;
   mhost   *t;
 
@@ -220,8 +219,8 @@ static void msend_ack_send(int s, mfile *m)
 static void msend_ack_md5(int s, mfile *m)
 {
   int r;
-  char hash[16];
-  char buff[8192];
+  unsigned char hash[16];
+  unsigned char buff[8192];
   mfile *d = m->link;
   if(!d){
     msend_shot(s, m);
@@ -384,7 +383,7 @@ static void msend_req_send_stat_delete_report(mfile *m)
         continue;
       }
     }
-    if(r = get_hoststate(t, m)){
+    if((r = get_hoststate(t, m))){
       if(*r == MAKUO_RECVSTATE_DELETEOK){
         cprintf(1, m->comm, "%sdelete %s:%s\n", dryrun, t->hostname, m->fn);
         lprintf(1, "%sdelete %s:%s\n", dryrun, t->hostname, m->fn);
@@ -416,7 +415,7 @@ static void msend_req_send_stat_update_report(mfile *m)
         continue;
       }
     }
-    if(r = get_hoststate(t, m)){
+    if((r = get_hoststate(t, m))){
       if(*r == MAKUO_RECVSTATE_UPDATE){
         cprintf(1, m->comm, "%supdate %s:%s\r\n", dryrun, t->hostname, m->fn);
         lprintf(1, "%supdate %s:%s\n", dryrun, t->hostname, m->fn);
@@ -1016,7 +1015,7 @@ static void msend_req_del_stat_read(int s, mfile *m)
   }
 
   while(1){
-    if(r = atomic_read(m->pipe, &(m->len), sizeof(m->len), 1)){
+    if((r = atomic_read(m->pipe, &(m->len), sizeof(m->len), 1))){
       if(r == -1){
         if(errno == EAGAIN){
           return;
@@ -1252,6 +1251,6 @@ void msend(mfile *m)
 void msend_clean()
 {
   mfile *m = mftop[MFSEND];
-  while(m=msend_mfdel(m));
+  while((m = msend_mfdel(m)));
 }
 

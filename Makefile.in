@@ -51,14 +51,20 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(sbindir)"
 PROGRAMS = $(bin_PROGRAMS) $(sbin_PROGRAMS)
-am_makuosan_OBJECTS = makuosan.$(OBJEXT) common.$(OBJEXT) \
-	mexec.$(OBJEXT) minit.$(OBJEXT) mexit.$(OBJEXT) \
-	mrecv.$(OBJEXT) msend.$(OBJEXT) xprint.$(OBJEXT)
+am_makuosan_OBJECTS = makuosan-makuosan.$(OBJEXT) \
+	makuosan-common.$(OBJEXT) makuosan-mexec.$(OBJEXT) \
+	makuosan-minit.$(OBJEXT) makuosan-mexit.$(OBJEXT) \
+	makuosan-mrecv.$(OBJEXT) makuosan-msend.$(OBJEXT) \
+	makuosan-xprint.$(OBJEXT)
 makuosan_OBJECTS = $(am_makuosan_OBJECTS)
 makuosan_LDADD = $(LDADD)
-am_msync_OBJECTS = msync.$(OBJEXT)
+makuosan_LINK = $(CCLD) $(makuosan_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am_msync_OBJECTS = msync-msync.$(OBJEXT)
 msync_OBJECTS = $(am_msync_OBJECTS)
 msync_LDADD = $(LDADD)
+msync_LINK = $(CCLD) $(msync_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -170,8 +176,10 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 makuosan_SOURCES = makuosan.c common.c mexec.c minit.c mexit.c mrecv.c msend.c xprint.c makuosan.h
-msync_SOURCES = msync.c 
-EXTRA_DIST = support ChangeLog.ja
+msync_SOURCES = msync.c
+makuosan_CFLAGS = -Wall
+msync_CFLAGS = -Wall
+EXTRA_DIST = support ChangeLog.ja Changelog
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -304,10 +312,10 @@ clean-sbinPROGRAMS:
 	-test -z "$(sbin_PROGRAMS)" || rm -f $(sbin_PROGRAMS)
 makuosan$(EXEEXT): $(makuosan_OBJECTS) $(makuosan_DEPENDENCIES) 
 	@rm -f makuosan$(EXEEXT)
-	$(LINK) $(makuosan_OBJECTS) $(makuosan_LDADD) $(LIBS)
+	$(makuosan_LINK) $(makuosan_OBJECTS) $(makuosan_LDADD) $(LIBS)
 msync$(EXEEXT): $(msync_OBJECTS) $(msync_DEPENDENCIES) 
 	@rm -f msync$(EXEEXT)
-	$(LINK) $(msync_OBJECTS) $(msync_LDADD) $(LIBS)
+	$(msync_LINK) $(msync_OBJECTS) $(msync_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -315,15 +323,15 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mexec.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mexit.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minit.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mrecv.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msend.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msync.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xprint.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-common.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-makuosan.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-mexec.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-mexit.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-minit.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-mrecv.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-msend.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makuosan-xprint.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msync-msync.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -338,6 +346,132 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+makuosan-makuosan.o: makuosan.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-makuosan.o -MD -MP -MF $(DEPDIR)/makuosan-makuosan.Tpo -c -o makuosan-makuosan.o `test -f 'makuosan.c' || echo '$(srcdir)/'`makuosan.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-makuosan.Tpo $(DEPDIR)/makuosan-makuosan.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='makuosan.c' object='makuosan-makuosan.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-makuosan.o `test -f 'makuosan.c' || echo '$(srcdir)/'`makuosan.c
+
+makuosan-makuosan.obj: makuosan.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-makuosan.obj -MD -MP -MF $(DEPDIR)/makuosan-makuosan.Tpo -c -o makuosan-makuosan.obj `if test -f 'makuosan.c'; then $(CYGPATH_W) 'makuosan.c'; else $(CYGPATH_W) '$(srcdir)/makuosan.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-makuosan.Tpo $(DEPDIR)/makuosan-makuosan.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='makuosan.c' object='makuosan-makuosan.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-makuosan.obj `if test -f 'makuosan.c'; then $(CYGPATH_W) 'makuosan.c'; else $(CYGPATH_W) '$(srcdir)/makuosan.c'; fi`
+
+makuosan-common.o: common.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-common.o -MD -MP -MF $(DEPDIR)/makuosan-common.Tpo -c -o makuosan-common.o `test -f 'common.c' || echo '$(srcdir)/'`common.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-common.Tpo $(DEPDIR)/makuosan-common.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='common.c' object='makuosan-common.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-common.o `test -f 'common.c' || echo '$(srcdir)/'`common.c
+
+makuosan-common.obj: common.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-common.obj -MD -MP -MF $(DEPDIR)/makuosan-common.Tpo -c -o makuosan-common.obj `if test -f 'common.c'; then $(CYGPATH_W) 'common.c'; else $(CYGPATH_W) '$(srcdir)/common.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-common.Tpo $(DEPDIR)/makuosan-common.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='common.c' object='makuosan-common.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-common.obj `if test -f 'common.c'; then $(CYGPATH_W) 'common.c'; else $(CYGPATH_W) '$(srcdir)/common.c'; fi`
+
+makuosan-mexec.o: mexec.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-mexec.o -MD -MP -MF $(DEPDIR)/makuosan-mexec.Tpo -c -o makuosan-mexec.o `test -f 'mexec.c' || echo '$(srcdir)/'`mexec.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-mexec.Tpo $(DEPDIR)/makuosan-mexec.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='mexec.c' object='makuosan-mexec.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-mexec.o `test -f 'mexec.c' || echo '$(srcdir)/'`mexec.c
+
+makuosan-mexec.obj: mexec.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-mexec.obj -MD -MP -MF $(DEPDIR)/makuosan-mexec.Tpo -c -o makuosan-mexec.obj `if test -f 'mexec.c'; then $(CYGPATH_W) 'mexec.c'; else $(CYGPATH_W) '$(srcdir)/mexec.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-mexec.Tpo $(DEPDIR)/makuosan-mexec.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='mexec.c' object='makuosan-mexec.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-mexec.obj `if test -f 'mexec.c'; then $(CYGPATH_W) 'mexec.c'; else $(CYGPATH_W) '$(srcdir)/mexec.c'; fi`
+
+makuosan-minit.o: minit.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-minit.o -MD -MP -MF $(DEPDIR)/makuosan-minit.Tpo -c -o makuosan-minit.o `test -f 'minit.c' || echo '$(srcdir)/'`minit.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-minit.Tpo $(DEPDIR)/makuosan-minit.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='minit.c' object='makuosan-minit.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-minit.o `test -f 'minit.c' || echo '$(srcdir)/'`minit.c
+
+makuosan-minit.obj: minit.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-minit.obj -MD -MP -MF $(DEPDIR)/makuosan-minit.Tpo -c -o makuosan-minit.obj `if test -f 'minit.c'; then $(CYGPATH_W) 'minit.c'; else $(CYGPATH_W) '$(srcdir)/minit.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-minit.Tpo $(DEPDIR)/makuosan-minit.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='minit.c' object='makuosan-minit.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-minit.obj `if test -f 'minit.c'; then $(CYGPATH_W) 'minit.c'; else $(CYGPATH_W) '$(srcdir)/minit.c'; fi`
+
+makuosan-mexit.o: mexit.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-mexit.o -MD -MP -MF $(DEPDIR)/makuosan-mexit.Tpo -c -o makuosan-mexit.o `test -f 'mexit.c' || echo '$(srcdir)/'`mexit.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-mexit.Tpo $(DEPDIR)/makuosan-mexit.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='mexit.c' object='makuosan-mexit.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-mexit.o `test -f 'mexit.c' || echo '$(srcdir)/'`mexit.c
+
+makuosan-mexit.obj: mexit.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-mexit.obj -MD -MP -MF $(DEPDIR)/makuosan-mexit.Tpo -c -o makuosan-mexit.obj `if test -f 'mexit.c'; then $(CYGPATH_W) 'mexit.c'; else $(CYGPATH_W) '$(srcdir)/mexit.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-mexit.Tpo $(DEPDIR)/makuosan-mexit.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='mexit.c' object='makuosan-mexit.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-mexit.obj `if test -f 'mexit.c'; then $(CYGPATH_W) 'mexit.c'; else $(CYGPATH_W) '$(srcdir)/mexit.c'; fi`
+
+makuosan-mrecv.o: mrecv.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-mrecv.o -MD -MP -MF $(DEPDIR)/makuosan-mrecv.Tpo -c -o makuosan-mrecv.o `test -f 'mrecv.c' || echo '$(srcdir)/'`mrecv.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-mrecv.Tpo $(DEPDIR)/makuosan-mrecv.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='mrecv.c' object='makuosan-mrecv.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-mrecv.o `test -f 'mrecv.c' || echo '$(srcdir)/'`mrecv.c
+
+makuosan-mrecv.obj: mrecv.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-mrecv.obj -MD -MP -MF $(DEPDIR)/makuosan-mrecv.Tpo -c -o makuosan-mrecv.obj `if test -f 'mrecv.c'; then $(CYGPATH_W) 'mrecv.c'; else $(CYGPATH_W) '$(srcdir)/mrecv.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-mrecv.Tpo $(DEPDIR)/makuosan-mrecv.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='mrecv.c' object='makuosan-mrecv.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-mrecv.obj `if test -f 'mrecv.c'; then $(CYGPATH_W) 'mrecv.c'; else $(CYGPATH_W) '$(srcdir)/mrecv.c'; fi`
+
+makuosan-msend.o: msend.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-msend.o -MD -MP -MF $(DEPDIR)/makuosan-msend.Tpo -c -o makuosan-msend.o `test -f 'msend.c' || echo '$(srcdir)/'`msend.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-msend.Tpo $(DEPDIR)/makuosan-msend.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='msend.c' object='makuosan-msend.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-msend.o `test -f 'msend.c' || echo '$(srcdir)/'`msend.c
+
+makuosan-msend.obj: msend.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-msend.obj -MD -MP -MF $(DEPDIR)/makuosan-msend.Tpo -c -o makuosan-msend.obj `if test -f 'msend.c'; then $(CYGPATH_W) 'msend.c'; else $(CYGPATH_W) '$(srcdir)/msend.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-msend.Tpo $(DEPDIR)/makuosan-msend.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='msend.c' object='makuosan-msend.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-msend.obj `if test -f 'msend.c'; then $(CYGPATH_W) 'msend.c'; else $(CYGPATH_W) '$(srcdir)/msend.c'; fi`
+
+makuosan-xprint.o: xprint.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-xprint.o -MD -MP -MF $(DEPDIR)/makuosan-xprint.Tpo -c -o makuosan-xprint.o `test -f 'xprint.c' || echo '$(srcdir)/'`xprint.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-xprint.Tpo $(DEPDIR)/makuosan-xprint.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='xprint.c' object='makuosan-xprint.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-xprint.o `test -f 'xprint.c' || echo '$(srcdir)/'`xprint.c
+
+makuosan-xprint.obj: xprint.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -MT makuosan-xprint.obj -MD -MP -MF $(DEPDIR)/makuosan-xprint.Tpo -c -o makuosan-xprint.obj `if test -f 'xprint.c'; then $(CYGPATH_W) 'xprint.c'; else $(CYGPATH_W) '$(srcdir)/xprint.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/makuosan-xprint.Tpo $(DEPDIR)/makuosan-xprint.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='xprint.c' object='makuosan-xprint.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(makuosan_CFLAGS) $(CFLAGS) -c -o makuosan-xprint.obj `if test -f 'xprint.c'; then $(CYGPATH_W) 'xprint.c'; else $(CYGPATH_W) '$(srcdir)/xprint.c'; fi`
+
+msync-msync.o: msync.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(msync_CFLAGS) $(CFLAGS) -MT msync-msync.o -MD -MP -MF $(DEPDIR)/msync-msync.Tpo -c -o msync-msync.o `test -f 'msync.c' || echo '$(srcdir)/'`msync.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/msync-msync.Tpo $(DEPDIR)/msync-msync.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='msync.c' object='msync-msync.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(msync_CFLAGS) $(CFLAGS) -c -o msync-msync.o `test -f 'msync.c' || echo '$(srcdir)/'`msync.c
+
+msync-msync.obj: msync.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(msync_CFLAGS) $(CFLAGS) -MT msync-msync.obj -MD -MP -MF $(DEPDIR)/msync-msync.Tpo -c -o msync-msync.obj `if test -f 'msync.c'; then $(CYGPATH_W) 'msync.c'; else $(CYGPATH_W) '$(srcdir)/msync.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/msync-msync.Tpo $(DEPDIR)/msync-msync.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='msync.c' object='msync-msync.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(msync_CFLAGS) $(CFLAGS) -c -o msync-msync.obj `if test -f 'msync.c'; then $(CYGPATH_W) 'msync.c'; else $(CYGPATH_W) '$(srcdir)/msync.c'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

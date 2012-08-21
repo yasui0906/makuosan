@@ -289,7 +289,6 @@ int do_accept(mcomm *c, fd_set *fds)
 
 int do_comexe(mcomm *c, fd_set *fds){
   int i, j;
-  mfile *m;
   for(i=0;i<MAX_COMM;i++){
     for(j=0;j<2;j++){
       if(c[i].fd[j] != -1){

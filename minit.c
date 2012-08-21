@@ -109,7 +109,7 @@ static int minit_option_setuid(char *name)
   if(*name >= '0' && *name <= '9'){
     moption.uid = atoi(name);
   }else{
-    if(pw = getpwnam(name)){
+    if((pw = getpwnam(name))){
       moption.uid = pw->pw_uid;
       moption.gid = pw->pw_gid;
     }else{
@@ -126,7 +126,7 @@ static int minit_option_setgid(char *name)
   if(*name >= '0' && *name <='9'){
     moption.gid = atoi(name);
   }else{
-    if(gr = getgrnam(name)){
+    if((gr = getgrnam(name))){
       moption.gid = gr->gr_gid;
     }else{
       lprintf(0,"[error] %s: not found group %s\n", __func__, name);
@@ -178,7 +178,7 @@ static int minit_option_setgids(char *name)
   while(p){
     if(*p >= '0' && *p <= '9'){
       gid = atoi(p);
-      if(g = getgrgid(gid)){
+      if((g = getgrgid(gid))){
         moption.gids[num] = gid;
         strcpy(moption.grnames[num], g->gr_name);
       }else{
@@ -186,7 +186,7 @@ static int minit_option_setgids(char *name)
         return(1);
       }
     }else{
-      if(g = getgrnam(p)){
+      if((g = getgrnam(p))){
         moption.gids[num] = g->gr_gid;
         strcpy(moption.grnames[num], p);
       }else{
@@ -203,42 +203,40 @@ static int minit_option_setgids(char *name)
 static void minit_option_getenv()
 {
   char *env;
-  struct passwd *pw;
-  struct group  *gr;
 
-  if(env=getenv("MAKUOSAN_BASE")){
+  if((env=getenv("MAKUOSAN_BASE"))){
     if(*env){
       realpath(env, moption.base_dir);
     }
   }
-  if(env=getenv("MAKUOSAN_PORT")){
+  if((env=getenv("MAKUOSAN_PORT"))){
     if(*env && atoi(env)){
       moption.maddr.sin_port = htons(atoi(env));
       moption.laddr.sin_port = htons(atoi(env));
     }
   }
-  if(env=getenv("MAKUOSAN_USER")){
+  if((env=getenv("MAKUOSAN_USER"))){
     if(*env && minit_option_setuid(env)){
       exit(1);
     }
   }
-  if(env=getenv("MAKUOSAN_GROUP")){
+  if((env=getenv("MAKUOSAN_GROUP"))){
     if(*env && minit_option_setgid(env)){
       exit(1);
     }
   }
-  if(env=getenv("MAKUOSAN_GROUPS")){
+  if((env=getenv("MAKUOSAN_GROUPS"))){
     if(*env && minit_option_setgids(env)){
       exit(1);
     }
   }
-  if(env=getenv("MAKUOSAN_SOCK")){
+  if((env=getenv("MAKUOSAN_SOCK"))){
     strcpy(moption.uaddr.sun_path, env);
   }
-  if(env=getenv("MAKUOSAN_RCVBUF")){
+  if((env=getenv("MAKUOSAN_RCVBUF"))){
     moption.recvsize = atoi(env);
   }
-  if(env=getenv("MAKUOSAN_SNDBUF")){
+  if((env=getenv("MAKUOSAN_SNDBUF"))){
     moption.sendsize = atoi(env);
   }
 }
@@ -312,10 +310,10 @@ static void minit_getopt(int argc, char *argv[])
 {
   int r;
   struct option opt[]={
-    "chroot",  0, NULL, 'c',
-    "help",    0, NULL, 'h',
-    "version", 0, NULL, 'V',
-    0, 0, 0, 0
+    {"chroot",  0, NULL, 'c'},
+    {"help",    0, NULL, 'h'},
+    {"version", 0, NULL, 'V'},
+    {0, 0, 0, 0}
   };
 
   while((r=getopt_long(argc, argv, "T:R:S:f:u:g:G:d:b:p:m:i:l:U:k:K:VhnsroOc", opt, NULL)) != -1){
@@ -446,9 +444,8 @@ static void minit_syslog()
 static void minit_socket()
 {
   int  s;
-  int  reuse =  1;
-  char lpen  =  0;
-  char mttl  =  1;
+  char lpen  = 0;
+  char mttl  = 1;
   socklen_t slen;
   struct ip_mreq mg;
   struct sockaddr_in addr;
@@ -594,10 +591,10 @@ static void minit_getguid()
 {
   struct passwd *pw;
   struct group  *gr;
-  if(pw = getpwuid(moption.uid)){
+  if((pw = getpwuid(moption.uid))){
     strcpy(moption.user_name, pw->pw_name);
   }
-  if(gr = getgrgid(moption.gid)){
+  if((gr = getgrgid(moption.gid))){
     strcpy(moption.group_name,gr->gr_name);
   }
 }
@@ -605,8 +602,6 @@ static void minit_getguid()
 static void minit_setguid()
 {
   size_t num;
-  struct passwd *pw;
-  struct group  *gr;
   if(set_guid(moption.uid, moption.gid, moption.gidn, moption.gids) == -1){
     fprintf(stderr, "%s: can't setguid %d:%d", __func__, moption.uid, moption.gid);
     if(moption.gidn){

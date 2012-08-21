@@ -402,4 +402,12 @@ uint32_t getrid();
 int space_escape(char *str);
 int workend(mcomm *c);
 char *yesno(int n);
-
+int is_dir(char *path);
+int is_reg(char *path);
+int mcreatenode(char *base, char *name, mode_t mode, dev_t dev);
+int mrename(char *base, char *oldname, char *newname);
+void mtempname(char *base, char *fn, char *tn);
+void minit(int argc, char *argv[]);
+void mexit();
+int mexec(mcomm *c, int n);
+void mrecv_gc();

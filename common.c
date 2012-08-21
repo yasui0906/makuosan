@@ -167,14 +167,18 @@ void mfdel(mfile *m)
   mfile *p;
   mfile *n;
   if(m){
-    if(p = (mfile *)m->prev)
+    if((p = (mfile *)m->prev)){
       p->next = m->next;
-    if(n = (mfile *)m->next)
+    }
+    if((n = (mfile *)m->next)){
       n->prev = m->prev;
-    if(mftop[0] == m)
+    }
+    if(mftop[0] == m){
       mftop[0] = n;
-    if(mftop[1] == m)
+    }
+    if(mftop[1] == m){
       mftop[1] = n;
+    }
     mfree(m);
   }
 }
@@ -182,7 +186,7 @@ void mfdel(mfile *m)
 mfile *mfnew()
 {
   mfile *m;
-  if(m = mfalloc()){
+  if((m = mfalloc())){
     memset(m, 0, sizeof(mfile));
     m->mdata.head.maddr  = moption.maddr.sin_addr.s_addr;
     m->mdata.head.mport  = moption.maddr.sin_port;
@@ -198,7 +202,7 @@ mfile *mfnew()
 mfile *mfadd(int n)
 {
   mfile *m;
-  if(m = mfnew()){
+  if((m = mfnew())){
     if(!mftop[n]){
       mftop[n] =m;
     }else{
@@ -215,7 +219,7 @@ mfile *mfadd(int n)
 mfile *mfins(int n)
 {
   mfile *m;
-  if(m = mfnew()){
+  if((m = mfnew())){
     if(mftop[n]){
       mftop[n]->prev = m;
       m->next = mftop[n];
@@ -287,10 +291,10 @@ void member_del(mhost *t)
     return;
   }
   lprintf(0, "%s: %s (%s)\n", __func__, inet_ntoa(t->ad), t->hostname);
-  if(p = (mhost *)t->prev){
+  if((p = (mhost *)t->prev)){
     p->next = t->next;
   }
-  if(n = (mhost *)t->next){
+  if((n = (mhost *)t->next)){
     n->prev = t->prev;
   }
   if(members == t){
@@ -308,7 +312,7 @@ void member_del_message(int err, mhost *t, char *mess)
     return;
   }
   for(i=0;i<MAKUO_HOSTSTATE_SIZE;i++){
-    if(m = t->mflist[i]){
+    if((m = t->mflist[i])){
       if(m->comm){
         if(m->comm->working){
           cprintf(0, m->comm, "error: %s: %s\n", mess, m->cmdline);
@@ -461,7 +465,7 @@ void seq_setmark(mfile *m, uint32_t l, uint32_t h)
     }
     mm = delmark(mm);
   }
-  if(mn->next = m->mark){
+  if((mn->next = m->mark)){
     m->mark->prev = mn;
   }
   m->mark = mn;
@@ -508,7 +512,7 @@ void dump_hoststate(mfile *m, char *func)
   mhost   *t;
   uint8_t *r;
   for(t=members;t;t=t->next){
-    if(r=get_hoststate(t,m)){
+    if((r=get_hoststate(t,m))){
       lprintf(9,"%s: %s from %s %s\n", func, strrstate(*r), t->hostname, m->fn);
     }
   }
@@ -541,7 +545,7 @@ uint8_t *get_hoststate(mhost *t, mfile *m)
 uint8_t *set_hoststate(mhost *t, mfile *m, uint8_t state)
 {
   uint8_t *s;
-  if(s = get_hoststate(t,m)){
+  if((s = get_hoststate(t,m))){
     *s = state;
   }
   return(s);
@@ -553,14 +557,14 @@ int ack_clear(mfile *m, int state)
   mhost   *t;
   for(t=members;t;t=t->next){
     if(!m->sendto){
-      if(s = get_hoststate(t, m)){
+      if((s = get_hoststate(t, m))){
         if(state == -1 || *s == state){
           *s = MAKUO_RECVSTATE_NONE;
         }
       }
     }else{
       if(!memcmp(&(m->addr.sin_addr), &(t->ad), sizeof(m->addr.sin_addr))){
-        if(s = get_hoststate(t, m)){
+        if((s = get_hoststate(t, m))){
           if(state == -1 || *s == state){
             *s = MAKUO_RECVSTATE_NONE;
             return(1);
@@ -757,8 +761,8 @@ int mremove(char *base, char *name)
     sprintf(path, "%s/%s", base, name);
   }
   if(is_dir(path)){
-    if(d = opendir(path)){
-      while(dent=readdir(d)){
+    if((d = opendir(path))){
+      while((dent=readdir(d))){
         if(!strcmp(dent->d_name, "."))
           continue;
         if(!strcmp(dent->d_name, ".."))
@@ -799,7 +803,7 @@ int mcreatedir(char *base, char *name, mode_t mode)
   while(p){
     strcat(path, "/");
     strcat(path, p);
-    if(p = strtok(NULL,"/")){
+    if((p = strtok(NULL,"/"))){
       if(!is_dir(path)){
         remove(path);
         if(mkdir(path,mode) == -1){
@@ -869,7 +873,7 @@ int space_escape(char *str)
 mfile *mkreq(mdata *data, struct sockaddr_in *addr, uint8_t state)
 {
   mfile *a;
-  if(a = mfins(MFSEND)){
+  if((a = mfins(MFSEND))){
     a->mdata.head.opcode = data->head.opcode;
     a->mdata.head.reqid  = data->head.reqid;
     a->mdata.head.seqno  = data->head.seqno;
@@ -892,7 +896,7 @@ mfile *mkack(mdata *data, struct sockaddr_in *addr, uint8_t state)
       return(a);
     }
   }
-  if(a = mfins(MFSEND)){
+  if((a = mfins(MFSEND))){
     a->mdata.head.flags |= MAKUO_FLAG_ACK;
     a->mdata.head.opcode = data->head.opcode;
     a->mdata.head.reqid  = data->head.reqid;

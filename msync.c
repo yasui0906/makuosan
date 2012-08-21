@@ -223,7 +223,7 @@ int readline(int s, char *buff, int size, int prompt, char *passwd)
 int wait_prompt(int s, char *passwd, int view, int *line){
   int  r;
   char buff[8192];
-  while(r = readline(s, buff, sizeof(buff), 1, passwd)){
+  while((r = readline(s, buff, sizeof(buff), 1, passwd))){
     if(r == -1){
       /* read error */
       r = -1;
@@ -397,7 +397,7 @@ int exclude_from(msyncdata *md, char *filename)
     fprintf(stderr,"can't open: %s\n", filename);
     return(1);
   }
-  while(r = readline(f, line, sizeof(line), 0, NULL)){
+  while((r = readline(f, line, sizeof(line), 0, NULL))){
     if(r == -1){
       fprintf(stderr, "file read error: %s\n", filename);
       close(f);
@@ -434,7 +434,7 @@ int makuo_file(msyncdata *md)
   }
 
   /* command read loop */
-  while(r = readline(f, line, sizeof(line), 0, NULL)){
+  while((r = readline(f, line, sizeof(line), 0, NULL))){
     if(r == -1){
       fprintf(stderr, "file read error: %s\n", filename);
       break;
@@ -469,11 +469,11 @@ int loadpass(char *filename, char *passwd, int size)
 void get_envopt(msyncdata *md)
 {
   char *p;
-  if(p = getenv("MSYNC_TARGET")){
+  if((p = getenv("MSYNC_TARGET"))){
     if(strlen(p) < sizeof(md->target)){
       strcpy(md->target, p);
     }else{
-      fprintf(stderr, "MSYNC_TARGET too long. %s\n");
+      fprintf(stderr, "MSYNC_TARGET too long. %s\n", p);
       exit(1);
     }
   }

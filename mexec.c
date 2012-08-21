@@ -22,6 +22,8 @@ char *command_list[]={"quit",
                       "help",
                       NULL};
 
+int mexec_scan_child(int fd, char *base, char *sendhost, int mode, mcomm *c, gid_t gid);
+
 mfile *mexec_with_dsync(mcomm *c, char *fn, int dryrun, int recurs, mhost *t)
 {
   mfile *m = mfadd(MFSEND);
@@ -153,7 +155,7 @@ int mexec_scan_dir(int fd, char *base, char *sendhost, int mode, mcomm *c, int b
     /* directory open error */
     mexec_scan_echo(fd, "directory open error %s", base);
   }else{
-    while(dent=readdir(d)){
+    while((dent=readdir(d))){
       if(!loop_flag){
         return(1);
       }
@@ -169,7 +171,7 @@ int mexec_scan_dir(int fd, char *base, char *sendhost, int mode, mcomm *c, int b
         strcpy(path, dent->d_name);
       }
       space_escape(path);
-      if(r = mexec_scan_child(fd, path, sendhost, mode, c, gid)){
+      if((r = mexec_scan_child(fd, path, sendhost, mode, c, gid))){
         return(r);
       }
     }
@@ -198,7 +200,7 @@ int mexec_scan_child(int fd, char *base, char *sendhost, int mode, mcomm *c, gid
         return(0);
       }
       /*----- scan dir -----*/
-      if(r = mexec_scan_dir(fd, base, sendhost, mode, c, 1, gid)){
+      if((r = mexec_scan_dir(fd, base, sendhost, mode, c, 1, gid))){
         return(r);
       }
       if(loop_flag && (mode != MAKUO_MEXEC_MD5)){
@@ -250,6 +252,21 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
     mexec_scan_child(p[1], base, sendhost, mode, c, gid);
     close(p[1]);
     _exit(0);
+  }
+  return(0);
+}
+
+int mexec_exclude_add(mcomm *c, char *pattern)
+{
+  c->exclude = exclude_add(c->exclude, pattern);
+  return(0);
+}
+
+int mexec_exclude_del(mcomm *c, excludeitem *e)
+{
+  excludeitem *d = exclude_del(e);
+  if(e == c->exclude){
+    c->exclude = d;
   }
   return(0);
 }
@@ -445,7 +462,7 @@ int mexec_send(mcomm *c, int n, int sync)
 
   if(fn){
     int len;
-    if(len = strlen(fn)){
+    if((len = strlen(fn))){
       if(fn[len - 1] == '/'){
         fn[len - 1] = 0;
       }
@@ -560,7 +577,6 @@ int mexec_check(mcomm *c, int n)
 {
   int e;
   int i;
-  ssize_t size;
   char *argv[9];
   char *fn = NULL;
   mfile *m = NULL;
@@ -668,7 +684,6 @@ int mexec_check(mcomm *c, int n)
 int mexec_dsync(mcomm *c, int n)
 {
   int i;
-  ssize_t size;
   char *argv[9];
   char *fn = NULL;
   mhost *t = NULL;
@@ -720,7 +735,7 @@ int mexec_dsync(mcomm *c, int n)
 
   if(fn){
     int len;
-    if(len = strlen(fn)){
+    if((len = strlen(fn))){
       if(fn[len - 1] == '/'){
         fn[len - 1] = 0;
       }
@@ -746,7 +761,6 @@ int mexec_members(mcomm *c, int n)
   int counter = 0;
   int namelen = 0;
   int addrlen = 0;
-  int statcnt = 0;
   mhost *t;
   mhost **pt;
   char form[256];
@@ -783,6 +797,7 @@ int mexec_members(mcomm *c, int n)
 
   /* view */
 #ifdef MAKUO_DEBUG
+  int statcnt = 0;
   sprintf(form, "%%-%ds %%-%ds (Ver%%s) STATE_AREA(%%d/%%d)\n", namelen, addrlen);
   for(i=0;i<counter;i++){
     statcnt = 0;
@@ -820,21 +835,6 @@ int mexec_echo(mcomm *c, int n)
 int mexec_loglevel(mcomm *c, int n)
 {
   c->loglevel=atoi(c->parse[n][1]);
-  return(0);
-}
-
-int mexec_exclude_add(mcomm *c, char *pattern)
-{
-  c->exclude = exclude_add(c->exclude, pattern);
-  return(0);
-}
-
-int mexec_exclude_del(mcomm *c, excludeitem *e)
-{
-  excludeitem *d = exclude_del(e);
-  if(e == c->exclude){
-    c->exclude = d;
-  }
   return(0);
 }
 
@@ -1072,7 +1072,7 @@ int mexec_parse(mcomm *c, int n)
         break;
       strcpy(c->parse[n][j], p);
       if(j){
-        if(l = strlen(c->parse[n][j-1])){
+        if((l = strlen(c->parse[n][j-1]))){
           if(c->parse[n][j-1][l-1] == '\\'){
             c->parse[n][j-1][l-1] = 0;
             strcat(c->parse[n][j-1], " ");
