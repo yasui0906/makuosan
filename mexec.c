@@ -338,6 +338,7 @@ int mexec_help(mcomm *c, int n)
   cprintf(0, c, "  alive on|off\n");
   cprintf(0, c, "  loglevel num (0-9)\n");
   cprintf(0, c, "  members\n");
+  cprintf(0, c, "  status\n");
   cprintf(0, c, "  help\n");
   return(0);
 }
