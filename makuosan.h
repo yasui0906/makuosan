@@ -201,6 +201,7 @@ typedef struct
   int isalive;
   int logflag;
   int logover;
+  int logfail;
   char cmdline[2][MAKUO_BUFFER_SIZE];
   char parse[2][8][MAKUO_BUFFER_SIZE];
   char readbuff[2][MAKUO_BUFFER_SIZE];

@@ -195,12 +195,15 @@ int cprintf(int l, mcomm *c, char *fmt, ...)
   va_start(arg, fmt);
   vsnprintf(m, sizeof(m), fmt, arg);
   va_end(arg);
+  m[sizeof(m) - 2] = '\n';
   m[sizeof(m) - 1] = 0;
   n = strlen(m);
   if(write(c->fd[0], m, n) == n){
     fsync(c->fd[0]);
+    c->logfail = 0;
   }else{
     c->logover++;
+    c->logfail = 1;
     lprintf(0, "[error] %s: Resource temporarily unavailable: %s", __func__, m);
     return(-1);
   }

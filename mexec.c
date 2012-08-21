@@ -294,6 +294,7 @@ int mexec_close(mcomm *c, int n)
     c->logflag  = 0;
     c->logover  = 0;
     c->loglevel = 0;
+    c->logfail  = 0;
     c->isalive  = 0;
     if(c->cpid){
       kill(c->cpid, SIGTERM);
