@@ -185,6 +185,7 @@ int check_prompt(int s, char *buff, char *passwd)
 
 int readline(int s, char *buff, int size, int prompt, char *passwd)
 {
+  int   r = 0;
   char  d = 0;
   char *p = buff;
 
@@ -199,21 +200,21 @@ int readline(int s, char *buff, int size, int prompt, char *passwd)
           continue;
       }
     }
-    switch(read(s, &d, 1)){
-      case 0:
+    r = read(s, &d, 1);
+    if(r == 0){
+      return(p - buff);
+    }
+    if(r == -1){
+      return(-1);
+    }
+    if(d == '\n'){
+      if(p != buff){
         return(p - buff);
-      case -1:
-        return(-1);
-        break;
-      default:
-        if(d == '\r'){
-          break;
-        }
-        if((d == '\n') && (p != buff)){
-          return(p - buff);
-        }
+      }
+    }else{
+      if(d != '\r'){
         *(p++) = d;
-        break;
+      }
     }
   }
   return(-1); /* over flow */
