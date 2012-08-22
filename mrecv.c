@@ -1,8 +1,9 @@
 /*
  * mrecv.c
- * Copyright (C) 2008 KLab Inc.
+ * Copyright (C) 2008-2012 KLab Inc.
  */
 #include "makuosan.h"
+#include <openssl/md5.h>
 
 static void mrecv_req(mdata *data, struct sockaddr_in *addr);
 static void mrecv_ack(mdata *data, struct sockaddr_in *addr);

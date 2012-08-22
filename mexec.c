@@ -1,6 +1,6 @@
 /*
  * mexec.c
- * Copyright (C) 2008 KLab Inc.
+ * Copyright (C) 2008-2012 KLab Inc.
  */
 
 #include "makuosan.h"
