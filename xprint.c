@@ -152,6 +152,9 @@ void lprintf(int l, char *fmt, ...)
   char b[1024];
   char d[2048];
   static char m[2048];
+#ifdef MAKUO_DEBUG
+  struct timeval tv;
+#endif
   if(moption.loglevel < l){
     return;
   }
@@ -167,7 +170,6 @@ void lprintf(int l, char *fmt, ...)
     return;
   }
 #ifdef MAKUO_DEBUG
-  struct timeval tv;
   gettimeofday(&tv, NULL);
   fprintf(stderr, "%02d.%06d %s", tv.tv_sec % 60, tv.tv_usec, m);
 #else

@@ -152,31 +152,32 @@ int mexec_scan_dir(int fd, char *base, char *sendhost, int mode, mcomm *c, int b
 
   d = opendir(base);
   if(!d){
-    /* directory open error */
     mexec_scan_echo(fd, "directory open error %s", base);
-  }else{
-    while((dent=readdir(d))){
-      if(!loop_flag){
-        return(1);
-      }
-      if(!strcmp(dent->d_name, ".")){
-        continue;
-      }
-      if(!strcmp(dent->d_name, "..")){
-        continue;
-      }
-      if(baseflag){
-        sprintf(path, "%s/%s", base, dent->d_name);
-      }else{
-        strcpy(path, dent->d_name);
-      }
-      space_escape(path);
-      if((r = mexec_scan_child(fd, path, sendhost, mode, c, gid))){
-        return(r);
-      }
-    }
-    closedir(d);
+    return(0);
   }
+  while((dent=readdir(d))){
+    if(!loop_flag){
+      closedir(d);
+      return(1);
+    }
+    if(!strcmp(dent->d_name, ".")){
+      continue;
+    }
+    if(!strcmp(dent->d_name, "..")){
+      continue;
+    }
+    if(baseflag){
+      sprintf(path, "%s/%s", base, dent->d_name);
+    }else{
+      strcpy(path, dent->d_name);
+    }
+    space_escape(path);
+    if((r = mexec_scan_child(fd, path, sendhost, mode, c, gid))){
+      closedir(d);
+      return(r);
+    }
+  }
+  closedir(d);
   return(0);
 }
 
@@ -190,23 +191,23 @@ int mexec_scan_child(int fd, char *base, char *sendhost, int mode, mcomm *c, gid
   }
   /*----- exclude -----*/
   sprintf(path, "%s/%s", moption.real_dir, base);
-  if(!mfnmatch(path, c->exclude)){
-    if(!is_dir(base)){
-      return(mexec_scan_send(fd, base, sendhost, mode, gid));
-    }else{
-      /*----- exclude dir -----*/
-      strcat(path, "/");
-      if(mfnmatch(path, c->exclude)){
-        return(0);
-      }
-      /*----- scan dir -----*/
-      if((r = mexec_scan_dir(fd, base, sendhost, mode, c, 1, gid))){
-        return(r);
-      }
-      if(loop_flag && (mode != MAKUO_MEXEC_MD5)){
-        return(mexec_scan_send(fd, base, sendhost, mode, gid));
-      }
-    }
+  if(mfnmatch(path, c->exclude)){
+    return(0);
+  }
+  if(!is_dir(base)){
+    return(mexec_scan_send(fd, base, sendhost, mode, gid));
+  }
+  /*----- exclude dir -----*/
+  strcat(path, "/");
+  if(mfnmatch(path, c->exclude)){
+    return(0);
+  }
+  /*----- scan dir -----*/
+  if((r = mexec_scan_dir(fd, base, sendhost, mode, c, 1, gid))){
+    return(r);
+  }
+  if(loop_flag && (mode != MAKUO_MEXEC_MD5)){
+    return(mexec_scan_send(fd, base, sendhost, mode, gid));
   }
   return(0);
 }
@@ -224,12 +225,14 @@ int mexec_scan(mcomm *c, char *fn, mhost *h, int mode, gid_t gid)
     return(-1);
   }
 
-  base[0] = 0;
+  base[0]     = 0;
   sendhost[0] = 0;
-  if(h)
+  if(h){
     strcpy(sendhost, h->hostname);
-  if(fn)
+  }
+  if(fn){
     strcpy(base, fn);
+  }
 
   pid=fork();
   if(pid == -1){
