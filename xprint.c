@@ -181,6 +181,7 @@ void lprintf(int l, char *fmt, ...)
 
 int cprintf(int l, mcomm *c, char *fmt, ...)
 {
+  int i;
   int n;
   char m[2048];
   va_list arg;
@@ -203,9 +204,17 @@ int cprintf(int l, mcomm *c, char *fmt, ...)
     fsync(c->fd[0]);
     c->logfail = 0;
   }else{
+    for(i=0;i<sizeof(m);i++){
+      if(m[i] == 0){
+        break;
+      }
+      if(m[i] == '\n'){
+        m[i] = ' ';
+      }
+    }
     c->logover++;
     c->logfail = 1;
-    lprintf(0, "[error] %s: Resource temporarily unavailable: %s", __func__, m);
+    lprintf(0, "[error] %s: Resource temporarily unavailable: %s\n", __func__, m);
     return(-1);
   }
   return(0);

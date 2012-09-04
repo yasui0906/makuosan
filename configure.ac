@@ -2,13 +2,14 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT(makuosan, 1.3.4, info-makuosan@klab.jp)
+AC_INIT(makuosan, 1.3.4.1, info-makuosan@klab.jp)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([common.c])
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
+AM_PROG_CC_C_O
 
 # Checks for libraries.
 AC_CHECK_LIB(crypto, MD5_Init)

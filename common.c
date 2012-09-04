@@ -131,6 +131,8 @@ int workend(mcomm *c)
     if(c->logover && strcmp("dsync", c->parse[0][0])){
       if(cprintf(0, c, "[error] Log lost: %d lines\n", c->logover) == 0){
         c->logover = 0;
+      }else{
+        c->logover--;
       }
     }
     if(c->logfail){
@@ -141,6 +143,8 @@ int workend(mcomm *c)
   }
   if(cprintf(0, c, m) == 0){
     c->working = 0;
+  }else{
+    c->logover--;
   }
   return(0);
 }
