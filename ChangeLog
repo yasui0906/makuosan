@@ -1,5 +1,5 @@
 1.3.4:
- - fix: 
+ - fix: makuosan had deleted files even if use the r option.
 
 1.3.3:
  - fix: hangup when large amount of traffic.
