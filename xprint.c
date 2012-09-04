@@ -214,7 +214,7 @@ int cprintf(int l, mcomm *c, char *fmt, ...)
     }
     c->logover++;
     c->logfail = 1;
-    lprintf(0, "[error] %s: Resource temporarily unavailable: %s\n", __func__, m);
+    lprintf(0, "[error] %s: can't write console: %s\n", __func__, m);
     return(-1);
   }
   return(0);
