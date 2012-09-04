@@ -203,21 +203,22 @@ int cprintf(int l, mcomm *c, char *fmt, ...)
   if(write(c->fd[0], m, n) == n){
     fsync(c->fd[0]);
     c->logfail = 0;
-  }else{
-    for(i=0;i<sizeof(m);i++){
-      if(m[i] == 0){
-        break;
-      }
-      if(m[i] == '\n'){
-        m[i] = ' ';
-      }
-    }
-    c->logover++;
-    c->logfail = 1;
-    lprintf(0, "[error] %s: can't write console: %s\n", __func__, m);
-    return(-1);
+    return(0); /* success */
   }
-  return(0);
+
+  /*----- error -----*/
+  for(i=0;i<sizeof(m);i++){
+    if(m[i] == 0){
+      break;
+    }
+    if(m[i] == '\n'){
+      m[i] = ' ';
+    }
+  }
+  c->logover++;
+  c->logfail = 1;
+  lprintf(0, "[error] %s: can't write console: %s\n", __func__, m);
+  return(-1);
 }
 
 void mprintf(int l, const char *func, mfile *m)
