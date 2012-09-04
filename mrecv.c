@@ -1012,6 +1012,10 @@ static int dsync_scan(int fd, char *base, int recurs, excludeitem *e)
   if(!loop_flag){
     return(1);
   }
+  /*----- read only -----*/
+  if(moption.dontrecv){
+    return(0);
+  }
   /*----- exclude -----*/
   if(isexclude(base, e, 0)){
     return(0);
