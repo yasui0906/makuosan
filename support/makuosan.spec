@@ -1,5 +1,5 @@
 Name:           makuosan
-Version:        1.3.1
+Version:        1.3.5
 Release:        1%{?dist}
 Summary:        Multicasts All-Kinds of Updating Operation for Servers on Administered Network
 
