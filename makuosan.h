@@ -33,6 +33,7 @@
 #include <sys/un.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
+#include <sys/prctl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>

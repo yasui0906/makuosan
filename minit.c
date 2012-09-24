@@ -612,6 +612,7 @@ static void minit_setguid()
     fprintf(stderr, "\n");
     exit(1);
   }
+  prctl(PR_SET_DUMPABLE, 1);
 }
 
 static void minit_daemonize()
