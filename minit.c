@@ -63,6 +63,29 @@ static void signal_handler(int n)
   }
 }
 
+static void minit_enable_core()
+{
+  struct rlimit r;
+  r.rlim_cur = 0;
+  r.rlim_max = 0;
+  if(getrlimit(RLIMIT_CORE, &r) == -1){
+    fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
+    exit(1);
+  }
+  r.rlim_cur = -1;
+  if(setrlimit(RLIMIT_CORE, &r) == -1){
+    fprintf(stderr, "%s: setrlimit error: %s\n", __func__, strerror(errno));
+    exit(1);
+  }
+  r.rlim_cur = 0;
+  r.rlim_max = 0;
+  if(getrlimit(RLIMIT_CORE, &r) == -1){
+    fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
+    exit(1);
+  }
+  moption.coresize = (int)(r.rlim_cur);
+}
+
 static void minit_option_setdefault()
 {
   int i;
@@ -612,7 +635,9 @@ static void minit_setguid()
     fprintf(stderr, "\n");
     exit(1);
   }
-  prctl(PR_SET_DUMPABLE, 1);
+  if(prctl(PR_SET_DUMPABLE, 1) == -1){
+    fprintf(stderr, "%s: prctl error: %s\n", __func__, strerror(errno));
+  }
 }
 
 static void minit_daemonize()
@@ -657,6 +682,11 @@ static void minit_bootlog()
   lprintf(0, "makuosan version %s\n", PACKAGE_VERSION);
   lprintf(0, "sysname   : %s\n", moption.uts.sysname);
   lprintf(0, "loglevel  : %d\n", moption.loglevel);
+  if(moption.coresize == -1){
+    lprintf(0, "coresize  : unlimited\n");
+  }else{
+    lprintf(0, "coresize  : %d\n", moption.coresize);
+  }
   if(moption.chroot){
     lprintf(0, "chroot    : %s\n", moption.real_dir);
   }else{
@@ -707,6 +737,7 @@ void minit(int argc, char *argv[])
   minit_option_setdefault(); /* 各オプションのデフォルト値を設定   */
   minit_option_getenv();     /* 環境変数からオプションを読み込む   */
   minit_getopt(argc, argv);  /* コマンドラインオプションを読み込む */
+  minit_enable_core();       /*                                    */
   minit_syslog();            /* syslogの使用を開始                 */
   minit_socket();            /* マルチキャストソケットの初期化     */
   minit_console();           /* コンソールソケットの初期化         */
