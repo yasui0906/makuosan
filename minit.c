@@ -63,29 +63,6 @@ static void signal_handler(int n)
   }
 }
 
-static void minit_enable_core()
-{
-  struct rlimit r;
-  r.rlim_cur = 0;
-  r.rlim_max = 0;
-  if(getrlimit(RLIMIT_CORE, &r) == -1){
-    fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
-    exit(1);
-  }
-  r.rlim_cur = -1;
-  if(setrlimit(RLIMIT_CORE, &r) == -1){
-    fprintf(stderr, "%s: setrlimit error: %s\n", __func__, strerror(errno));
-    exit(1);
-  }
-  r.rlim_cur = 0;
-  r.rlim_max = 0;
-  if(getrlimit(RLIMIT_CORE, &r) == -1){
-    fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
-    exit(1);
-  }
-  moption.coresize = (int)(r.rlim_cur);
-}
-
 static void minit_option_setdefault()
 {
   int i;
@@ -635,9 +612,32 @@ static void minit_setguid()
     fprintf(stderr, "\n");
     exit(1);
   }
+}
+
+static void minit_enable_core()
+{
+  struct rlimit r;
   if(prctl(PR_SET_DUMPABLE, 1) == -1){
     fprintf(stderr, "%s: prctl error: %s\n", __func__, strerror(errno));
   }
+  r.rlim_cur = 0;
+  r.rlim_max = 0;
+  if(getrlimit(RLIMIT_CORE, &r) == -1){
+    fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
+    exit(1);
+  }
+  r.rlim_cur = -1;
+  if(setrlimit(RLIMIT_CORE, &r) == -1){
+    fprintf(stderr, "%s: setrlimit error: %s\n", __func__, strerror(errno));
+    exit(1);
+  }
+  r.rlim_cur = 0;
+  r.rlim_max = 0;
+  if(getrlimit(RLIMIT_CORE, &r) == -1){
+    fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
+    exit(1);
+  }
+  moption.coresize = (int)(r.rlim_cur);
 }
 
 static void minit_daemonize()
@@ -737,7 +737,6 @@ void minit(int argc, char *argv[])
   minit_option_setdefault(); /* 各オプションのデフォルト値を設定   */
   minit_option_getenv();     /* 環境変数からオプションを読み込む   */
   minit_getopt(argc, argv);  /* コマンドラインオプションを読み込む */
-  minit_enable_core();       /*                                    */
   minit_syslog();            /* syslogの使用を開始                 */
   minit_socket();            /* マルチキャストソケットの初期化     */
   minit_console();           /* コンソールソケットの初期化         */
@@ -746,6 +745,7 @@ void minit(int argc, char *argv[])
   minit_getguid();           /*                                    */
   minit_chroot();            /*                                    */
   minit_setguid();           /*                                    */
+  minit_enable_core();       /*                                    */
   minit_bootlog();           /* ブートメッセージを出力する         */
   minit_daemonize();         /*                                    */
 }
