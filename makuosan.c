@@ -208,10 +208,14 @@ void do_free()
 
 void do_recv()
 {
-  mhost *t = members;
+  int c = 0;
+  mhost  *t;
+  for(t=members;t;t=t->next){
+    c++;
+  }
   while(mrecv()){
-    if(t){
-      t=t->next;
+    if(c){
+      c--;
     }else{
       break;
     }
