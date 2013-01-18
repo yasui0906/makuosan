@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT(makuosan, 1.3.4b, info-makuosan@klab.jp)
+AC_INIT(makuosan, 1.3.5, info-makuosan@klab.jp)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([common.c])
 AC_CONFIG_HEADERS([config.h])
