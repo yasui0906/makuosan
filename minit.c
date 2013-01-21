@@ -39,6 +39,7 @@ static void usage()
   printf("  -o           # don't listen (console off mode)\n");
   printf("  -O           # owner match limitation mode\n");
   printf("  -c --chroot  # chroot to base dir\n");
+  printf("  -C --core    # enable core\n");
   printf("  -V --version # version\n"); 
   printf("  -h --help    # help\n\n"); 
   exit(0);

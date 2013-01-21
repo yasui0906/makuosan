@@ -1,6 +1,8 @@
 1.3.5:
  - fix: log output unnecessary message.
  - fix: segfault when other server shutdown.
+ - add C(--core) option.
+ - C option is same as ulimit -c unlimited.
 
 1.3.4:
  - fix: makuosan had deleted files even if use the r option.
