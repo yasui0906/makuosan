@@ -88,6 +88,8 @@ static void minit_option_setdefault()
   moption.dontfork              = 0;
   moption.cryptena              = 0;
   moption.comm_ena              = 1;
+  moption.core_ena              = 0;
+  moption.coresize              = 0;
   moption.commpass              = 0;
   moption.ownmatch              = 0;
   moption.parallel              = 5;
@@ -758,7 +760,7 @@ void minit(int argc, char *argv[])
   minit_getguid();           /*                                    */
   minit_chroot();            /*                                    */
   minit_setguid();           /*                                    */
-  minit_enable_core();       /*                                    */
+  minit_enable_core();       /* コアサイズのリミットを解除         */
   minit_bootlog();           /* ブートメッセージを出力する         */
   minit_daemonize();         /*                                    */
 }
