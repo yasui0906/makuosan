@@ -17,7 +17,7 @@ AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(nsl, inet_addr)
 
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h sys/timeb.h syslog.h unistd.h utime.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h sys/timeb.h syslog.h unistd.h utime.h sys/prctl.h])
 AC_CHECK_HEADERS(openssl/md5.h openssl/blowfish.h,,[AC_MSG_ERROR([Can't found openssl header file])])
 
 # Checks for typedefs, structures, and compiler characteristics.

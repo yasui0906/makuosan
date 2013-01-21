@@ -33,7 +33,6 @@
 #include <sys/un.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
-#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -278,6 +277,8 @@ typedef struct
   int lisocket;
   int cryptena;
   int comm_ena;
+  int core_ena;
+  int coresize;
   int commpass;
   int ownmatch;
   int parallel;
@@ -285,7 +286,6 @@ typedef struct
   int sendsize;
   int sendready;
   int sendrate;
-  int coresize;
   struct utsname uts;  
   struct sockaddr_in maddr;
   struct sockaddr_in iaddr;

@@ -3,6 +3,9 @@
  * Copyright (C) 2008-2012 KLab Inc.
  */
 #include "makuosan.h"
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif
 
 static void version_print()
 {
@@ -311,12 +314,13 @@ static void minit_getopt(int argc, char *argv[])
   int r;
   struct option opt[]={
     {"chroot",  0, NULL, 'c'},
+    {"core",    0, NULL, 'C'},
     {"help",    0, NULL, 'h'},
     {"version", 0, NULL, 'V'},
     {0, 0, 0, 0}
   };
 
-  while((r=getopt_long(argc, argv, "T:R:S:f:u:g:G:d:b:p:m:i:l:U:k:K:VhnsroOc", opt, NULL)) != -1){
+  while((r=getopt_long(argc, argv, "T:R:S:f:u:g:G:d:b:p:m:i:l:U:k:K:VhnsroOcC", opt, NULL)) != -1){
     switch(r){
       case 'V':
         version_print();
@@ -362,6 +366,10 @@ static void minit_getopt(int argc, char *argv[])
 
       case 'o':
         moption.comm_ena = 0;
+        break;
+
+      case 'C':
+        moption.core_ena = 1;
         break;
 
       case 'c':
@@ -616,17 +624,21 @@ static void minit_setguid()
 
 static void minit_enable_core()
 {
-  struct rlimit r;
-  if(prctl(PR_SET_DUMPABLE, 1) == -1){
-    fprintf(stderr, "%s: prctl error: %s\n", __func__, strerror(errno));
-  }
-  r.rlim_cur = 0;
-  r.rlim_max = 0;
+  struct rlimit r = {0, 0};
   if(getrlimit(RLIMIT_CORE, &r) == -1){
     fprintf(stderr, "%s: getrlimit error: %s\n", __func__, strerror(errno));
     exit(1);
   }
-  r.rlim_cur = -1;
+  moption.coresize = (int)(r.rlim_cur);
+  if(!moption.core_ena){
+    return;
+  }
+#ifdef HAVE_SYS_PRCTL_H
+  if(prctl(PR_SET_DUMPABLE, 1) == -1){
+    fprintf(stderr, "%s: prctl error: %s\n", __func__, strerror(errno));
+  }
+#endif
+  r.rlim_cur = r.rlim_max;
   if(setrlimit(RLIMIT_CORE, &r) == -1){
     fprintf(stderr, "%s: setrlimit error: %s\n", __func__, strerror(errno));
     exit(1);
@@ -682,7 +694,7 @@ static void minit_bootlog()
   lprintf(0, "makuosan version %s\n", PACKAGE_VERSION);
   lprintf(0, "sysname   : %s\n", moption.uts.sysname);
   lprintf(0, "loglevel  : %d\n", moption.loglevel);
-  if(moption.coresize == -1){
+  if(moption.coresize == (int)RLIM_INFINITY){
     lprintf(0, "coresize  : unlimited\n");
   }else{
     lprintf(0, "coresize  : %d\n", moption.coresize);
