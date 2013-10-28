@@ -197,7 +197,7 @@ int do_select(fd_set *rfds, fd_set *wfds)
 
 void do_pong()
 {
-  uint32_t interval = MAKUO_PONG_INTERVAL;
+  static uint32_t interval = MAKUO_PONG_INTERVAL;
   if(mtimeout(&lastpong, interval)){
     interval  = MAKUO_PONG_INTERVAL;
     interval += ((rand() % 21) - 10) * 1000;
