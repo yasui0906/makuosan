@@ -55,7 +55,7 @@ void pingpong(int n)
   gettimeofday(&lastpong, NULL);
   switch(n){
     case 0:
-      srand((unsigned int)time(NULL));
+      srand((unsigned int)clock());
       m->mdata.head.opcode = MAKUO_OP_PING;
       break;
     case 1:
