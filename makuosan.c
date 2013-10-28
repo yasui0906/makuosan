@@ -55,6 +55,7 @@ void pingpong(int n)
   gettimeofday(&lastpong, NULL);
   switch(n){
     case 0:
+      srand((unsigned int)time(NULL));
       m->mdata.head.opcode = MAKUO_OP_PING;
       break;
     case 1:
@@ -196,7 +197,10 @@ int do_select(fd_set *rfds, fd_set *wfds)
 
 void do_pong()
 {
-  if(mtimeout(&lastpong, MAKUO_PONG_INTERVAL)){
+  uint32_t interval = MAKUO_PONG_INTERVAL;
+  if(mtimeout(&lastpong, interval)){
+    interval  = MAKUO_PONG_INTERVAL;
+    interval += ((rand() % 21) - 10) * 1000;
     pingpong(1);
   }
 }
