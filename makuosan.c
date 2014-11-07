@@ -26,6 +26,9 @@ void recv_timeout(mfile *m)
 
 void pingpong(int n)
 {
+  int i;
+  unsigned int s;
+  struct timeval tv;
   mfile *m = mfins(MFSEND);
   mping *p = NULL;
   char buff[MAKUO_HOSTNAME_MAX + 1];
@@ -55,7 +58,12 @@ void pingpong(int n)
   gettimeofday(&lastpong, NULL);
   switch(n){
     case 0:
-      srand((unsigned int)clock());
+      for(i=0;buff[i];i++){
+        s += buff[i];
+      }
+      gettimeofday(&tv,NULL);
+      s += tv.tv_usec;
+      srand(s);
       m->mdata.head.opcode = MAKUO_OP_PING;
       break;
     case 1:
