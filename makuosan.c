@@ -208,7 +208,7 @@ void do_pong()
   static uint32_t interval = MAKUO_PONG_INTERVAL;
   if(mtimeout(&lastpong, interval)){
     interval  = MAKUO_PONG_INTERVAL;
-    interval += ((rand() % 21) - 10) * 1000;
+    interval += ((rand() % 31) - 15) * 1000;
     pingpong(1);
   }
 }
