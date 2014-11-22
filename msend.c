@@ -534,18 +534,21 @@ static void msend_req_send_markdata(int s, mfile *m)
   if(r>0){
     m->mdata.head.szdata = r;
     msend_packet(s, &(m->mdata), &(m->addr));
-  }else{
-    if(!r){
-      lprintf(0, "%s: read eof? seqno=%d\n", __func__, m->mdata.head.seqno);
-    }else{
-      lprintf(0, "[error] %s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
-      cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
+    if(!m->mark){
+      m->initstate = 1;
+      m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
     }
+    return;
   }
-  if(!m->mark){
-    m->initstate = 1;
-    m->mdata.head.nstate = MAKUO_SENDSTATE_MARK;
+  if(!r){
+    lprintf(0, "[error] %s: read eof? seqno=%d %s\n", __func__, m->mdata.head.seqno, m->fn);
+    cprintf(0, m->comm, "error: read eof? seqno=%d %s\n", m->mdata.head.seqno, m->fn);
+  }else{
+    lprintf(0, "[error] %s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
+    cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
   }
+  m->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
+  m->initstate = 1;
 }
 
 static void msend_req_send_filedata(int s, mfile *m)
@@ -569,6 +572,8 @@ static void msend_req_send_filedata(int s, mfile *m)
       /* err */
       lprintf(0, "[error] %s: can't read (%s) seqno=%d %s\n",   __func__, strerror(errno), m->mdata.head.seqno, m->fn);
       cprintf(0, m->comm, "error: can't read (%s) seqno=%d %s\n", strerror(errno), m->mdata.head.seqno, m->fn);
+      m->mdata.head.nstate = MAKUO_SENDSTATE_BREAK;
+      m->initstate = 1;
     }else{
       /* eof */
       lprintf(9, "%s: block send count=%d %s\n", __func__, m->mdata.head.seqno, m->fn);
