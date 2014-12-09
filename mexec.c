@@ -979,7 +979,7 @@ int mexec_status(mcomm *c, int n)
   cprintf(0, c, "recv op : %d\n", count);
   for(m=mftop[MFRECV];m;m=m->next){
     t = localtime(&(m->lastrecv.tv_sec));
-    cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d rid=%d\n",
+    cprintf(0, c, "  %s %s %02d:%02d:%02d %s (%d/%d) mark=%d rid=%d ip=%s\n",
       stropcode(&(m->mdata)), 
       strrstate(m->mdata.head.nstate), 
       t->tm_hour, t->tm_min, t->tm_sec, 
@@ -987,7 +987,8 @@ int mexec_status(mcomm *c, int n)
       m->recvcount,
       m->seqnomax, 
       m->markcount,
-      m->mdata.head.reqid); 
+      m->mdata.head.reqid,
+      inet_ntoa(m->addr.sin_addr)); 
   }
   return(0);
 }

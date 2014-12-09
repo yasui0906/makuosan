@@ -1288,6 +1288,7 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
   m->mdata.head.reqid  = data->head.reqid;
   m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
   memcpy(&(m->addr), addr, sizeof(m->addr));
+  mtimeget(&(m->lastrecv));
   if(data->head.flags & MAKUO_FLAG_DRYRUN){
     m->dryrun = 1;
   }
