@@ -298,6 +298,11 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
   if(mrecv_ack_search(&t, &m, data, addr)){
     return;
   }
+  if(m->mdata.head.nstate == MAKUO_SENDSTATE_CLOSE){
+    if(data->head.nstate != MAKUO_RECVSTATE_CLOSE){
+      return;
+    }
+  }
   if(!set_hoststate(t, m, data->head.nstate)){
     lprintf(0, "%s: not allocate state area\n", __func__);
     return;
@@ -319,13 +324,13 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
 
         err = 0;
         if(m->dryrun){
-          lprintf(1, "%s: (dryrun) delete %s\n", __func__, path);
+          lprintf(1, "%s: (dryrun) delete %s rid=%d\n", __func__, path, m->mdata.head.reqid);
         }else{
           if(!mremove(NULL,path)){
-            lprintf(1, "%s: delete %s\n", __func__, path);
+            lprintf(1, "%s: delete %s rid=%d\n", __func__, path, m->mdata.head.reqid);
           }else{
             err = errno;
-            lprintf(0, "%s: delete error %s (%s)\n", __func__, path, strerror(errno));
+            lprintf(0, "%s: delete error %s (%s) rid=%d\n", __func__, path, strerror(errno), m->mdata.head.reqid);
           }
         }
         data_safeset16(&(m->mdata), len + sizeof(uint32_t));
@@ -1219,6 +1224,8 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
   uint16_t len;
   uint32_t mod;
   mfile *a = mkack(data, addr, MAKUO_RECVSTATE_OPEN);
+  mfile *m = mrecv_req_search(data, addr);
+  mhost *t = member_get(&(addr->sin_addr));
   char path[PATH_MAX];
 
   if(!a){
@@ -1247,6 +1254,19 @@ static void mrecv_req_del_open(mdata *data, struct sockaddr_in *addr)
 #endif
   }
   msend(a);
+
+  if(m){
+    return;
+  }
+  m = mfadd(MFRECV);
+  m->mdata.head.opcode = data->head.opcode;
+  m->mdata.head.reqid  = data->head.reqid;
+  m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
+  memcpy(&(m->addr), addr, sizeof(m->addr));
+  mtimeget(&(m->lastrecv));
+  if(data->head.flags & MAKUO_FLAG_DRYRUN){
+    m->dryrun = 1;
+  }
 }
 
 static void mrecv_req_del_data_report(mfile *m, mcomm *c, uint32_t err, char *hn, char *path)
@@ -1277,19 +1297,15 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
   char path[PATH_MAX];
 
   msend(mkack(data, addr, MAKUO_RECVSTATE_OPEN));
-  if(m){
+  if(!m){
+    return;
+  }
+  mtimeget(&(m->lastrecv));
+  if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
     return;
   }
   if(t){
     hn = t->hostname;
-  }
-  m = mfadd(MFRECV);
-  m->mdata.head.opcode = data->head.opcode;
-  m->mdata.head.reqid  = data->head.reqid;
-  m->mdata.head.nstate = MAKUO_RECVSTATE_OPEN;
-  memcpy(&(m->addr), addr, sizeof(m->addr));
-  if(data->head.flags & MAKUO_FLAG_DRYRUN){
-    m->dryrun = 1;
   }
   for(a=mftop[MFSEND];a;a=a->next){
     if((a->mdata.head.reqid == data->head.seqno) && (a->comm != NULL)){
@@ -1305,6 +1321,8 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
     path[len] =  0;
     mrecv_req_del_data_report(m, c, err, hn, path);
   }
+  m->mdata.head.ostate = m->mdata.head.nstate;
+  m->mdata.head.nstate = MAKUO_RECVSTATE_CLOSE;
 }
 
 static void mrecv_req_del_close(mdata *data, struct sockaddr_in *addr)
