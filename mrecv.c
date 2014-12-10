@@ -319,7 +319,7 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
 
         err = 0;
         if(m->dryrun){
-          lprintf(1, "%s: (dryrun) delete %s\n", __func__, path);
+          lprintf(1, "%s: (dryrun) delete %s rid=%d\n", __func__, path, m->mdata.head.reqid);
         }else{
           if(!mremove(NULL,path)){
             lprintf(1, "%s: delete %s rid=%d\n", __func__, path, m->mdata.head.reqid);
