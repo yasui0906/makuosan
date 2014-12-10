@@ -322,10 +322,10 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
           lprintf(1, "%s: (dryrun) delete %s\n", __func__, path);
         }else{
           if(!mremove(NULL,path)){
-            lprintf(1, "%s: delete %s\n", __func__, path);
+            lprintf(1, "%s: delete %s rid=%d\n", __func__, path, m->mdata.head.reqid);
           }else{
             err = errno;
-            lprintf(0, "%s: delete error %s (%s)\n", __func__, path, strerror(errno));
+            lprintf(0, "%s: delete error %s (%s) rid=%d\n", __func__, path, strerror(errno), m->mdata.head.reqid);
           }
         }
         data_safeset16(&(m->mdata), len + sizeof(uint32_t));
@@ -1295,6 +1295,7 @@ static void mrecv_req_del_data(mdata *data, struct sockaddr_in *addr)
   if(!m){
     return;
   }
+  mtimeget(&(m->lastrecv));
   if(m->mdata.head.nstate != MAKUO_RECVSTATE_OPEN){
     return;
   }

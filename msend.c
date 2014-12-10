@@ -1087,20 +1087,20 @@ static void msend_req_del_stat(int s, mfile *m)
 {
   if(m->pipe != -1){
     msend_req_del_stat_read(s, m);
+    return;
+  }
+  if(msend_req_del_stat_waitcheck(s, m)){
+    m->sendwait = 1;
+    return;
+  }
+  if(m->link){
+    msend(mkack(&(m->link->mdata), &(m->link->addr), MAKUO_RECVSTATE_CLOSE)); /* send ack for dsync */
+  }
+  if(waitpid(m->pid, NULL, WNOHANG) != m->pid){
+    m->sendwait = 1;
   }else{
-    if(msend_req_del_stat_waitcheck(s, m)){
-      m->sendwait = 1;
-    }else{
-      if(m->link){
-        msend(mkack(&(m->link->mdata), &(m->link->addr), MAKUO_RECVSTATE_CLOSE));
-      }
-      if(waitpid(m->pid, NULL, WNOHANG) != m->pid){
-        m->sendwait = 1;
-      }else{
-        m->pid = 0;
-        msend_mfdel(m);
-      }
-    }
+    m->pid = 0;
+    msend_mfdel(m);
   }
 }
 
@@ -1110,6 +1110,7 @@ static void msend_req_del_break(int s, mfile *m)
   for(d=mftop[MFSEND];d;d=d->next){
     if(d->link == m){
       if(d->mdata.head.nstate == MAKUO_SENDSTATE_WAIT){
+        d->link = NULL;
         msend_mfdel(d);
         break;
       }
