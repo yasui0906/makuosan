@@ -1156,7 +1156,9 @@ static void msend_req_del_data(int s, mfile *m)
 
 static void msend_req_del_close(int s, mfile *m)
 {
+  lprintf(0, "%s: 0\n", __func__);
   if(m->initstate){
+    lprintf(1, "%s: 0\n", __func__);
     m->initstate = 0;
     m->sendwait  = 1;
     ack_clear(m, -1);
@@ -1164,14 +1166,17 @@ static void msend_req_del_close(int s, mfile *m)
     return;
   }
   if(m->sendwait){
+    lprintf(2, "%s: 0\n", __func__);
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
   if(m->link){
+    lprintf(3, "%s: 0\n", __func__);
     m->link->sendwait = 0;
   }
   m->link = NULL;
   msend_mfdel(m);
+  lprintf(4, "%s: 0\n", __func__);
 }
 
 /*----- del -----*/
