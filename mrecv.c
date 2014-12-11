@@ -1324,7 +1324,7 @@ static void mrecv_req_del_close(mdata *data, struct sockaddr_in *addr)
 {
   mfile *m = mrecv_req_search(data, addr);
   if(m){
-    lprintf(0, "%s: rid=%d\n", __func__, m->mdata.head.reqid);
+    lprintf(0, "%s: rid=%d ip=%s\n", __func__, m->mdata.head.reqid, inet_ntoa(m->addr.sin_addr));
   }
   msend(mkack(data, addr, MAKUO_RECVSTATE_CLOSE));
   mrecv_mfdel(m);
