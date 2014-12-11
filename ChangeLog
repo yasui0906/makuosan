@@ -1,6 +1,7 @@
 1.3.6:
  - change pong timing at random to avoid burst.
  - fix: fall into an infinite loop when the read error of file has occurred.
+ - fix: memory leak when using the dsync
 
 1.3.5:
  - fix: log output unnecessary message.
