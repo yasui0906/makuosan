@@ -1156,9 +1156,7 @@ static void msend_req_del_data(int s, mfile *m)
 
 static void msend_req_del_close(int s, mfile *m)
 {
-  lprintf(0, "%s: 0 rid=%d\n", __func__, m->mdata.head.reqid);
   if(m->initstate){
-    lprintf(0, "%s: 1 rid=%d\n", __func__, m->mdata.head.reqid);
     m->initstate = 0;
     m->sendwait  = 1;
     ack_clear(m, -1);
@@ -1166,17 +1164,14 @@ static void msend_req_del_close(int s, mfile *m)
     return;
   }
   if(m->sendwait){
-    lprintf(0, "%s: 2 rid=%d\n", __func__, m->mdata.head.reqid);
     msend_packet(s, &(m->mdata), &(m->addr));
     return;
   }
   if(m->link){
-    lprintf(0, "%s: 3 rid=%d\n", __func__, m->mdata.head.reqid);
     m->link->sendwait = 0;
   }
   m->link = NULL;
   msend_mfdel(m);
-  lprintf(0, "%s: 4 rid=%d\n", __func__, m->mdata.head.reqid);
 }
 
 /*----- del -----*/
