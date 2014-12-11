@@ -298,6 +298,11 @@ static void mrecv_ack_del(mdata *data, struct sockaddr_in *addr)
   if(mrecv_ack_search(&t, &m, data, addr)){
     return;
   }
+  if(m->sendto){
+    if(memcmp(&(m->addr.sin_addr), &(addr->sin_addr), sizeof(addr->sin_addr))){
+      return;
+    }
+  }
   if(!set_hoststate(t, m, data->head.nstate)){
     lprintf(0, "%s: not allocate state area\n", __func__);
     return;
